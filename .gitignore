@@ -30,9 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# local env files
-.env*.local
-.env
+# env files (only the empty template is committed)
+.env*
+!.env.example
 
 # vercel
 .vercel
