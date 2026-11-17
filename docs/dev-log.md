@@ -2,6 +2,15 @@
 
 Newest entry first.
 
+## 2026-11-17 · Week 1 · Pushed to GitHub and deployed on Vercel
+- **What:** Pushed the scaffold to GitHub and connected the repo to Vercel; the app is live. Ticked the first Week 1 task in `docs/mvp-brief.md`.
+- **Files:** docs/mvp-brief.md
+- **Decisions:** The GitHub repo was renamed to `chiwawallet`; the local remote still uses the old name and works through GitHub's redirect.
+- **Tests:** Deployed by the owner on Vercel.
+- **Live URL:** https://chiwawallet.vercel.app/ (added to the README).
+- **Open questions:** Update the local remote to the new repo name. The README's clone command still has a `[YOUR GITHUB USERNAME]` placeholder.
+- **Next:** Create the Supabase project; add `.env.local`, `.env.example` values and Vercel env vars.
+
 ## 2026-11-17 · Week 1 · Sticker shadow back to fixed black
 - **What:** Reverted the sticker shadow to the style guide's original fixed #1C1C1E in both themes. Added a `sticker` color token (also #1C1C1E) for the sticker border, so the border stays black in dark mode too instead of turning light with `ink`.
 - **Files:** src/app/globals.css, src/app/page.tsx, docs/style-guide.md

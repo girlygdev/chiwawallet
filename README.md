@@ -6,7 +6,7 @@
 <p align="center"><strong>Sit. Stay. Save.</strong><br>A budgeting app that plans your money by payday, not by calendar month.</p>
 
 <p align="center">
-  <a href="[LIVE DEMO URL]">Live demo</a> ·
+  <a href="https://chiwawallet.vercel.app/">Live demo</a> ·
   <a href="docs/dev-log.md">Dev log</a> ·
   <a href="#how-ai-was-used">How AI was used</a>
 </p>

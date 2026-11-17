@@ -232,7 +232,7 @@ Each task fits in one session and ends with something you can check. Deploy from
 
 **Done when:** you can sign up on the live URL and land on an empty dashboard.
 
-- [ ] Create the Next.js app (TypeScript, Tailwind, shadcn/ui), push to GitHub, connect to Vercel
+- [x] Create the Next.js app (TypeScript, Tailwind, shadcn/ui), push to GitHub, connect to Vercel
 - [ ] Create the Supabase project; add `.env.local`, `.env.example` and Vercel env vars
 - [ ] Supabase Auth with email + password and Google; login, sign-up and logout pages
 - [ ] Middleware that redirects logged-out users away from app pages
