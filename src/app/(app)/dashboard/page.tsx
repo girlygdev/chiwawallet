@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { logOut } from "@/app/(auth)/actions";
+import { hasConsented } from "@/lib/auth/consent";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Dashboard · Chiwawallet" };
@@ -29,6 +30,9 @@ async function Greeting() {
 
   // The proxy task will do this for every app page; until then, guard here.
   if (!user) redirect("/login");
+  // Google sign-ups must finish the consent step before using the app.
+  // The proxy task will apply this to every app page.
+  if (!hasConsented(user)) redirect("/consent");
 
   const name = (user.user_metadata.display_name as string | undefined) ?? "there";
 

@@ -23,7 +23,7 @@ Built from `docs/designs/auth-screens.md`, which adds forgot password, check you
   Done when: log in, log out and log in again work on the live URL.
 - [x] **3e. Forgot password and Set new password.** *(Owner tested Nov 18, including reusing the old password.)* `/forgot-password` (always shows Check your email), `/reset-password` with the strength panel, "Passwords match" and "Log out on other devices".
   Done when: a reset email link lets you set a new password and log in with it.
-- [ ] **3f. Google sign-in.** Owner creates the Google Cloud OAuth client and enables the provider in Supabase. Code adds the buttons' action and an `/auth/callback` route.
+- [x] **3f. Google sign-in.** *(Owner set up the Google OAuth client and tested on Nov 18.)* Owner creates the Google Cloud OAuth client and enables the provider in Supabase. Code adds the buttons' action and an `/auth/callback` route.
   Done when: Google sign-in works on the live URL.
 
 ## Rest of Week 1

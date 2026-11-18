@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { getPendingEmail, setPendingEmail } from "@/lib/auth/pending-email";
 import { createClient } from "@/lib/supabase/server";
 import {
+  type ConsentInput,
+  consentSchema,
   type ForgotPasswordInput,
   forgotPasswordSchema,
   type LogInInput,
@@ -224,4 +226,43 @@ export async function logOut() {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "local" });
   redirect("/login");
+}
+
+// "Continue with Google" / "Sign up with Google". Asks Supabase for Google's
+// sign-in page and sends the browser there. Google returns to /auth/callback.
+export async function signInWithGoogle(): Promise<{ error: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: await appUrl("/auth/callback") },
+  });
+  if (error || !data.url) {
+    console.error("signInWithOAuth failed", error?.code, error?.message);
+    return { error: "Google sign-in isn't working right now. Try again or use your email." };
+  }
+  redirect(data.url);
+}
+
+export type ConsentResult = FormResult<ConsentInput>;
+
+// The one-time consent step for Google sign-ups (decided Nov 18): they skip the
+// sign-up form, so this records the same consent and name it asks for.
+export async function giveConsent(input: ConsentInput): Promise<ConsentResult> {
+  const parsed = consentSchema.safeParse(input);
+  if (!parsed.success) return { fieldErrors: toFieldErrors<ConsentInput>(parsed.error.issues) };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { error } = await supabase.auth.updateUser({
+    data: { display_name: parsed.data.displayName, consent_at: new Date().toISOString() },
+  });
+  if (error) {
+    console.error("giveConsent failed", error.code, error.message);
+    return { formError: SOMETHING_WRONG };
+  }
+  redirect("/dashboard");
 }

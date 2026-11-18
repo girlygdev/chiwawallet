@@ -2,6 +2,14 @@
 
 Newest entry first.
 
+## 2026-11-18 · Week 1 · Google sign-in and consent step (3f)
+- **What:** Both Google buttons start Google sign-in through Supabase. `/auth/callback` finishes it. A first-time Google user goes to `/consent` ("One last thing"): a name pre-filled with their first name from Google, plus the same unticked consent checkbox. The dashboard sends anyone without consent there. Cancelling on Google's screen goes back to Log in with a note.
+- **Files:** src/app/(auth)/actions.ts, src/app/auth/callback/route.ts, src/app/(auth)/consent/ (page, consent-form), src/components/auth/google-button.tsx, src/components/auth/consent-checkbox.tsx (moved out of the sign-up form), src/app/(auth)/signup/signup-form.tsx, src/app/(auth)/login/page.tsx, src/app/(auth)/login/login-form.tsx, src/app/(app)/dashboard/page.tsx, src/lib/auth/consent.ts, src/lib/validation/auth.ts, docs/week-1-tasks.md
+- **Decisions:** Owner chose a one-time consent step over an "By continuing you agree" notice, so Google users give the same explicit consent as email users. The step also asks for a name, so both kinds of users choose what to be called. Until the proxy task, only the dashboard enforces consent. The Google client secret lives only in Supabase, not in the app.
+- **Tests:** `npm run lint`, `npm run typecheck` and `npm run build` pass. Checked `/auth/callback` without a code → `/login?error=google` with the note, and `/consent` logged out → `/login`. The owner set up the Google OAuth client (consent screen in Testing mode) and tested Google sign-in on localhost.
+- **Next:** Publish the Google consent screen before public launch. Then the proxy task.
+
+
 ## 2026-11-18 · Week 1 · Forgot password and Set new password (3e)
 - **What:** `/forgot-password` sends a reset email and always goes to Check your email (now worded for reset). `/auth/reset` opens the link and logs the user in for the reset. `/reset-password` shows the email, the strength panel, "Passwords match" and "Log out on other devices" (ticked). After saving, the user is signed out and `/login` says "Password updated."
 - **Files:** src/app/(auth)/forgot-password/ (page, forgot-password-form), src/app/(auth)/reset-password/ (page, set-password-form), src/app/auth/reset/route.ts, src/app/(auth)/actions.ts, src/app/(auth)/check-email/ (page, resend-button), src/app/(auth)/login/page.tsx, src/lib/auth/pending-email.ts, src/lib/auth/password-strength.ts, src/lib/validation/auth.ts, src/components/auth/auth-card-layout.tsx, src/components/auth/password-field.tsx

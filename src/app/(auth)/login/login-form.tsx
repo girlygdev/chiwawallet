@@ -15,7 +15,7 @@ import { logIn } from "../actions";
 
 const fields = ["email", "password"] as const;
 
-// Task 3f connects the Google button.
+// The Google button starts its own sign-in (see GoogleButton).
 export function LoginForm() {
   const [formError, setFormError] = useState<string>();
   const [pending, startTransition] = useTransition();

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
+import { FormError } from "@/components/auth/form-error";
 import { Logo } from "@/components/auth/logo";
 import { LoginForm } from "./login-form";
 
@@ -10,13 +11,22 @@ export const metadata: Metadata = { title: "Log in · Chiwawallet" };
 const linkClass =
   "font-extrabold text-link outline-link hover:text-link-hover focus-visible:outline-2";
 
-// After Set new password (setNewPassword redirects to /login?password=updated).
-async function PasswordUpdatedNote({
+// Notes from other steps, passed in the URL:
+// ?password=updated after Set new password, ?error=google when Google sign-in
+// was cancelled or failed (see /auth/callback).
+async function LoginNotice({
   searchParams,
 }: {
   searchParams: PageProps<"/login">["searchParams"];
 }) {
-  const { password } = await searchParams;
+  const { password, error } = await searchParams;
+  if (error === "google") {
+    return (
+      <div className="mb-5">
+        <FormError message="Google sign-in didn't finish. Try again, or log in with your email." />
+      </div>
+    );
+  }
   if (password !== "updated") return null;
   return (
     <p role="status" className="mb-5 rounded-[12px] bg-mint px-4 py-3 text-sm font-bold text-secondary-foreground">
@@ -42,7 +52,7 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
 
       {/* Cache Components: searchParams is request data, so read it inside <Suspense>. */}
       <Suspense>
-        <PasswordUpdatedNote searchParams={searchParams} />
+        <LoginNotice searchParams={searchParams} />
       </Suspense>
 
       <LoginForm />

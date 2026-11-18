@@ -1,22 +1,41 @@
+"use client";
+
+import { LoaderCircle } from "lucide-react";
+import { useState, useTransition } from "react";
+import { signInWithGoogle } from "@/app/(auth)/actions";
+import { FormError } from "./form-error";
+
 // "Continue with Google" / "Sign up with Google" (auth-screens.md §3).
+// Both start the same Google sign-in: Supabase creates the account on first use.
 // The "G" is Google's official four-colour mark, drawn as required by their
 // sign-in branding guidelines, so its hex colours are fixed on purpose.
-export function GoogleButton({
-  label,
-  onClick,
-}: {
-  label: "Continue with Google" | "Sign up with Google";
-  onClick?: () => void;
-}) {
+export function GoogleButton({ label }: { label: "Continue with Google" | "Sign up with Google" }) {
+  const [error, setError] = useState<string>();
+  const [pending, startTransition] = useTransition();
+
+  const onClick = () => {
+    setError(undefined);
+    startTransition(async () => {
+      // On success the action redirects the browser to Google.
+      const result = await signInWithGoogle();
+      setError(result.error);
+    });
+  };
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex h-[52px] w-full items-center justify-center gap-2.5 rounded-md border-[1.5px] border-line bg-surface text-base font-bold text-ink outline-link hover:bg-mint focus-visible:outline-2 focus-visible:outline-offset-2"
-    >
-      <GoogleG />
-      {label}
-    </button>
+    <div className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={pending}
+        aria-busy={pending || undefined}
+        className="flex h-[52px] w-full items-center justify-center gap-2.5 rounded-md border-[1.5px] border-line bg-surface text-base font-bold text-ink outline-link hover:bg-mint focus-visible:outline-2 focus-visible:outline-offset-2 disabled:text-text-3"
+      >
+        {pending ? <LoaderCircle aria-hidden="true" className="size-5 animate-spin" /> : <GoogleG />}
+        {pending ? "Opening Google…" : label}
+      </button>
+      <FormError message={error} />
+    </div>
   );
 }
 

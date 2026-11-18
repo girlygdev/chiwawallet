@@ -31,6 +31,11 @@ export const signUpSchema = z.object({
 
 export type SignUpInput = z.infer<typeof signUpSchema>;
 
+// The one-time consent step after a first Google sign-in: the same name and
+// consent rules as the sign-up form, without email and password.
+export const consentSchema = signUpSchema.pick({ displayName: true, consent: true });
+export type ConsentInput = z.infer<typeof consentSchema>;
+
 // Log in only checks that something was typed. Password rules aren't repeated
 // here: older passwords might not follow them, and Supabase does the real check.
 export const logInSchema = z.object({
