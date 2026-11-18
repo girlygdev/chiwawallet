@@ -30,3 +30,12 @@ export const signUpSchema = z.object({
 });
 
 export type SignUpInput = z.infer<typeof signUpSchema>;
+
+// Log in only checks that something was typed. Password rules aren't repeated
+// here: older passwords might not follow them, and Supabase does the real check.
+export const logInSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1, "Enter your password.").max(72, "Use 72 characters or fewer."),
+});
+
+export type LogInInput = z.infer<typeof logInSchema>;

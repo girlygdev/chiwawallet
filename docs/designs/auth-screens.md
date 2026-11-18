@@ -168,10 +168,9 @@ The canvas only shows the happy path. Build errors this way:
 - **Form error** (for example a wrong password): a box above the main button with `#FBEBEB` background, `#9B2C2C` text and a 12px radius, announced with `role="alert"`.
 - **Wording:**
   - Wrong password: "That email and password don't match. Try again or reset your password." Never say which of the two was wrong.
-  - Email already used: "There's already an account with this email. Log in instead?"
   - Link expired: "This link has expired. We can send you a new one."
   - Too many tries: "Too many tries. Wait a minute, then try again."
-- On Forgot password, always show Check your email, even if no account uses that email. This stops people from finding out who has an account.
+- **Never reveal whether an email has an account** (decided Nov 18, 2026). On Sign up, an email that's already registered goes to Check your email like any new sign-up, with no "already an account" message. Resend link also reports success for it. On Forgot password, always show Check your email, even if no account uses that email.
 
 ## 6. Accessibility
 

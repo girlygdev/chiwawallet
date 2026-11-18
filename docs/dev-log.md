@@ -2,6 +2,15 @@
 
 Newest entry first.
 
+## 2026-11-18 · Week 1 · Log in and log out (3d), sign-up privacy fix
+- **What:** `/login` now logs in with Supabase (React Hook Form + Zod, server-side check too). The dashboard placeholder has a Log out button. Sign-up with an email that already has an account now shows Check your email like any other sign-up.
+- **Files:** src/app/(auth)/actions.ts, src/app/(auth)/login/login-form.tsx, src/app/(app)/dashboard/page.tsx, src/lib/validation/auth.ts, docs/week-1-tasks.md
+- **Decisions:** Owner chose privacy over the design doc's "There's already an account" message, so nobody can use sign-up to check whether an email is registered; Resend also reports success for an already-confirmed email (the error is logged on the server). Wrong email or password gives one message that never says which was wrong. "Email not confirmed" (only returned after a correct password) goes to Check your email. Log out signs out this device only.
+- **Tests:** `npm run lint`, `npm run typecheck` and `npm run build` pass. Owner tested log out, wrong password, log in, and signing up again with an existing email on localhost.
+- **Confirmed:** the first test user's metadata has both `display_name` and `consent_at`.
+- **Docs:** `docs/designs/auth-screens.md` now says never to reveal whether an email has an account (the "Email already used" message is removed).
+- **Next:** 3e, Forgot password and Set new password, or 3f, Google sign-in.
+
 ## 2026-11-18 · Week 1 · Sign up and Check your email (3c)
 - **What:** `/signup` creates a Supabase user with React Hook Form + Zod; `/check-email` shows the email with Open email app, a 45-second Resend and the spam note; `/auth/confirm` verifies the email link, logs the user in and goes to a placeholder `/dashboard`. Added the centered-card layout.
 - **Files:** src/lib/validation/auth.ts, src/lib/auth/pending-email.ts, src/lib/auth/email-app.ts, src/app/(auth)/actions.ts, src/app/(auth)/signup/ (page, signup-form), src/app/(auth)/check-email/ (page, resend-button), src/app/auth/confirm/route.ts, src/app/(app)/dashboard/page.tsx, src/components/auth/auth-card-layout.tsx, src/components/auth/auth-split-layout.tsx, package.json, package-lock.json

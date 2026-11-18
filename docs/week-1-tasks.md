@@ -19,7 +19,7 @@ Built from `docs/designs/auth-screens.md`, which adds forgot password, check you
   Done when: `/login` matches the canvas at 390px and 1024px+, in both themes.
 - [x] **3c. Sign up and Check your email.** *(Owner signed up with a real email on Nov 18 and reached the dashboard.)* Install `zod`, `react-hook-form`, `@hookform/resolvers`. Schema in `src/lib/validation/auth.ts`, Server Action, consent checkbox, `/signup`, `/check-email` with the 45-second Resend timer, `/auth/confirm` route for the email link.
   Done when: you can sign up on localhost, confirm by email and land in the app.
-- [ ] **3d. Log in and log out.** Wire `/login` to Supabase with the error wording from the design doc. Log out button on the dashboard placeholder.
+- [x] **3d. Log in and log out.** *(Owner tested Nov 18.)* Wire `/login` to Supabase with the error wording from the design doc. Log out button on the dashboard placeholder.
   Done when: log in, log out and log in again work on the live URL.
 - [ ] **3e. Forgot password and Set new password.** `/forgot-password` (always shows Check your email), `/reset-password` with the strength panel, "Passwords match" and "Log out on other devices".
   Done when: a reset email link lets you set a new password and log in with it.
