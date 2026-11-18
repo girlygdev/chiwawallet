@@ -2,6 +2,14 @@
 
 Newest entry first.
 
+## 2026-11-18 · Week 1 · Supabase project and env vars
+- **What:** Created the Supabase project (free plan, Singapore region, automatic RLS on). Added `.env.local` and Vercel env vars, and listed the variable names in `.env.example`.
+- **Files:** .env.example, docs/mvp-brief.md (ticked the task)
+- **Decisions:** Used the new publishable key (`sb_publishable_…`) instead of the legacy anon key. Both vars are plain config in Vercel, not secrets, because `NEXT_PUBLIC_` values ship to the browser anyway. No service_role key is used. Migrations will still enable RLS explicitly, because auto-RLS is a setting on the hosted project and doesn't carry over to other databases.
+- **Tests:** Checked `.env.local` is gitignored and the URL has no `/rest/v1` suffix. Env vars added in Vercel and redeployed. Supabase isn't called from code yet.
+- **Also done:** Auth redirect URLs (localhost and the Vercel URL) added in Supabase. The empty `.env` file stays (owner's call).
+- **Next:** Supabase Auth with email + password and Google; login, sign-up and logout pages.
+
 ## 2026-11-17 · Week 1 · Pushed to GitHub and deployed on Vercel
 - **What:** Pushed the scaffold to GitHub and connected the repo to Vercel; the app is live. Ticked the first Week 1 task in `docs/mvp-brief.md`.
 - **Files:** docs/mvp-brief.md
