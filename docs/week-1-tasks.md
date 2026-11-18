@@ -1,0 +1,47 @@
+# Week 1 tasks
+
+The Week 1 checklist in `mvp-brief.md` broken into one-session tasks. Tick tasks here as they're done; tick the brief's checkbox when its whole group is done.
+
+**Week 1 is done when:** you can sign up on the live URL and land on an empty dashboard.
+
+## Done
+
+- [x] Create the Next.js app, push to GitHub, connect to Vercel
+- [x] Create the Supabase project; add `.env.local`, `.env.example` and Vercel env vars
+
+## Supabase Auth: login, sign-up and logout pages
+
+Built from `docs/designs/auth-screens.md`, which adds forgot password, check your email and set new password to the original task.
+
+- [x] **3a. Supabase clients.** Install `@supabase/supabase-js` and `@supabase/ssr`. Add `src/lib/supabase/client.ts` (browser) and `src/lib/supabase/server.ts` (server, reads the session cookie).
+  Done when: a temporary server call to Supabase runs locally without errors.
+- [ ] **3b. Auth building blocks and the Log in screen (UI only).** Shared pieces in `src/components/auth/`: split-screen and centered-card layouts, field with label, hint and error, password field with show/hide button, Google button with the official "G", "or" divider, submit button with spinner, form error box. Log in page at `/login`, mobile and desktop, light and dark. No Supabase calls yet.
+  Done when: `/login` matches the canvas at 390px and 1024px+, in both themes.
+- [ ] **3c. Sign up and Check your email.** Install `zod`, `react-hook-form`, `@hookform/resolvers`. Schema in `src/lib/validation/auth.ts`, Server Action, consent checkbox, `/signup`, `/check-email` with the 45-second Resend timer, `/auth/confirm` route for the email link.
+  Done when: you can sign up on localhost, confirm by email and land in the app.
+- [ ] **3d. Log in and log out.** Wire `/login` to Supabase with the error wording from the design doc. Log out button on the dashboard placeholder.
+  Done when: log in, log out and log in again work on the live URL.
+- [ ] **3e. Forgot password and Set new password.** `/forgot-password` (always shows Check your email), `/reset-password` with the strength panel, "Passwords match" and "Log out on other devices".
+  Done when: a reset email link lets you set a new password and log in with it.
+- [ ] **3f. Google sign-in.** Owner creates the Google Cloud OAuth client and enables the provider in Supabase. Code adds the buttons' action and an `/auth/callback` route.
+  Done when: Google sign-in works on the live URL.
+
+## Rest of Week 1
+
+- [ ] **Proxy** (Next.js 16 renamed `middleware.ts` to `proxy.ts`): refresh the Supabase session and redirect logged-out users away from app pages.
+- [ ] **`profiles` table** with RLS (own `id`, unique `user_id`), created on sign-up. Copies display name and consent time from the sign-up data.
+- [ ] **App shell:** bottom nav on mobile, sidebar on desktop.
+
+## Moved to later weeks
+
+Decided Nov 18, 2026:
+
+- Turnstile on sign-up, log in and forgot password: Week 8. The forms leave its spot above the main button.
+- "Try the demo" button: hidden until Week 8, when the demo account exists.
+- Privacy Notice and Terms: real pages in Week 8. `/privacy` and `/terms` show a "This feature will come to you soon." placeholder now.
+- After sign-up confirmation: go to the dashboard until onboarding is built.
+
+## Decisions
+
+- `profiles` follows CLAUDE.md: its own `id` plus a unique `user_id` (= auth user). The brief's data model was updated to match.
+- The consent checkbox is on sign-up now (per the design doc). Its time is saved with the Supabase user at sign-up, and the `profiles` task copies it to `profiles.consent_at`.

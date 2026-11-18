@@ -182,7 +182,7 @@ Every table has `user_id` and an RLS policy. Amounts are `bigint` centavos.
 
 | Entity | Key fields | Related to |
 | --- | --- | --- |
-| profiles | id (= auth user), display_name, week_start, consent_at, theme (light / dark / system), bill_reminders (on), payday_summary (on), mid_period_checkin (off), is_demo (false) | everything |
+| profiles | user_id (= auth user, unique; own `id` like every table), display_name, week_start, consent_at, theme (light / dark / system), bill_reminders (on), payday_summary (on), mid_period_checkin (off), is_demo (false) | everything |
 | budgets | name, frequency (weekly / semi_monthly / monthly), pay_day_1, pay_day_2, pay_weekday, opening_balance, carry_over (on), ask_on_payday (on), budget_model (50_30_20), needs_pct (50), wants_pct (30), savings_debt_pct (20) | periods, income sources, bills |
 | income_sources | budget_id, name, amount, amount_varies (false), pay_slot (payday_1 / payday_2 / every), start_date | plan items, transactions |
 | budget_periods | budget_id, start_date, end_date, pay_slot, carried_in, leftover_choice (carry / pot / debt / split), closed_at | plan items, transactions |
