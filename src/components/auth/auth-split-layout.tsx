@@ -11,11 +11,20 @@ const features = [
 // Split-screen auth layout (auth-screens.md §2) used by Log in and Sign up.
 // Under 1024px only the form column shows, full screen on `bg`.
 // From 1024px the mint pitch panel sits on the left and the form on white on the right.
-export function AuthSplitLayout({ children }: { children: React.ReactNode }) {
+// `compact` = 32px top padding on mobile instead of 40px (Sign up, which has the most fields).
+export function AuthSplitLayout({
+  children,
+  compact = false,
+}: {
+  children: React.ReactNode;
+  compact?: boolean;
+}) {
   return (
     <div className="flex flex-1 flex-wrap bg-bg lg:bg-surface">
       <PitchPanel />
-      <main className="flex flex-[1_1_520px] flex-col px-6 pt-10 pb-7 lg:items-center lg:justify-center lg:py-12">
+      <main
+        className={`flex flex-[1_1_520px] flex-col px-6 pb-7 lg:items-center lg:justify-center lg:py-12 ${compact ? "pt-8" : "pt-10"}`}
+      >
         <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col lg:flex-none">
           {children}
         </div>
