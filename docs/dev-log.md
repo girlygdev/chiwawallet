@@ -2,6 +2,14 @@
 
 Newest entry first.
 
+## 2026-11-18 · Week 1 · Forgot password and Set new password (3e)
+- **What:** `/forgot-password` sends a reset email and always goes to Check your email (now worded for reset). `/auth/reset` opens the link and logs the user in for the reset. `/reset-password` shows the email, the strength panel, "Passwords match" and "Log out on other devices" (ticked). After saving, the user is signed out and `/login` says "Password updated."
+- **Files:** src/app/(auth)/forgot-password/ (page, forgot-password-form), src/app/(auth)/reset-password/ (page, set-password-form), src/app/auth/reset/route.ts, src/app/(auth)/actions.ts, src/app/(auth)/check-email/ (page, resend-button), src/app/(auth)/login/page.tsx, src/lib/auth/pending-email.ts, src/lib/auth/password-strength.ts, src/lib/validation/auth.ts, src/components/auth/auth-card-layout.tsx, src/components/auth/password-field.tsx
+- **Decisions:** The pending-email cookie also stores what the email was for (sign-up or reset), so Check your email and Resend handle both. Reset requests never reveal whether the email has an account. Strength levels: Weak below the rules, Strong with 12+ characters and mixed case or a symbol, Okay in between. "Not the same as your old password" can't be checked in the browser, so it stays unticked and Supabase's `same_password` error shows under the field. Ticked "Log out on other devices" signs out every session; unticked signs out only this one. Both then go to Log in, as the design doc says. Fixed `PasswordField` replacing its own classes when given a `className`.
+- **Tests:** `npm run lint`, `npm run typecheck` and `npm run build` pass. Checked `/auth/reset` with a bad code goes to `/forgot-password?error=link-expired`, and `/login?password=updated` shows the note. Screenshots of Forgot password at 390px and 1280px. The owner tested the full reset flow, including the error for reusing the old password. Like sign-up, the reset link only works in the browser that asked for it until custom SMTP lets us edit templates.
+- **AI notes:** The dev server served a stale module (`TileMascot` undefined, a 500 error) until the file was edited again; the production build was fine.
+- **Next:** Owner tests the reset flow; then 3f, Google sign-in.
+
 ## 2026-11-18 · Week 1 · Log in and log out (3d), sign-up privacy fix
 - **What:** `/login` now logs in with Supabase (React Hook Form + Zod, server-side check too). The dashboard placeholder has a Log out button. Sign-up with an email that already has an account now shows Check your email like any other sign-up.
 - **Files:** src/app/(auth)/actions.ts, src/app/(auth)/login/login-form.tsx, src/app/(app)/dashboard/page.tsx, src/lib/validation/auth.ts, docs/week-1-tasks.md

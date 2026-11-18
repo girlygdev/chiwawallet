@@ -39,3 +39,19 @@ export const logInSchema = z.object({
 });
 
 export type LogInInput = z.infer<typeof logInSchema>;
+
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const setPasswordSchema = z
+  .object({
+    password: newPasswordSchema,
+    confirmPassword: z.string().min(1, "Type your new password again."),
+    // "Log out on other devices", ticked by default (auth-screens.md).
+    signOutOthers: z.boolean(),
+  })
+  .refine((v) => v.password === v.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords don't match.",
+  });
+export type SetPasswordInput = z.infer<typeof setPasswordSchema>;

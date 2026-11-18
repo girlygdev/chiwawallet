@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Check your email · Chiwawallet" };
 const linkClass =
   "font-extrabold text-link outline-link hover:text-link-hover focus-visible:outline-2";
 
-// Shared by sign-up and (in 3e) password reset; only the wording changes.
+// Shared by sign-up and password reset; only the wording changes.
 // Cache Components: the cookie and searchParams reads happen inside <Suspense>,
 // so the mascot and title render instantly and the rest streams in.
 export default function CheckEmailPage({ searchParams }: PageProps<"/check-email">) {
@@ -39,7 +39,9 @@ async function CheckEmailDetails({
 }) {
   const { error } = await searchParams;
   const linkExpired = error === "link-expired";
-  const email = await getPendingEmail();
+  const pending = await getPendingEmail();
+  const email = pending?.email;
+  const isReset = pending?.purpose === "reset";
 
   // Nothing to show if we didn't just send a link and no link failed.
   if (!email && !linkExpired) redirect("/signup");
@@ -51,7 +53,7 @@ async function CheckEmailDetails({
       {email && (
         <p className="-mt-3 text-center text-[15px] leading-[1.5] text-text-2">
           We sent a link to <strong className="font-extrabold text-ink">{email}</strong>. Tap it
-          to confirm your account. It expires in 1 hour.
+          to {isReset ? "reset your password" : "confirm your account"}. It expires in 1 hour.
         </p>
       )}
 
@@ -83,7 +85,7 @@ async function CheckEmailDetails({
           </p>
           <p className="text-center text-[15px] text-ink">
             Wrong email?{" "}
-            <Link href="/signup" className={linkClass}>
+            <Link href={isReset ? "/forgot-password" : "/signup"} className={linkClass}>
               Change it
             </Link>
           </p>

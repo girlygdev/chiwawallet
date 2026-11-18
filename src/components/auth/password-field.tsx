@@ -15,7 +15,15 @@ type PasswordFieldProps = Omit<React.ComponentProps<"input">, "id" | "type"> & {
 
 // Password input with a show/hide eye button inside the right edge.
 // pr-[52px] keeps typed text from running under the 44px button.
-export function PasswordField({ id, label, hint, error, labelAside, ...inputProps }: PasswordFieldProps) {
+export function PasswordField({
+  id,
+  label,
+  hint,
+  error,
+  labelAside,
+  className,
+  ...inputProps
+}: PasswordFieldProps) {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -27,7 +35,7 @@ export function PasswordField({ id, label, hint, error, labelAside, ...inputProp
             type={visible ? "text" : "password"}
             aria-describedby={describedBy}
             aria-invalid={error ? true : undefined}
-            className={cn(inputClassName, "pr-[52px]")}
+            className={cn(inputClassName, "pr-[52px]", className)}
             {...inputProps}
           />
           <button

@@ -10,7 +10,14 @@ const backLinkClass =
 // Mobile: full screen on `bg`, a back arrow at the top left.
 // Desktop (1024px+): mint page, logo + wordmark on top, one white sticker card
 // (the hero element of this screen), and "Back to log in" under it.
-export function AuthCardLayout({ children }: { children: React.ReactNode }) {
+// `back={false}`: no back arrow on mobile (Set new password starts with the logo instead).
+export function AuthCardLayout({
+  children,
+  back = true,
+}: {
+  children: React.ReactNode;
+  back?: boolean;
+}) {
   return (
     <div className="flex flex-1 flex-col bg-bg lg:items-center lg:justify-center lg:bg-mint lg:px-6 lg:py-12">
       <div className="hidden items-center gap-3 lg:mb-8 lg:flex">
@@ -18,20 +25,34 @@ export function AuthCardLayout({ children }: { children: React.ReactNode }) {
         <Wordmark className="text-[24px]" />
       </div>
 
-      <main className="flex flex-1 flex-col px-6 pt-5 pb-7 lg:w-full lg:max-w-[460px] lg:flex-none lg:rounded-xl lg:border-2 lg:border-sticker lg:bg-surface lg:p-8 lg:shadow-sticker-lg">
-        <Link
-          href="/login"
-          aria-label="Back to log in"
-          className="-ml-3 mb-2 flex size-11 items-center justify-center rounded-sm text-ink outline-link focus-visible:outline-2 lg:hidden"
-        >
-          <ChevronLeft aria-hidden="true" className="size-6" />
-        </Link>
+      <main
+        className={`flex flex-1 flex-col px-6 pb-7 lg:w-full lg:max-w-[460px] lg:flex-none lg:rounded-xl lg:border-2 lg:border-sticker lg:bg-surface lg:p-8 lg:shadow-sticker-lg ${back ? "pt-5" : "pt-10"}`}
+      >
+        {back && (
+          <Link
+            href="/login"
+            aria-label="Back to log in"
+            className="-ml-3 mb-2 flex size-11 items-center justify-center rounded-sm text-ink outline-link focus-visible:outline-2 lg:hidden"
+          >
+            <ChevronLeft aria-hidden="true" className="size-6" />
+          </Link>
+        )}
         {children}
       </main>
 
       <Link href="/login" className={`mt-6 hidden lg:block ${backLinkClass}`}>
         Back to log in
       </Link>
+    </div>
+  );
+}
+
+// Logo on a 112px mint tile with 32px corners (Forgot password header).
+// Decorative: the page title right below names the screen.
+export function TileMascot() {
+  return (
+    <div className="mx-auto flex size-28 items-center justify-center rounded-[32px] bg-mint">
+      <Logo size={84} decorative />
     </div>
   );
 }

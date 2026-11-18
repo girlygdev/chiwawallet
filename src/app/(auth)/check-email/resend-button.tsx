@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { FormError } from "@/components/auth/form-error";
-import { resendConfirmation } from "../actions";
+import { resendEmailLink } from "../actions";
 
 const COOLDOWN_SECONDS = 45;
 
@@ -32,7 +32,7 @@ export function ResendButton({ startReady = false }: { startReady?: boolean }) {
     setError(undefined);
     setStatus(undefined);
     startTransition(async () => {
-      const result = await resendConfirmation();
+      const result = await resendEmailLink();
       if (result.ok) {
         setStatus("We sent a new link.");
         setSecondsLeft(COOLDOWN_SECONDS);

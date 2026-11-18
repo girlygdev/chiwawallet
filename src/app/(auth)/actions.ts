@@ -5,8 +5,12 @@ import { redirect } from "next/navigation";
 import { getPendingEmail, setPendingEmail } from "@/lib/auth/pending-email";
 import { createClient } from "@/lib/supabase/server";
 import {
+  type ForgotPasswordInput,
+  forgotPasswordSchema,
   type LogInInput,
   logInSchema,
+  type SetPasswordInput,
+  setPasswordSchema,
   type SignUpInput,
   signUpSchema,
 } from "@/lib/validation/auth";
@@ -32,12 +36,12 @@ function toFieldErrors<T>(issues: { path: PropertyKey[]; message: string }[]) {
 const TOO_MANY_TRIES = "Too many tries. Wait a minute, then try again.";
 const SOMETHING_WRONG = "Something went wrong on our side. Please try again.";
 
-// Where the email link should land. It must be listed under Supabase →
+// Full URL for an email link to land on. It must be covered by Supabase →
 // Authentication → URL Configuration → Redirect URLs, or Supabase ignores it.
-async function confirmUrl() {
+async function appUrl(path: string) {
   const h = await headers();
   const origin = h.get("origin") ?? `https://${h.get("host")}`;
-  return `${origin}/auth/confirm`;
+  return `${origin}${path}`;
 }
 
 export async function signUp(input: SignUpInput): Promise<SignUpResult> {
@@ -51,7 +55,7 @@ export async function signUp(input: SignUpInput): Promise<SignUpResult> {
     email,
     password,
     options: {
-      emailRedirectTo: await confirmUrl(),
+      emailRedirectTo: await appUrl("/auth/confirm"),
       // Stored on the Supabase user. The profiles task copies these into
       // profiles.display_name and profiles.consent_at (the DPA consent record).
       data: { display_name: displayName, consent_at: new Date().toISOString() },
@@ -88,30 +92,100 @@ export async function signUp(input: SignUpInput): Promise<SignUpResult> {
 
 export type ResendResult = { ok: true } | { ok: false; error: string };
 
-// "Resend link" on Check your email. The email comes from the pending-email
+// "Resend link" on Check your email: a new confirmation or reset link,
+// depending on what was sent first. The email comes from the pending-email
 // cookie, never from the browser, so this can't be used to email anyone else.
-export async function resendConfirmation(): Promise<ResendResult> {
-  const email = await getPendingEmail();
-  if (!email) return { ok: false, error: "This link has expired. Sign up again to get a new one." };
+export async function resendEmailLink(): Promise<ResendResult> {
+  const pending = await getPendingEmail();
+  if (!pending) return { ok: false, error: "This link has expired. Start again to get a new one." };
+
+  const error =
+    pending.purpose === "reset"
+      ? await sendResetEmail(pending.email)
+      : (
+          await (await createClient()).auth.resend({
+            type: "signup",
+            email: pending.email,
+            options: { emailRedirectTo: await appUrl("/auth/confirm") },
+          })
+        ).error;
+
+  if (error && isRateLimited(error.code)) return { ok: false, error: TOO_MANY_TRIES };
+  // Any other error (e.g. the email already has a confirmed account) looks
+  // like a success, for the same privacy reason as in signUp. It's logged
+  // on the server so real failures still show up in Vercel's logs.
+  if (error) console.error("resend failed", error.code, error.message);
+  return { ok: true };
+}
+
+function isRateLimited(code: string | undefined) {
+  return code === "over_email_send_rate_limit" || code === "over_request_rate_limit";
+}
+
+async function sendResetEmail(email: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: await appUrl("/auth/reset"),
+  });
+  return error;
+}
+
+export type ForgotPasswordResult = FormResult<ForgotPasswordInput>;
+
+export async function requestPasswordReset(
+  input: ForgotPasswordInput,
+): Promise<ForgotPasswordResult> {
+  const parsed = forgotPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors<ForgotPasswordInput>(parsed.error.issues) };
+  }
+
+  const { email } = parsed.data;
+  const error = await sendResetEmail(email);
+  if (error && isRateLimited(error.code)) return { formError: TOO_MANY_TRIES };
+  // Every other case, including "no account with this email", goes to
+  // Check your email, so this form can't tell anyone who has an account.
+  if (error) console.error("resetPasswordForEmail failed", error.code, error.message);
+
+  await setPendingEmail(email, "reset");
+  redirect("/check-email");
+}
+
+export type SetPasswordResult = FormResult<SetPasswordInput>;
+
+// Set new password. The reset link logged the user in (see /auth/reset),
+// so updateUser changes the password of whoever that link belonged to.
+export async function setNewPassword(input: SetPasswordInput): Promise<SetPasswordResult> {
+  const parsed = setPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors<SetPasswordInput>(parsed.error.issues) };
+  }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.resend({
-    type: "signup",
-    email,
-    options: { emailRedirectTo: await confirmUrl() },
-  });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/forgot-password?error=link-expired");
 
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) {
-    if (error.code === "over_email_send_rate_limit" || error.code === "over_request_rate_limit") {
-      return { ok: false, error: TOO_MANY_TRIES };
+    switch (error.code) {
+      case "same_password":
+        return { fieldErrors: { password: "That's your old password. Pick a new one." } };
+      case "weak_password":
+        return { fieldErrors: { password: "Use at least 8 characters, with a number." } };
+      case "over_request_rate_limit":
+        return { formError: TOO_MANY_TRIES };
+      default:
+        console.error("updateUser failed", error.code, error.message);
+        return { formError: SOMETHING_WRONG };
     }
-    // Any other error (e.g. the email already has a confirmed account) looks
-    // like a success, for the same privacy reason as in signUp. It's logged
-    // on the server so real failures still show up in Vercel's logs.
-    console.error("resend failed", error.code, error.message);
-    return { ok: true };
   }
-  return { ok: true };
+
+  // auth-screens.md: sign out other sessions if the box is ticked, then go to Log in.
+  // "global" ends every session, this one included; "local" ends just this one.
+  await supabase.auth.signOut({ scope: parsed.data.signOutOthers ? "global" : "local" });
+  redirect("/login?password=updated");
 }
 
 export async function logIn(input: LogInInput): Promise<LogInResult> {
