@@ -2,6 +2,14 @@
 
 Newest entry first.
 
+## 2026-11-18 · Week 1 · Auth building blocks and Log in screen (3b)
+- **What:** Built `/login` (UI only) from `docs/designs/auth-screens.md`: mobile layout with a centered logo, desktop split screen with the mint pitch panel and a sticker Safe to spend example card, and dark mode. Added shared auth components.
+- **Files:** src/app/(auth)/login/page.tsx, src/app/(auth)/login/login-form.tsx, src/components/auth/ (logo, auth-split-layout, text-field, password-field, google-button, or-divider, submit-button, form-error), src/app/globals.css, docs/week-1-tasks.md
+- **Decisions:** New tokens: `link` and `link-hover` (switch in dark mode), `placeholder` (#7A8A80), `logo-backdrop` (light mint behind the logo in dark mode). Focus and error borders use a 1.5px border plus a 0.5px inset shadow so text doesn't shift. Field errors use `bad-fg` (#9B2C2C), not `danger`, which stays reserved for deletes. The form's submit is blocked until 3d so the browser can't GET the password into the URL. Demo button hidden; the Turnstile spot is marked with a comment. The centered-card layout moved to 3c.
+- **Tests:** `npm run lint` and `npm run typecheck` pass. Screenshots in headless Edge at 390px (via an iframe, since headless windows can't go below ~500px) and 1280px, in light and dark mode (by adding `dark` to `<html>` temporarily, then reverting).
+- **AI notes:** The design canvas couldn't be read (it loads with JavaScript), so this is built from the design doc only. The pitch panel's three feature rows aren't in the doc; Claude wrote placeholder copy. The running dev server served stale CSS without the dark link colour until globals.css was edited again.
+- **Next:** 3c, Sign up and Check your email.
+
 ## 2026-11-18 · Week 1 · Supabase clients, auth task split, placeholder pages
 - **What:** Added the browser and server Supabase clients (task 3a). Split the auth task into 3a–3f in `docs/week-1-tasks.md` after reviewing `docs/designs/auth-screens.md`. Added "coming soon" placeholders at `/privacy` and `/terms`. Changed `profiles` in the brief to use `user_id`.
 - **Files:** src/lib/supabase/env.ts, src/lib/supabase/client.ts, src/lib/supabase/server.ts, src/components/coming-soon.tsx, src/app/privacy/page.tsx, src/app/terms/page.tsx, docs/week-1-tasks.md, docs/mvp-brief.md, package.json, package-lock.json

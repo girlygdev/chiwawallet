@@ -15,7 +15,7 @@ Built from `docs/designs/auth-screens.md`, which adds forgot password, check you
 
 - [x] **3a. Supabase clients.** Install `@supabase/supabase-js` and `@supabase/ssr`. Add `src/lib/supabase/client.ts` (browser) and `src/lib/supabase/server.ts` (server, reads the session cookie).
   Done when: a temporary server call to Supabase runs locally without errors.
-- [ ] **3b. Auth building blocks and the Log in screen (UI only).** Shared pieces in `src/components/auth/`: split-screen and centered-card layouts, field with label, hint and error, password field with show/hide button, Google button with the official "G", "or" divider, submit button with spinner, form error box. Log in page at `/login`, mobile and desktop, light and dark. No Supabase calls yet.
+- [x] **3b. Auth building blocks and the Log in screen (UI only).** Shared pieces in `src/components/auth/`: split-screen layout (the centered-card layout moved to 3c, where Check your email first uses it), field with label, hint and error, password field with show/hide button, Google button with the official "G", "or" divider, submit button with spinner, form error box. Log in page at `/login`, mobile and desktop, light and dark. No Supabase calls yet.
   Done when: `/login` matches the canvas at 390px and 1024px+, in both themes.
 - [ ] **3c. Sign up and Check your email.** Install `zod`, `react-hook-form`, `@hookform/resolvers`. Schema in `src/lib/validation/auth.ts`, Server Action, consent checkbox, `/signup`, `/check-email` with the 45-second Resend timer, `/auth/confirm` route for the email link.
   Done when: you can sign up on localhost, confirm by email and land in the app.

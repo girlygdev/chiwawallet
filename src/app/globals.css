@@ -21,6 +21,8 @@
   --color-sticker: #1C1C1E;   /* sticker border: black in light and dark */
 
   --color-line-dash: #9CC9AE;
+  --color-placeholder: #7A8A80;   /* input placeholder text (auth-screens.md) */
+  --color-logo-backdrop: #E8F6EE; /* light mint circle behind the logo in dark mode */
 
   --color-warn-bg: #FFF6D6;  --color-warn-fg: #5C4600;
   --color-bad-bg: #FBEBEB;   --color-bad-fg: #9B2C2C;
@@ -61,6 +63,8 @@
   --color-line: var(--line);
   --color-line-soft: var(--line-soft);
   --color-track: var(--track);
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
 
   /* shadcn/ui names, mapped to the tokens in :root below */
   --color-background: var(--background);
@@ -101,6 +105,8 @@
   --ink: #1C1C1E; --text-2: #3E4C44; --text-3: #55645B;
   --bg: #F4FAF6; --surface: #FFFFFF; --mint: #E8F6EE;
   --line: #D5E3DA; --line-soft: #E3EAE6; --track: #E3EDE7;
+  /* Text links and focused inputs */
+  --link: #177A42; --link-hover: #0F5E34;
 
   /* shadcn/ui variables, so its components match without overrides */
   --radius: 14px;
@@ -141,6 +147,7 @@
   --ink: #EAF2EC; --text-2: #C9D6CE; --text-3: #A7BDB0;
   --bg: #0F1A14; --surface: #17261D; --mint: #15301F;
   --line: #2C3F33; --line-soft: #22342A; --track: #22342A;
+  --link: #5DD68F; --link-hover: #8EE3B0; /* links in dark mode */
 
   --primary: #2FBF6E;
   --primary-foreground: #0B1A11;
