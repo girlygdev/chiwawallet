@@ -2,6 +2,38 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 · 2a getPeriod()
+- **What:** Pure period math in `src/lib/periods.ts`:
+  - `getPeriod(date, schedule)` covers semi-monthly, monthly and weekly.
+  - `formatPeriodRange()` gives "Nov 15 – 29", "Nov 30 – Dec 14" and "Dec 30, 2026 – Jan 14, 2027".
+  - `todayInManila()`.
+- **Files:** `src/lib/periods.ts`, `tests/lib/periods.test.ts`, `package.json` and `package-lock.json` (`date-fns` 4.4.0), `docs/week-2-tasks.md`.
+- **Decisions:**
+  - Dates are "YYYY-MM-DD" strings in and out, so a time zone can't shift a day.
+  - A payday missing from a month falls on its last day.
+  - `payWeekday` numbering is 0 = Sunday, matching Postgres `extract(dow)`.
+  - Semi-monthly payday 1 must be the 27th or earlier, so it can't land on the same day as payday 2 in February.
+  - Ranges across years show both years (owner's choice).
+- **Tests:** Written first and failing. Now 30 period tests pass, also under `TZ=America/New_York`, `Pacific/Auckland` and `UTC`. 62 unit tests in total; lint and typecheck pass.
+- **AI notes:** The payday 1 ≤ 27 rule is Claude's addition; the onboarding form needs to match it.
+- **Next:** 2b, the migration for `budgets`, `budget_periods` and `income_sources`.
+
+## 2026-11-19 · Week 2 · Plan and decisions
+- **What:** Settled the Week 2 items in the plan review and wrote `docs/week-2-tasks.md`, with tasks 2a–2f. The owner also turned on Vercel Deployment Checks, so production waits for the GitHub `check` job.
+- **Files:** `docs/plan-review-2026-11-19.md`, `docs/week-2-tasks.md` (new), `docs/mvp-brief.md` (data model, Week 2 test cases), `docs/designs/onboarding.md`, `income.md`, `dashboard.md`, `style-guide.md`.
+- **Decisions:**
+  - 3.2: `income_sources.end_date` is optional. 3.3: income start date defaults to the first period's start.
+  - 3.11: hiding the Get started checklist is remembered in the browser only.
+  - 3.13: weekly periods follow `pay_weekday`; `week_start` only sets how calendars display.
+  - 3.14: `budget_periods.first_pay_received`.
+  - 4.1: the "no budget yet" check is in the `(app)` layout. 4.2: `/onboarding` goes in the proxy. 4.3: `lib/money.ts` stays one file.
+  - 4.10: a desktop Done card. 4.11: fields are 48px in the app and 52px on auth.
+  - 4.12: CI blocks production deploys.
+- **AI notes:**
+  - Claude first told the owner to look for "Deployment Checks" as its own menu item. It's a section inside Settings → Build and Deployment.
+  - Claude recommended a required `opening_balance`. That conflicts with onboarding saving the budget at step 1 and the balance at step 3. The owner then chose nullable (3.1).
+- **Next:** 2a `getPeriod()`, tests first.
+
 ## 2026-11-19 · Week 1 · GitHub Actions CI
 - **What:** Every push and pull request runs these on Node 22: `npm ci`, lint, typecheck and the unit tests.
 - **Files:** `.github/workflows/ci.yml`, `docs/week-1-tasks.md`, `docs/mvp-brief.md`. Also ticks the app shell, which the owner checked on mobile and desktop.
