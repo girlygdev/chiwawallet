@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  daysLeft,
   describeSchedule,
+  periodStatusLine,
   formatPeriodRange,
   formatShortDate,
   getPeriod,
@@ -354,6 +356,44 @@ describe("paydayLabel and describeSchedule", () => {
   it("weekly uses the weekday", () => {
     expect(paydayLabel(weekly(0), "every")).toBe("Sun");
     expect(describeSchedule(weekly(5))).toBe("Weekly · Fridays");
+  });
+});
+
+describe("daysLeft: counting today, in Manila dates (dashboard.md §1)", () => {
+  it.each([
+    ["2026-11-20", "2026-11-29", 10], // the spec's example
+    ["2026-11-15", "2026-11-29", 15],
+    ["2026-11-29", "2026-11-29", 1],
+    ["2026-12-30", "2027-01-14", 16], // across New Year
+    ["2028-02-28", "2028-02-29", 2], // leap day
+  ])("%s to %s → %d", (today, end, days) => {
+    expect(daysLeft(today, end)).toBe(days);
+  });
+});
+
+describe("periodStatusLine: the switcher's second line", () => {
+  const semi15 = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 } as const;
+  const period = { start: "2026-11-15", end: "2026-11-29", paySlot: "payday_1" } as const;
+
+  it("days left in the current period", () => {
+    expect(periodStatusLine(period, semi15, "2026-11-20")).toBe("15th payday · 10 days left");
+    expect(periodStatusLine(period, semi15, "2026-11-28")).toBe("15th payday · 2 days left");
+  });
+
+  it("the last day", () => {
+    expect(periodStatusLine(period, semi15, "2026-11-29")).toBe("15th payday · Last day");
+  });
+
+  it("future and past periods", () => {
+    expect(periodStatusLine(period, semi15, "2026-11-10")).toBe("Starts Nov 15");
+    expect(periodStatusLine(period, semi15, "2026-12-01")).toBe("Ended Nov 29");
+  });
+
+  it("weekly says the weekday", () => {
+    const weeklyPeriod = { start: "2026-11-16", end: "2026-11-22", paySlot: "every" } as const;
+    expect(periodStatusLine(weeklyPeriod, { frequency: "weekly", payWeekday: 1 }, "2026-11-19")).toBe(
+      "Mon payday · 4 days left",
+    );
   });
 });
 

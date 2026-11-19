@@ -1,6 +1,7 @@
 import {
   addDays,
   addMonths,
+  differenceInCalendarDays,
   format,
   getDaysInMonth,
   isValid,
@@ -157,6 +158,27 @@ export function scheduleFromBudget(budget: BudgetScheduleFields): PaySchedule {
     return { frequency, payWeekday: pay_weekday };
   }
   throw new RangeError(`Budget has no usable pay schedule (frequency "${frequency}").`);
+}
+
+/**
+ * Days left in a period, counting today (dashboard.md §1): Nov 20 in the
+ * Nov 15 – 29 period is 10. Both are Manila "YYYY-MM-DD" dates, so whole
+ * calendar days are counted with no time zone involved.
+ */
+export function daysLeft(today: string, end: string): number {
+  return differenceInCalendarDays(parseDate(end), parseDate(today)) + 1;
+}
+
+/**
+ * The period switcher's second line (app-shell.md §4): "15th payday · 10 days
+ * left", "15th payday · Last day", "Starts Nov 30" or "Ended Nov 14".
+ */
+export function periodStatusLine(period: Period, schedule: PaySchedule, today: string): string {
+  if (today < period.start) return `Starts ${formatShortDate(period.start)}`;
+  if (today > period.end) return `Ended ${formatShortDate(period.end)}`;
+  const left = daysLeft(today, period.end);
+  const when = left === 1 ? "Last day" : `${left} days left`;
+  return `${paydayLabel(schedule, period.paySlot)} payday · ${when}`;
 }
 
 /** "2026-11-15" → "Nov 15". */

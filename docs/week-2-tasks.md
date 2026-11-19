@@ -51,6 +51,10 @@ Specs: `docs/designs/onboarding.md`, `income.md`, `dashboard.md` (header only), 
   - Done when: adding, editing and ending a source changes the expected income for the right paydays.
 - [ ] **2f. Dashboard header.** Period dates ("Nov 15 – 29"), days left and expected income for this period.
   - Done when: it matches Week 2's "done when" on live.
+  - *(Built Nov 19; checked locally with a test user, including different 15th and 30th amounts. Owner checked it Nov 19, including a dark-mode contrast fix on the "Already in your starting balance" pill. Waiting for the live check after a push.)*
+    - Shows the period dates and "15th payday · N days left".
+    - The expected income card lists the sources landing on this payday, plus "Already in your starting balance" when onboarding said the pay arrived.
+    - The switcher's arrows wait for Plan (Week 5).
 
 ## Decisions
 

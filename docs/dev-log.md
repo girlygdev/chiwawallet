@@ -2,6 +2,27 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 · 2f Dashboard header
+- **What:**
+  - The dashboard shows this period's dates ("Nov 15 – 29") and "15th payday · 10 days left".
+  - A hero card with this period's expected income and the sources landing on this payday.
+  - "Already in your starting balance" when onboarding said the pay had arrived.
+  - Opening the dashboard creates the period row on first open (`getOrCreatePeriod`).
+- **Files:** `src/app/(app)/dashboard/page.tsx`, `src/lib/periods.ts` (`daysLeft`, `periodStatusLine`), `tests/lib/periods.test.ts`, `docs/week-2-tasks.md`.
+- **Decisions:**
+  - Days left counts today, using Manila calendar dates (dashboard.md §1).
+  - Future periods say "Starts Nov 30"; past ones say "Ended Nov 14".
+  - The period switcher's arrows wait for Plan (Week 5), because moving periods opens that period's plan.
+  - Safe to spend and the other dashboard sections need transactions and plans (Weeks 3–5).
+- **Tests:**
+  - Written first and failing. 187 unit tests pass; lint, typecheck and the build pass.
+  - Locally with a test user:
+    - On the 15th period: ₱25,000, with the 30th-only source left out.
+    - On payday 2: ₱33,000 with it included.
+    - Two opens make one period row.
+- **AI notes:** None.
+- **Next:** The owner checks it, then a push, and Week 2's "done when" is checked on live.
+
 ## 2026-11-19 · Week 2 · 2e-2 Delete income source
 - **What:**
   - Edit income source now has a "Delete income source" link. It opens "Delete Main job?" with the item, its effect in pesos (for example "Each month: ₱58,000 → ₱8,000"), and Keep it, which is focused first.
