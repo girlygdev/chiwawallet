@@ -28,9 +28,12 @@ Built from `docs/designs/auth-screens.md`, which adds forgot password, check you
 
 ## Rest of Week 1
 
-- [x] **Proxy** (Next.js 16 renamed `middleware.ts` to `proxy.ts`): refresh the Supabase session and redirect logged-out users away from app pages. *(Logged-out redirects checked Nov 19; owner to test logged-in cases.)*
+- [x] **Proxy** (Next.js 16 renamed `middleware.ts` to `proxy.ts`): refresh the Supabase session and redirect logged-out users away from app pages. *(Logged-out redirects checked Nov 19; owner tested the logged-in cases Nov 19.)*
 - [x] **Set up Vitest** (decided Nov 19): add `npm run test` before the `profiles` table, so its RLS test has somewhere to run.
-- [ ] **`profiles` table** with RLS (own `id`, unique `user_id`), created on sign-up. Copies display name and consent time from the sign-up data.
+- [ ] **`profiles` table** with RLS (own `id`, unique `user_id`), created on sign-up. Copies display name and consent time from the sign-up data. Split Nov 19:
+  - [x] **Part 1. Table, trigger and RLS tests on local Supabase.** Migration (including `consent_version`), column permissions, 20 database tests, generated types.
+  - [ ] **Apply the migration to the live project** (`supabase login`, `link`, `db push`; owner runs or approves).
+  - [ ] **Part 2. App reads and writes `profiles`.** The consent step records `consent_at` (users can't write it directly, so this needs a database function or a trigger on the user's metadata); the dashboard greeting reads `display_name`; the Supabase clients use the generated types. Sign-up and the consent step send `consent_version` (a constant shared with the legal pages' "Last updated" date), and the consent text adds "I'm 18 or older" (decided Nov 19, plan review 1.2).
 - [ ] **App shell:** bottom nav on mobile, sidebar on desktop.
 
 ## Moved to later weeks

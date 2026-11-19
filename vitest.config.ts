@@ -12,5 +12,7 @@ export default defineConfig({
     environment: "node",
     // Tests live in tests/, mirroring src/lib (see CLAUDE.md).
     include: ["tests/**/*.test.ts"],
+    // Database tests need local Supabase; they run with `npm run test:db`.
+    exclude: ["tests/db/**"],
   },
 });

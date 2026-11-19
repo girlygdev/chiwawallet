@@ -63,7 +63,7 @@ Everything runs on free tiers.
 
 - Node.js 20 or later
 - A free [Supabase](https://supabase.com) project
-- (Optional) the [Supabase CLI](https://supabase.com/docs/guides/cli) for running migrations locally
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/), for local Supabase and the database tests (the Supabase CLI is installed with `npm install`)
 
 ### Setup
 
@@ -100,7 +100,19 @@ npm run dev                 # http://localhost:3000
 | `npm run typecheck` | Check TypeScript types |
 | `npm run test` | Run unit tests (Vitest) |
 | `npm run test:watch` | Re-run unit tests when files change |
+| `npm run test:db` | Run database tests (RLS, triggers) against local Supabase |
 | `npm run test:e2e` | Run the end-to-end flow (Playwright) |
+
+### Database tests
+
+The RLS and trigger tests run against a local Supabase in Docker, never the live project:
+
+```bash
+npx supabase start          # first run downloads the images; applies supabase/migrations
+npx supabase status         # shows the local API URL and publishable key
+```
+
+Put those two values in `.env.test.local` as `SUPABASE_TEST_URL` and `SUPABASE_TEST_PUBLISHABLE_KEY` (see `.env.example`), then run `npm run test:db`. Stop the containers with `npx supabase stop`.
 
 > **Windows:** run the tests from a path with an uppercase drive letter (`cd C:\path\to\chiwawallet`). From a lowercase `c:\…` path, such as the terminal VS Code sometimes opens, every test file fails with `Cannot read properties of undefined (reading 'config')`.
 

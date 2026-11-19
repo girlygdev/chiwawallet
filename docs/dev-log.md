@@ -2,6 +2,23 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 1 · Plan review against the design specs
+- **What:** The owner added every page spec to `docs/designs/` and moved the style guide there. Claude checked them all against the brief's data model and 9-week plan, and the findings are tracked in `docs/plan-review-2026-11-19.md`.
+- **Files:** docs/plan-review-2026-11-19.md
+- **Found:** 2 decisions before the profiles migration goes live (`consent_version`, 18+ consent text), 3 broken references after the move, 12 data model gaps (Weeks 2–8), 8 architecture decisions, and more scope than 9 weeks allow, with 7 candidates for `V1.1.md`.
+- **Decided:** 1.1, add `consent_version` to `profiles` (done in the profiles migration, which wasn't live yet, so the file was edited instead of adding a second one). 1.2, add "I'm 18 or older" to the consent text in profiles part 2.
+- **Next:** Apply the profiles migration to the live project.
+
+## 2026-11-19 · Week 1 · `profiles` table with RLS (part 1, local)
+- **What:** Migration for `profiles`. A trigger on `auth.users` creates the profile at sign-up and copies the display name. Existing accounts are backfilled. Added local Supabase (Docker) and 20 database tests, including that user A can't read or change user B's profile. Later the same day, `consent_version` was added (plan review 1.1). The trigger keeps it only with consent and only if it looks like a date, and users can't change it. Generated `src/lib/supabase/types.ts` from the local database.
+- **Files:** supabase/config.toml, supabase/.gitignore, supabase/migrations/20261119061715_profiles.sql, vitest.db.config.ts, vitest.config.ts, tests/db/helpers.ts, tests/db/profiles.test.ts, src/lib/supabase/types.ts, package.json, package-lock.json, .env.example, README.md, docs/week-1-tasks.md
+- **Decisions:** `week_start` is `monday` or `sunday`, default `monday`. Users can't change `is_demo`, `consent_at`, `user_id`, `id` or the timestamps, even on their own row (column permissions, owner's call). There are no insert or delete policies: the trigger creates profiles, and deleting the account removes them. At sign-up the trigger records the database's time for `consent_at` when the form sent consent, rather than trusting the time sent. It also trims and shortens the name, because anyone can call the sign-up API directly. Added a shared `set_updated_at()` trigger function for later tables. New dev dependency: `supabase` CLI 2.122.1 (3.0 is a brand-new major version), installed with `--legacy-peer-deps`. Database tests run with `npm run test:db`, kept out of `npm run test` so unit tests and CI don't need Docker. They refuse to run against anything but a localhost URL.
+- **Tests:** `npm run lint`, `npm run typecheck`, `npm run test` (24) and `npm run test:db` (20) pass. With RLS turned off on the local database, 7 tests failed, including all three cross-user checks, so the tests do catch a missing policy; RLS was turned back on.
+- **AI notes:** Docker Desktop installed per-user, and VS Code's terminal didn't have it on PATH until restarted; Claude added the path for its own commands. PowerShell 5.1 garbled the generated types file, so it was generated through Bash instead.
+- **Also:** The owner tested the logged-in proxy cases (Log in and Sign up go to the dashboard, the reset link, and the Google consent step).
+- **Not done yet:** The migration isn't on the live project. Google users' `consent_at` stays empty in `profiles` until Part 2. Onboarding (`docs/designs/onboarding.md`) was reviewed; its impact on Weeks 2–6 is in the reply and should go into a Week 2 task split.
+- **Next:** Apply the migration to the live project, then Part 2.
+
 ## 2026-11-19 · Week 1 · Vitest set up
 - **What:** Added `npm run test` (`vitest run`) and `npm run test:watch`. Added the first unit tests: `passwordStrength` (8 tests) and the auth Zod schemas (16 tests). All 24 pass.
 - **Files:** vitest.config.ts, tests/lib/auth/password-strength.test.ts, tests/lib/validation/auth.test.ts, package.json, package-lock.json, README.md, docs/week-1-tasks.md
