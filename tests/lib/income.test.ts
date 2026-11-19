@@ -1,5 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { expectedIncome, incomeImpact } from "@/lib/income";
+import { describeIncome, expectedForSlot, expectedIncome, incomeImpact } from "@/lib/income";
+
+describe("expectedForSlot: income expected in one period", () => {
+  const sources = [
+    { amount: 2_500_000, pay_slot: "every" },
+    { amount: 800_000, pay_slot: "payday_2" },
+  ];
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+
+  it("twice a month: the period's own payday", () => {
+    expect(expectedForSlot(sources, semi, "payday_1")).toBe(2_500_000);
+    expect(expectedForSlot(sources, semi, "payday_2")).toBe(3_300_000);
+  });
+
+  it("monthly and weekly: everything lands every period", () => {
+    expect(expectedForSlot(sources, { frequency: "monthly", payDay1: 30 }, "every")).toBe(3_300_000);
+    expect(expectedForSlot(sources, { frequency: "weekly", payWeekday: 5 }, "every")).toBe(3_300_000);
+  });
+});
+
+describe("describeIncome: the onboarding rail's detail line", () => {
+  it("counts sources and the month", () => {
+    const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+    expect(
+      describeIncome([{ amount: 2_500_000, pay_slot: "every" }, { amount: 800_000, pay_slot: "payday_2" }], semi),
+    ).toBe("2 sources · ₱58,000 a month");
+    expect(describeIncome([{ amount: 2_500_000, pay_slot: "every" }], semi)).toBe("1 source · ₱50,000 a month");
+  });
+
+  it("weekly says about", () => {
+    expect(describeIncome([{ amount: 500_000, pay_slot: "every" }], { frequency: "weekly", payWeekday: 5 })).toBe(
+      "1 source · about ₱21,666.67 a month",
+    );
+  });
+});
 import type { PaySchedule } from "@/lib/periods";
 
 const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };

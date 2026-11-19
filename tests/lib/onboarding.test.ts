@@ -1,5 +1,40 @@
 import { describe, expect, it } from "vitest";
-import { isOnboarded, nextOnboardingStep } from "@/lib/onboarding";
+import { firstPeriodSummary, isOnboarded, nextOnboardingStep, periodTag } from "@/lib/onboarding";
+
+describe("firstPeriodSummary: the 'Your first period' card", () => {
+  it("pay still to come: balance plus expected income", () => {
+    expect(firstPeriodSummary({ openingBalance: 500_000, expectedIncome: 2_500_000, payReceived: false })).toEqual({
+      incomeStillExpected: 2_500_000,
+      readyToPlan: 3_000_000,
+    });
+  });
+
+  it("pay already arrived: it's in the balance, so it isn't counted twice", () => {
+    expect(firstPeriodSummary({ openingBalance: 3_000_000, expectedIncome: 2_500_000, payReceived: true })).toEqual({
+      incomeStillExpected: 0,
+      readyToPlan: 3_000_000,
+    });
+  });
+
+  it("works with a negative starting balance", () => {
+    expect(
+      firstPeriodSummary({ openingBalance: -200_000, expectedIncome: 2_500_000, payReceived: false }).readyToPlan,
+    ).toBe(2_300_000);
+  });
+
+  it("no balance typed yet counts as ₱0", () => {
+    expect(firstPeriodSummary({ openingBalance: null, expectedIncome: 2_500_000, payReceived: null }).readyToPlan).toBe(
+      2_500_000,
+    );
+  });
+});
+
+describe("periodTag", () => {
+  it("'Starts today' on payday, otherwise when it started", () => {
+    expect(periodTag("2026-11-15", "2026-11-15")).toBe("Starts today");
+    expect(periodTag("2026-11-15", "2026-11-19")).toBe("Started Nov 15");
+  });
+});
 
 describe("nextOnboardingStep: where to resume", () => {
   it("no budget → step 1", () => {

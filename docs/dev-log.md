@@ -2,6 +2,34 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 · 2d-3 Onboarding step 3 and Done
+- **What:**
+  - Step 3 "Starting point": a big starting-balance input (₱0 and negatives allowed), and "Has your Nov 15 pay already arrived?" with Yes or Not yet, no default.
+  - The live "Your first period" card on desktop, and a "Ready to plan" line on mobile.
+  - Finish setup creates the period, saves the answer, then saves the opening balance last.
+  - The Done screen: full screen on mobile, a centered card on mint from 1024px.
+  - The step placeholders are gone.
+- **Files:**
+  - New: `src/lib/validation/start.ts`, `src/lib/onboarding-data.ts`, `src/components/onboarding/first-period-card.tsx`, `src/app/onboarding/start/*`, `src/app/onboarding/done/page.tsx`.
+  - Changed: `src/lib/income.ts` (`expectedForSlot`, `describeIncome`), `src/lib/onboarding.ts` (`firstPeriodSummary`, `periodTag`), `src/lib/periods.ts` (`formatShortDate`), `src/app/onboarding/actions.ts` (`finishOnboarding`), `src/components/segmented.tsx`.
+  - Deleted: `src/components/onboarding/step-placeholder.tsx`.
+  - Tests: `tests/lib/validation/start.test.ts`, plus additions to the income, onboarding and periods tests.
+- **Decisions:**
+  - The pay question has no default, because a wrong guess counts pay twice or not at all.
+  - If the pay has arrived, the card shows "Already in balance", and Ready to plan is just the balance (`firstPeriodSummary`).
+  - The "Skip, I'll add these later" link is left out for now: the optional bills, pots and debts items it skips are hidden until Weeks 4–6, so Skip would do the same as Finish.
+  - Done only opens for users who finished setup.
+- **Tests:**
+  - Written first and failing. 155 unit tests pass; lint, typecheck and the build pass.
+  - A throwaway local user was checked through step 3, then the same writes as Finish, then Done, then the dashboard. All correct.
+  - The Finish button itself needs the owner's click test.
+- **AI notes:** Claude's first mobile "Ready to plan" line added the numbers inside the component. Moved to `firstPeriodSummary()`, since UI never does money math.
+- **Owner's decisions:**
+  - Negative balances on iPhone (no minus key on the decimal keypad): leave as is for the MVP.
+  - The Skip link waits for bills, pots and debts.
+  - The starting balance is everything the user has now, including pay that already arrived. The app never adds it on top. The owner asked whether pay plus the extra ₱4,000 should be added; it shouldn't, because the app can't know what was spent. The field hint and the "Yes" hint now say to include it.
+- **Next:** 2e, the Income screen.
+
 ## 2026-11-19 · Week 2 · 2d-2 Onboarding step 2 Income
 - **What:**
   - Step 2 lists income as cards on mobile and a table on desktop.

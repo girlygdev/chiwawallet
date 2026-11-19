@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getCurrentBudget } from "@/lib/current-budget";
+import { getOrCreatePeriod } from "@/lib/budget-periods";
+import { countIncomeSources, getCurrentBudget } from "@/lib/current-budget";
 import { isOnboarded, ONBOARDING_PATHS } from "@/lib/onboarding";
 import { getPeriod, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { requireConsentedUser } from "@/lib/require-app-user";
@@ -12,6 +13,7 @@ import {
   type IncomeValues,
   incomeSchemaFor,
 } from "@/lib/validation/income";
+import { type StartFormInput, startSchema } from "@/lib/validation/start";
 import {
   type FormResult,
   SOMETHING_WRONG,
@@ -128,6 +130,48 @@ export async function removeIncome(id: string): Promise<IncomeResult> {
   const { error } = await supabase.from("income_sources").delete().eq("id", id).eq("budget_id", budget.id);
   if (error) return logAndFail("remove income", error);
   return { ok: true };
+}
+
+export type StartResult = FormResult<StartFormInput>;
+
+/**
+ * Step 3 "Finish setup" (onboarding.md §5). Order matters: the opening balance
+ * is what marks setup as finished, so it's saved last. If anything fails
+ * before that, the user comes back to step 3, and each part is safe to repeat
+ * (getOrCreatePeriod never makes a second period).
+ * generatePlan() is Week 5; for now the period starts with no plan items.
+ */
+export async function finishOnboarding(input: StartFormInput): Promise<StartResult> {
+  const parsed = startSchema.safeParse(input);
+  if (!parsed.success) return { fieldErrors: toFieldErrors<StartFormInput>(parsed.error.issues) };
+
+  const budget = await onboardingBudget();
+  if ((await countIncomeSources(budget.id)) === 0) redirect(ONBOARDING_PATHS.income);
+
+  const supabase = await createClient();
+  let periodId: string;
+  try {
+    // 1. The period that contains today (onboarding.md fix #1).
+    periodId = (await getOrCreatePeriod(supabase, budget, todayInManila(new Date()))).id;
+  } catch (error) {
+    return logAndFail("create the first period", error instanceof Error ? error : { message: String(error) });
+  }
+
+  // 2. Whether this period's pay is already in the balance (plan review 3.14).
+  const { error: periodError } = await supabase
+    .from("budget_periods")
+    .update({ first_pay_received: parsed.data.payReceived })
+    .eq("id", periodId);
+  if (periodError) return logAndFail("save the pay answer", periodError);
+
+  // 3. Last: the opening balance, which finishes setup.
+  const { error: budgetError } = await supabase
+    .from("budgets")
+    .update({ opening_balance: parsed.data.openingBalance })
+    .eq("id", budget.id);
+  if (budgetError) return logAndFail("save the opening balance", budgetError);
+
+  redirect("/onboarding/done");
 }
 
 function toIncomeRow(values: IncomeValues) {

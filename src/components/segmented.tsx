@@ -6,7 +6,8 @@ type SegmentedProps<T extends string> = {
   name: string;
   legend: string;
   options: Option<T>[];
-  value: T;
+  /** Leave undefined for "nothing picked yet". */
+  value: T | undefined;
   onChange: (value: T) => void;
   error?: string;
 };

@@ -159,6 +159,11 @@ export function scheduleFromBudget(budget: BudgetScheduleFields): PaySchedule {
   throw new RangeError(`Budget has no usable pay schedule (frequency "${frequency}").`);
 }
 
+/** "2026-11-15" → "Nov 15". */
+export function formatShortDate(date: string): string {
+  return format(parseDate(date), "MMM d");
+}
+
 // en-CA formats dates as YYYY-MM-DD.
 const manilaDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Manila",

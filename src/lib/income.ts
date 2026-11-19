@@ -1,3 +1,4 @@
+import { formatPeso } from "@/lib/money";
 import { type PaySchedule, type PaySlot, paydayLabel } from "@/lib/periods";
 
 // Expected income per payday and per month (income.md §1). Pure functions:
@@ -38,7 +39,20 @@ export function expectedIncome(sources: Source[], schedule: PaySchedule): Expect
   return { paydays, perMonth: Math.round((total * 52) / 12), perMonthIsEstimate: true };
 }
 
-export type ImpactLine = { label: string; before: number; after: number };
+/** Income expected in a period that starts on the payday `slot`. */
+export function expectedForSlot(sources: Source[], schedule: PaySchedule, slot: PaySlot): number {
+  const { paydays } = expectedIncome(sources, schedule);
+  return (paydays.find((p) => p.slot === slot) ?? paydays[0]).total;
+}
+
+/** "2 sources · ₱58,000 a month" (weekly: "about … a month"). */
+export function describeIncome(sources: Source[], schedule: PaySchedule): string {
+  const { perMonth, perMonthIsEstimate } = expectedIncome(sources, schedule);
+  const count = sources.length === 1 ? "1 source" : `${sources.length} sources`;
+  return `${count} · ${perMonthIsEstimate ? "about " : ""}${formatPeso(perMonth)} a month`;
+}
+
+export type ImpactLine ={ label: string; before: number; after: number };
 
 /**
  * What adding (or changing to) `next` does, for the form's impact box:

@@ -135,6 +135,9 @@ For weekly and monthly budgets there's only one payday, so hide the "Lands on" c
 - A `text-3` ₱ prefix, and the amount in Fredoka 600 at 28–30px.
 - `inputmode="decimal"`. Centavos show while typing ("5,000.00") and the value saves as `bigint` centavos.
 - ₱0 is allowed, and so is a negative amount, with a minus sign, for people who start out overdrawn.
+- **What to type (decided Nov 19):** everything the user has right now, including pay that has already arrived. The app never adds arrived pay on top, because it can't know how much was spent. Field hint: "Everything you have right now: bank, cash and e-wallets together, including any pay that's already arrived." After "Yes, it's in": "Then your starting balance should include it. Type everything you have now, pay included. We won't add it again."
+- **iPhone:** the decimal keypad has no minus key, so negative balances can't be typed there. Accepted for the MVP (decided Nov 19).
+- **Skip link:** left out until the optional bills, pots and debts items exist (Weeks 4–6), since until then it would do the same as Finish (decided Nov 19).
 
 **"Add these now, or later" (optional):** three entry points with an "Optional" tag on the right.
 

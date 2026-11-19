@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   describeSchedule,
   formatPeriodRange,
+  formatShortDate,
   getPeriod,
   nextPeriods,
   ordinal,
@@ -353,6 +354,13 @@ describe("paydayLabel and describeSchedule", () => {
   it("weekly uses the weekday", () => {
     expect(paydayLabel(weekly(0), "every")).toBe("Sun");
     expect(describeSchedule(weekly(5))).toBe("Weekly · Fridays");
+  });
+});
+
+describe("formatShortDate", () => {
+  it("month and day", () => {
+    expect(formatShortDate("2026-11-15")).toBe("Nov 15");
+    expect(formatShortDate("2027-01-01")).toBe("Jan 1");
   });
 });
 
