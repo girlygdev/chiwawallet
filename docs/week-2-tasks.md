@@ -19,7 +19,7 @@ Specs: `docs/designs/onboarding.md`, `income.md`, `dashboard.md` (header only), 
   - RLS on all three, with A-can't-read-B tests on local Supabase.
   - Applied to live only after a dry run and the owner's go, before any code that uses it is deployed.
   - Done when: `npm run test:db` passes, and types are regenerated.
-- [ ] **2c. Create a period the first time it's opened.** Uses `getPeriod()` to find today's period and creates its `budget_periods` row if it doesn't exist yet, without duplicates (unique budget + start date).
+- [x] **2c. Create a period the first time it's opened.** *(Done Nov 19: `getOrCreatePeriod()` in `src/lib/budget-periods.ts` and `scheduleFromBudget()` in `periods.ts`. Not called from any page yet; 2d and 2f use it.)* Uses `getPeriod()` to find today's period and creates its `budget_periods` row if it doesn't exist yet, without duplicates (unique budget + start date).
   - Done when: opening the app twice creates one row, with tests.
 - [ ] **2d. Onboarding.** Steps 1–3 and the Done screen (mobile and desktop), at `/onboarding/...`.
   - Each step saves on Continue; coming back resumes at the first unfinished step.

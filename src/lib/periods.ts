@@ -84,6 +84,34 @@ export function formatPeriodRange(start: string, end: string): string {
   return `${format(from, "MMM d")} – ${format(to, "d")}`;
 }
 
+/** The payday fields of a `budgets` row. */
+export type BudgetScheduleFields = {
+  frequency: string;
+  pay_day_1: number | null;
+  pay_day_2: number | null;
+  pay_weekday: number | null;
+};
+
+/**
+ * Turns a budget row into the schedule getPeriod() takes. The database already
+ * checks that the fields match the frequency; this guards against a row that
+ * was read with some columns missing.
+ */
+export function scheduleFromBudget(budget: BudgetScheduleFields): PaySchedule {
+  const { frequency, pay_day_1, pay_day_2, pay_weekday } = budget;
+  if (frequency === "semi_monthly" && pay_day_1 != null && pay_day_2 != null) {
+    return { frequency, payDay1: pay_day_1, payDay2: pay_day_2 };
+  }
+  if (frequency === "monthly" && pay_day_1 != null) {
+    return { frequency, payDay1: pay_day_1 };
+  }
+  // != null, not a truthiness check: Sunday is 0.
+  if (frequency === "weekly" && pay_weekday != null) {
+    return { frequency, payWeekday: pay_weekday };
+  }
+  throw new RangeError(`Budget has no usable pay schedule (frequency "${frequency}").`);
+}
+
 // en-CA formats dates as YYYY-MM-DD.
 const manilaDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Manila",

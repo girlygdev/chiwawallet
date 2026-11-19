@@ -2,6 +2,23 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 · 2c Create a period the first time it's opened
+- **What:**
+  - `getOrCreatePeriod(supabase, budget, date)` returns the budget's period for a date, creating the row on first open.
+  - `scheduleFromBudget()` turns a budget row into a `PaySchedule`.
+- **Files:** `src/lib/budget-periods.ts` (new), `src/lib/periods.ts`, `tests/lib/periods.test.ts`, `tests/db/budget-periods.test.ts` (new), `docs/week-2-tasks.md`.
+- **Decisions:**
+  - Written in TypeScript with the user's own client, not as a database function. `getPeriod()` is the single source of period math.
+  - The insert is `ON CONFLICT DO NOTHING` on (budget_id, start_date), then the row is read back. Repeat opens and two tabs at once give one row.
+  - `carried_in` stays 0 until carry-over is built.
+  - Nothing calls it yet; onboarding (2d) and the dashboard header (2f) will.
+- **Tests:**
+  - Written first and failing.
+  - 4 new unit tests and 6 new database tests, including 5 calls at once making one row, and refusing another user's budget.
+  - 66 unit and 68 database tests pass; lint and typecheck pass.
+- **AI notes:** The owner said "go" before seeing the plan. Claude posted a short plan before writing code because nothing in it needed a decision (no migration or dependency).
+- **Next:** 2d onboarding. Likely split into steps 1–2, then step 3 and Done.
+
 ## 2026-11-19 · Week 2 · 2b budgets, income_sources, budget_periods
 - **What:** A migration for the three Week 2 tables, with RLS on all of them, plus 36 database tests. Applied to local Supabase only.
 - **Files:** `supabase/migrations/20261119111038_budgets.sql`, `tests/db/budgets.test.ts`, `src/lib/supabase/types.ts` (regenerated), `docs/week-2-tasks.md`.

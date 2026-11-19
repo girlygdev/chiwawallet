@@ -3,6 +3,7 @@ import {
   formatPeriodRange,
   getPeriod,
   type PaySchedule,
+  scheduleFromBudget,
   todayInManila,
 } from "@/lib/periods";
 
@@ -251,6 +252,47 @@ describe("formatPeriodRange", () => {
   it("different years: both years", () => {
     expect(formatPeriodRange("2026-12-30", "2027-01-14")).toBe(
       "Dec 30, 2026 – Jan 14, 2027",
+    );
+  });
+});
+
+describe("scheduleFromBudget", () => {
+  const row = (fields: Partial<Parameters<typeof scheduleFromBudget>[0]>) => ({
+    frequency: "semi_monthly",
+    pay_day_1: null,
+    pay_day_2: null,
+    pay_weekday: null,
+    ...fields,
+  });
+
+  it("semi-monthly", () => {
+    expect(scheduleFromBudget(row({ pay_day_1: 15, pay_day_2: 30 }))).toEqual({
+      frequency: "semi_monthly",
+      payDay1: 15,
+      payDay2: 30,
+    });
+  });
+
+  it("monthly", () => {
+    expect(scheduleFromBudget(row({ frequency: "monthly", pay_day_1: 31 }))).toEqual({
+      frequency: "monthly",
+      payDay1: 31,
+    });
+  });
+
+  it("weekly, including Sunday (0)", () => {
+    expect(scheduleFromBudget(row({ frequency: "weekly", pay_weekday: 0 }))).toEqual({
+      frequency: "weekly",
+      payWeekday: 0,
+    });
+  });
+
+  it("rejects rows missing the fields their frequency needs", () => {
+    expect(() => scheduleFromBudget(row({ pay_day_1: 15 }))).toThrow(RangeError);
+    expect(() => scheduleFromBudget(row({ frequency: "monthly" }))).toThrow(RangeError);
+    expect(() => scheduleFromBudget(row({ frequency: "weekly" }))).toThrow(RangeError);
+    expect(() => scheduleFromBudget(row({ frequency: "fortnightly", pay_day_1: 1 }))).toThrow(
+      RangeError,
     );
   });
 });
