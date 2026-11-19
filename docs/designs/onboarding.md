@@ -197,9 +197,12 @@ Mobile only for now (see Fix before building).
 ## 9. Fix before building
 
 1. **First period may already have started.** The screens show "Starts tomorrow · Nov 15 – Nov 29", but most people sign up mid-period. Use the period that contains today, and set the tag to "Started Nov 15" or "Starts tomorrow" depending on the date. If today's period has started, ask one question on step 3: "Has your Nov 15 pay already arrived?" If yes, it's already in the starting balance, so mark that income as received instead of adding it again. Otherwise income gets counted twice.
+   **Decided Nov 19:** ask the question in Week 2 and save the answer as `budget_periods.first_pay_received`. Week 3 turns it into a received income transaction.
 2. **Weekly and monthly payday fields** aren't drawn. Build them from section 3.
 3. **No desktop Done screen.** Desktop goes straight to the empty dashboard. Either add a desktop version of `OnbDone` (centered card on `mint`, like Set new password), or show the same message as a one-time banner on the desktop dashboard. Pick one so both devices end the same way.
+   **Decided Nov 19:** a desktop Done card on `mint`.
 4. **Date format:** "Nov 15 – Nov 29" should be **Nov 15 – 29** per the style guide. Keep the month on both sides only when it changes ("Nov 30 – Dec 14").
 5. **Placeholder links:** the three optional items on mobile step 3 point to `#`. Connect them to the New bill, New pot and New debt sheets.
 6. **Field heights:** onboarding uses 48px inputs and selects, auth uses 52px. Use **48px inside the app** (onboarding and sheets) and keep 52px for auth only. Write that rule into `style-guide.md` once you decide.
+   **Decided Nov 19:** 48px in the app, 52px for auth only; now in `style-guide.md`.
 7. **Sample name:** "Hi Reggie!" is canvas sample data. In code it comes from `display_name`.

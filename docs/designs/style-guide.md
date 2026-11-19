@@ -190,7 +190,7 @@ Button labels say what happens: "Add ₱2,000 to Travel", not "Submit". Disabled
 
 ### Inputs
 
-- 48–52px tall, 14px radius, 1.5px `line` border, white background; 2px `green-600` border when focused.
+- **48px tall inside the app** (onboarding, sheets, settings); **52px on auth screens only** (decided Nov 19). 14px radius, 1.5px `line` border, white background; 2px `green-600` border when focused.
 - A visible label above every field (14px, weight 700); "(optional)" in lighter text when it applies.
 - **Money inputs:** ₱ prefix inside the field, numeric keyboard (`inputmode="decimal"`). Big amounts use Fredoka at 28–56px with a green underline.
 - **Choices:** 2–4 options become a segmented control; 3–6 options with descriptions become radio cards; more than that becomes a select.

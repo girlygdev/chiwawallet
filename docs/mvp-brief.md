@@ -183,9 +183,9 @@ Every table has `user_id` and an RLS policy. Amounts are `bigint` centavos.
 | Entity | Key fields | Related to |
 | --- | --- | --- |
 | profiles | user_id (= auth user, unique; own `id` like every table), display_name, week_start, consent_at, theme (light / dark / system), bill_reminders (on), payday_summary (on), mid_period_checkin (off), is_demo (false) | everything |
-| budgets | name, frequency (weekly / semi_monthly / monthly), pay_day_1, pay_day_2, pay_weekday, opening_balance, carry_over (on), ask_on_payday (on), budget_model (50_30_20), needs_pct (50), wants_pct (30), savings_debt_pct (20) | periods, income sources, bills |
-| income_sources | budget_id, name, amount, amount_varies (false), pay_slot (payday_1 / payday_2 / every), start_date | plan items, transactions |
-| budget_periods | budget_id, start_date, end_date, pay_slot, carried_in, leftover_choice (carry / pot / debt / split), closed_at | plan items, transactions |
+| budgets | name, frequency (weekly / semi_monthly / monthly), pay_day_1, pay_day_2, pay_weekday, opening_balance (empty until onboarding step 3; ₱0 and negatives allowed), carry_over (on), ask_on_payday (on), budget_model (50_30_20), needs_pct (50), wants_pct (30), savings_debt_pct (20) | periods, income sources, bills |
+| income_sources | budget_id, name, amount, amount_varies (false), pay_slot (payday_1 / payday_2 / every), start_date (defaults to the first period's start), end_date (optional, for a job that stops) | plan items, transactions |
+| budget_periods | budget_id, start_date, end_date, pay_slot, carried_in, leftover_choice (carry / pot / debt / split), first_pay_received (false; set in onboarding when today's pay already arrived), closed_at | plan items, transactions |
 | categories | name, kind (income / expense), group (needs / wants / savings_debt), icon, color, default_budget (optional, copied into each period's plan) | plan items, transactions |
 | recurring_bills | budget_id, name, amount, amount_varies (false), category_id, frequency (monthly / quarterly / yearly), due_day, pay_slot (payday_1 / payday_2 / split), remind (on) | plan items, transactions |
 | savings_pots | name, icon, color, target_amount (optional), target_date (optional), starting_balance, planned_contribution, pay_slot, is_locked | plan items, transactions |
@@ -246,7 +246,7 @@ Each task fits in one session and ends with something you can check. Deploy from
 
 - [ ] `budgets` table + RLS; onboarding form (frequency, pay dates, week start, opening balance)
 - [ ] Pure function `getPeriod(date, budget)` returning start date, end date and pay slot
-- [ ] Vitest cases: semi-monthly 10th/25th, 15th/30th in February (30th becomes Feb 28), pay day 31 in a 30-day month, weekly with Monday and Sunday starts, monthly
+- [ ] Vitest cases: semi-monthly 10th/25th, 15th/30th in February (30th becomes Feb 28), pay day 31 in a 30-day month, weekly with Monday and Sunday paydays (weekly periods follow `pay_weekday`; `profiles.week_start` only sets how calendars display), monthly
 - [ ] `budget_periods` table; create a period the first time it's opened
 - [ ] `income_sources` table; Income screen; expected income per period by pay slot
 - [ ] Dashboard header: period dates, days left, expected income

@@ -27,9 +27,9 @@ Changes to the brief's data model need the owner's OK (CLAUDE.md).
 
 | # | Week | Table | Gap | Suggestion | Status |
 | --- | --- | --- | --- | --- | --- |
-| 3.1 | 2 | `budgets` | Onboarding resumes at step 3 when there's "no opening balance", but ₱0 is a valid answer; negative amounts are allowed too | `opening_balance` nullable, no `>= 0` check | open |
-| 3.2 | 2 | `income_sources` | A job that stops has no end date (`income.md` fix #3) | Optional `end_date` | open |
-| 3.3 | 2 | `income_sources` | Onboarding doesn't ask for `start_date` | Default to the first period's start date | open |
+| 3.1 | 2 | `budgets` | Onboarding resumes at step 3 when there's "no opening balance", but ₱0 is a valid answer; negative amounts are allowed too | `opening_balance` nullable, no `>= 0` check | **Decided Nov 19:** nullable (empty = step 3 not done); ₱0 and negatives are valid |
+| 3.2 | 2 | `income_sources` | A job that stops has no end date (`income.md` fix #3) | Optional `end_date` | **Decided Nov 19:** add it |
+| 3.3 | 2 | `income_sources` | Onboarding doesn't ask for `start_date` | Default to the first period's start date | **Decided Nov 19:** as suggested |
 | 3.4 | 3 | `categories` | "Savings pot" and "Extra debt payment" are system categories: assigned automatically, hidden from the expense picker, can't be deleted | A `system_key` column | open |
 | 3.5 | 3 | `transactions` | Pot withdrawals: negative amount or a `direction` field (`activity.md` §3) | Negative `savings` amount; a check that only savings rows can be negative | open |
 | 3.6 | 3–4 | links to pots, bills, debts, income sources | Level 2 deletes are hard deletes, but past history stays (`delete-pattern.md`) | Foreign keys `on delete set null`; history rows fall back to the category name | open |
@@ -37,21 +37,26 @@ Changes to the brief's data model need the owner's OK (CLAUDE.md).
 | 3.8 | 4 | `savings_pots` | `pay_slot = split` for pots | Drop split for pots (`savings.md` fix #5) | open |
 | 3.9 | 5 | `plan_items` | Starter plan items (Needs, Wants, Savings & debt) have no category | A `group` column on `plan_items` | open |
 | 3.10 | 5 | `plan_items` | Origin for copies of `categories.default_budget` | `recurring` (`plan.md` fix #3) | open |
-| 3.11 | 2 or 7 | — | Dismissing the dashboard's Get started checklist | Browser storage; no column | open |
+| 3.11 | 2 or 7 | — | Dismissing the dashboard's Get started checklist | Browser storage; no column | **Decided Nov 19:** as suggested |
+| 3.13 | 2 | `budgets` / `profiles` | Week start appears twice: onboarding saves `profiles.week_start`, and weekly budgets need a payday | Weekly periods use `budgets.pay_weekday`; `profiles.week_start` only sets how calendars display | **Decided Nov 19** |
+| 3.14 | 2 | `budget_periods` | Signing up mid-period: "Has your Nov 15 pay already arrived?" must be saved before `transactions` exists (`onboarding.md` fix #1) | `first_pay_received` (boolean, default false); Week 3 turns it into a received income transaction | **Decided Nov 19** |
 | 3.12 | 8 | — | Storing "Why are you leaving?" after account deletion (`settings.md` fix #1) | Drop the field | open |
 
 ## 4. Architecture decisions
 
 | # | Week | Item | Suggestion | Status |
 | --- | --- | --- | --- | --- |
-| 4.1 | 2 | Sending users with no budget to onboarding: the spec says the proxy, but that's a database query on every request | Check in the `(app)` layout instead | open |
-| 4.2 | 2+ | The proxy's app-page list | Add `/more`, `/onboarding` and `/payday` when those pages are built | open |
-| 4.3 | 2 | `lib/money/` folder (`dashboard.md`) vs `lib/money.ts` (CLAUDE.md) | Pick one and update the other doc | open |
+| 4.1 | 2 | Sending users with no budget to onboarding: the spec says the proxy, but that's a database query on every request | Check in the `(app)` layout instead | **Decided Nov 19:** as suggested |
+| 4.2 | 2+ | The proxy's app-page list | Add `/more`, `/onboarding` and `/payday` when those pages are built | **Decided Nov 19:** `/more` added with the app shell; `/onboarding` in Week 2; `/payday` when built |
+| 4.3 | 2 | `lib/money/` folder (`dashboard.md`) vs `lib/money.ts` (CLAUDE.md) | Pick one and update the other doc | **Decided Nov 19:** keep `lib/money.ts`; `dashboard.md` updated |
 | 4.4 | 8 | Delete account deletes the auth user, which normally needs the `service_role` key | A `security definer` function `delete_my_account()` that deletes only `auth.uid()` | open |
 | 4.5 | 8 | Deletion confirmation and auth emails need Resend, which needs a domain you own | Get a custom domain, or another free SMTP | open |
 | 4.6 | 8 | Export as a .zip needs a zip library (new dependency) | Add one, or export one CSV per click | open |
 | 4.7 | 8 | Purging soft-deleted rows after 30 days | `pg_cron` (free plan) | open |
 | 4.8 | 8 | Changing paydays rebuilds future periods and moves one-off items (`settings.md` §2) | Keep it simple for the MVP: the new schedule starts at the next period | open |
+| 4.10 | 2 | Onboarding has no desktop Done screen (`onboarding.md` fix #3) | A desktop Done card on `mint` | **Decided Nov 19:** as suggested |
+| 4.11 | 2 | Field heights: onboarding uses 48px, auth uses 52px (`onboarding.md` fix #6) | 48px inside the app, 52px for auth only | **Decided Nov 19:** written into `style-guide.md` |
+| 4.12 | 1 | Should a failed CI run block deploys? | Vercel Deployment Checks wait for the GitHub `check` job | **Done Nov 19:** owner set it up in Vercel |
 | 4.9 | 8 | The live Supabase project is in Tokyo (`ap-northeast-1`), not Singapore as the Nov 18 dev log says | The Privacy Notice's "Where it is stored" section must say Japan | open |
 
 ## 5. Scope

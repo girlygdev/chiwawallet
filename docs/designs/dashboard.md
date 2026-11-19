@@ -23,7 +23,7 @@ All amounts are for the selected period, in centavos, from the database. Never c
 - **If Safe to spend is below ₱0:** show it with a minus sign and replace the per-day pill with "Over by ₱X". The hero card stays green; the pill turns danger-coloured (#FBEBEB with #9B2C2C text).
 - **Expected but not received income** doesn't count in Safe to spend until it's logged. It shows as an "I got paid" prompt (section 4).
 
-Write these as pure functions in `lib/money/` with Vitest tests, and use the same functions on Plan.
+Write these as pure functions in `lib/money.ts` with Vitest tests (one file, per CLAUDE.md; decided Nov 19), and use the same functions on Plan.
 
 ## 2. Mobile layout
 

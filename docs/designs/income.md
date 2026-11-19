@@ -71,4 +71,5 @@ A bottom sheet on mobile, a dialog or side panel on desktop. Title "New income s
 1. **Placeholder links:** source cards point to `#`. Wire them to Edit income source.
 2. **Edit income source** isn't designed. Reuse the New income source sheet with the title "Edit income source", a **Save changes** button, and a **Delete source** link (level 2 delete: past income stays, future expected amounts are removed).
 3. **Ending a source:** a job that stops needs an end date, which isn't in the data model. Add `end_date` (optional) to `income_sources`, or treat "Delete source" as ending it.
+   **Decided Nov 19:** add the optional `end_date`.
 4. **Payday labels** ("15th", "30th") must come from the budget's real pay days.
