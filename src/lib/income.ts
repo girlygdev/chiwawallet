@@ -128,3 +128,15 @@ export function incomeImpact(others: Source[], next: Source, schedule: PaySchedu
   });
   return lines;
 }
+
+/**
+ * What deleting `removed` does, for the delete dialog: the same lines as
+ * adding it, read the other way ("Each month: ₱58,000 → ₱50,000").
+ */
+export function removalImpact(others: Source[], removed: Source, schedule: PaySchedule): ImpactLine[] {
+  return incomeImpact(others, removed, schedule).map((line) => ({
+    label: line.label,
+    before: line.after,
+    after: line.before,
+  }));
+}

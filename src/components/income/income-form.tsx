@@ -49,7 +49,9 @@ type Props = {
   /** Onboarding's quick remove. The Income screen deletes with its own dialog. */
   onRemove?: () => Promise<IncomeFormResult>;
   /** The Income screen shows "Starts" and "Ends"; onboarding doesn't. */
-  withDates?: { defaultStart: string };
+  withDates?: { defaultStart: string; focusEnd?: boolean };
+  /** The Income screen's "Delete income source" link, which opens its dialog. */
+  onDeleteRequest?: () => void;
   /** Called after a save or remove, e.g. to close the sheet. */
   onDone?: () => void;
 };
@@ -57,7 +59,17 @@ type Props = {
 const fieldOrder = ["name", "amount", "amountVaries", "paySlot", "startDate", "endDate"] as const;
 
 // Add or edit one income source (income.md §4, onboarding.md §4).
-export function IncomeForm({ schedule, otherSources, source, layout, onSave, onRemove, withDates, onDone }: Props) {
+export function IncomeForm({
+  schedule,
+  otherSources,
+  source,
+  layout,
+  onSave,
+  onRemove,
+  withDates,
+  onDeleteRequest,
+  onDone,
+}: Props) {
   const router = useRouter();
   const [formError, setFormError] = useState<string>();
   const [pending, startTransition] = useTransition();
@@ -177,6 +189,8 @@ export function IncomeForm({ schedule, otherSources, source, layout, onSave, onR
             type="date"
             label="Ends (optional)"
             hint="For a job that stops."
+            // "End it instead" in the delete dialog lands here.
+            autoFocus={withDates.focusEnd}
             className="h-12"
             error={errors.endDate?.message}
             {...register("endDate")}
@@ -264,6 +278,15 @@ export function IncomeForm({ schedule, otherSources, source, layout, onSave, onR
           </SubmitButton>
         </div>
 
+        {source && onDeleteRequest && (
+          <button
+            type="button"
+            onClick={onDeleteRequest}
+            className="h-11 self-center rounded-md px-3 text-[15px] font-extrabold text-danger outline-link focus-visible:outline-2"
+          >
+            Delete income source
+          </button>
+        )}
         {source && onRemove && !confirmingRemove && (
           <button
             type="button"

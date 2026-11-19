@@ -41,6 +41,26 @@ export async function updateIncomeSource(id: string, input: IncomeFormInput): Pr
   return { ok: true };
 }
 
+/**
+ * Deletes an income source (delete-pattern.md level 2). Nothing points at
+ * income sources until transactions arrive in Week 3, so there's no choice
+ * to make yet; Week 3 adds "past income stays in Activity" (plan review 3.6).
+ */
+export async function deleteIncomeSource(id: string): Promise<Result> {
+  const { budget } = await requireAppUser();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("income_sources")
+    .delete()
+    .eq("id", id)
+    .eq("budget_id", budget.id)
+    .select("id");
+  if (error) return fail("delete income source", error);
+  // Nothing deleted: already gone, or not this user's (RLS hides it).
+  if (data.length === 0) return { formError: "That income source no longer exists. Refresh the page." };
+  return { ok: true };
+}
+
 function toRow(values: IncomeValues) {
   return {
     name: values.name,

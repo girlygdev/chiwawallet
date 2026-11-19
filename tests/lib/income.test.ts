@@ -7,9 +7,28 @@ import {
   incomeImpact,
   isActiveOn,
   monthlyAmount,
+  removalImpact,
   sourceScheduleLine,
   upcomingPaydays,
 } from "@/lib/income";
+
+describe("removalImpact: the delete dialog's effect lines", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const others = [{ amount: 2_500_000, pay_slot: "every" }];
+
+  it("deleting a 30th-only source lowers the 30th and the month", () => {
+    expect(removalImpact(others, { amount: 800_000, pay_slot: "payday_2" }, semi)).toEqual([
+      { label: "30th payday", before: 3_300_000, after: 2_500_000 },
+      { label: "Each month", before: 5_800_000, after: 5_000_000 },
+    ]);
+  });
+
+  it("deleting the only source takes everything to ₱0", () => {
+    expect(removalImpact([], { amount: 3_000_000, pay_slot: "every" }, { frequency: "monthly", payDay1: 30 })).toEqual([
+      { label: "Each month", before: 3_000_000, after: 0 },
+    ]);
+  });
+});
 
 describe("isActiveOn: a source counts from its start date to its end date", () => {
   const source = { amount: 1, pay_slot: "every", start_date: "2026-11-15", end_date: "2026-12-15" };

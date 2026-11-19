@@ -2,6 +2,28 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 · 2e-2 Delete income source
+- **What:**
+  - Edit income source now has a "Delete income source" link. It opens "Delete Main job?" with the item, its effect in pesos (for example "Each month: ₱58,000 → ₱8,000"), and Keep it, which is focused first.
+  - The red "Delete income source" button.
+  - "Stopped getting this? End it instead" opens Edit with the Ends field focused.
+- **Files:**
+  - New: `src/components/confirm-delete.tsx`, a reusable delete confirmation for later deletes.
+  - Changed: `src/app/(app)/income/income-sheet.tsx` (the `?delete=` address and the dialog), `src/app/(app)/income/actions.ts` (`deleteIncomeSource`), `src/components/income/income-form.tsx` (`onDeleteRequest`, `focusEnd`), `src/lib/income.ts` (`removalImpact`).
+  - Tests: `tests/lib/income.test.ts`.
+- **Decisions:**
+  - Built on Base UI's AlertDialog, so screen readers announce it as a warning. Focus starts on Keep it, and Esc keeps the item.
+  - On phones, a bottom sheet with red on top; on desktop, a centered dialog with red on the right.
+  - A source that isn't paying now says expected income doesn't change.
+  - Deleting something that's already gone shows "no longer exists".
+  - There's no choice step yet, because nothing points at income sources until Week 3 (plan review 3.6).
+- **Tests:**
+  - Written first and failing. 178 unit tests pass; lint, typecheck and the build pass.
+  - The Income page loads with the delete, end and unknown-id addresses.
+  - The dialog and the delete itself need the owner's check by eye.
+- **AI notes:** None.
+- **Next:** 2f, the dashboard header. It completes Week 2's "done when".
+
 ## 2026-11-19 · Week 2 (extra) · Theme toggle
 - **What:**
   - Dark mode actually turns on now. Before this, nothing added the `.dark` class.

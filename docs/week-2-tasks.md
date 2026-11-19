@@ -39,13 +39,13 @@ Specs: `docs/designs/onboarding.md`, `income.md`, `dashboard.md` (header only), 
   - Fields are 48px (4.11). Optional bill, pot and debt links on step 3 stay hidden until those sheets exist (Weeks 4–6).
   - Likely split in two: steps 1–2, then step 3 and Done.
   - Done when: a new user can finish onboarding on phone and desktop and land on the dashboard.
-- [ ] **2e. Income screen.** Split Nov 19 (owner accepted all recommendations):
+- [x] **2e. Income screen.** Split Nov 19 (owner accepted all recommendations):
   - [x] **2e-1. List, summary, add and edit.** *(Built Nov 19; owner checked it Nov 19.)*
     - The summary hero and payday stats, source cards grouped as active, starting later and ended, and desktop Upcoming paydays.
     - Add and edit in the sheet, with Starts and Ends.
     - The page address opens the sheet (`?add=1`, `?edit=<id>`).
     - The income form is now shared with onboarding.
-  - [ ] **2e-2. Delete income source.** A confirmation with the pesos effect, Keep it focused first, and "End it instead". Week 3 adds history (plan review 3.6).
+  - [x] **2e-2. Delete income source.** *(Built Nov 19; owner checked it Nov 19.)* A confirmation with the pesos effect, Keep it focused first, and "End it instead". Week 3 adds history (plan review 3.6).
   - Left for Week 3: Received and Expected status lines, Recently received, Log one-time income.
   - Original task: List, New and Edit income source (reusing the onboarding form), Delete as a level 2 delete, an optional end date. Expected income per period by pay slot, as a pure function with tests.
   - Done when: adding, editing and ending a source changes the expected income for the right paydays.
