@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import "./globals.css";
 
@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   description:
     "Sit. Stay. Save. A budgeting app that plans your money by payday.",
 };
+
+// viewport-fit=cover lets pages draw under the iPhone home bar, so the bottom
+// bar can pad itself with env(safe-area-inset-bottom).
+export const viewport: Viewport = { viewportFit: "cover" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

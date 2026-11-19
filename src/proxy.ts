@@ -21,6 +21,7 @@ const APP_PATHS = [
   "/bills",
   "/income",
   "/settings",
+  "/more", // mobile hub (more-and-categories.md)
 ];
 
 // Pages only for logged-out users. Forgot password, Set new password and

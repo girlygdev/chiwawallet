@@ -1,57 +1,28 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { logOut } from "@/app/(auth)/actions";
-import { hasConsented } from "@/lib/auth/consent";
-import { getMyProfile } from "@/lib/profiles";
-import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/shell/page-header";
+import { PageShell } from "@/components/shell/page-shell";
+import { requireAppUser } from "@/lib/require-app-user";
 
 export const metadata: Metadata = { title: "Dashboard · Chiwawallet" };
 
-// Placeholder so sign-up confirmation has somewhere to land.
-// The real dashboard comes later.
+// Placeholder so sign-up has somewhere to land. The real dashboard
+// (dashboard.md) is built from Week 2. Log out moved to More and Settings.
 export default function DashboardPage() {
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-2 px-6 py-10">
-      {/* Cache Components: reading the session (cookies) must happen inside
-          <Suspense>, so only this part waits for the request. */}
+    <PageShell>
+      <PageHeader title="Your payday at a glance" mobile="greeting" />
+      {/* Cache Components: the login check reads cookies, so it sits in <Suspense>. */}
       <Suspense fallback={<p className="text-[15px] text-text-3">Loading…</p>}>
-        <Greeting />
+        <DashboardBody />
       </Suspense>
-    </main>
+    </PageShell>
   );
 }
 
-async function Greeting() {
-  const supabase = await createClient();
-  // getUser() asks Supabase to verify the session, so it can't be faked with a cookie.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // src/proxy.ts already redirects for every app page, but it's only a fast
-  // first check, so pages keep their own guard.
-  if (!user) redirect("/login");
-  const profile = await getMyProfile(supabase);
-  // Google sign-ups must finish the consent step before using the app.
-  if (!hasConsented(profile)) redirect("/consent");
-
-  const name = profile?.display_name ?? "there";
-
+async function DashboardBody() {
+  await requireAppUser();
   return (
-    <>
-      <h1 className="font-display text-[28px] leading-[1.1] font-semibold text-ink">Hi, {name}!</h1>
-      <p className="text-[15px] text-text-3">You&apos;re in. Your dashboard is coming soon.</p>
-      {/* A real <form> posting to a Server Action: works even before JavaScript loads.
-          Temporary spot; log out moves to Settings with the app shell. */}
-      <form action={logOut} className="mt-6">
-        <button
-          type="submit"
-          className="h-[50px] w-full rounded-md border-[1.5px] border-line bg-surface text-base font-bold text-ink outline-link hover:bg-mint focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          Log out
-        </button>
-      </form>
-    </>
+    <p className="text-[15px] text-text-3">You&apos;re in. Your dashboard is coming soon.</p>
   );
 }
