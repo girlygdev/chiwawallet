@@ -9,7 +9,8 @@ import { formatPeso } from "@/lib/money";
 import { ONBOARDING_PATHS } from "@/lib/onboarding";
 import { type PaySchedule, paydayLabel } from "@/lib/periods";
 import { cn } from "@/lib/utils";
-import { IncomeForm, type IncomeSource } from "./income-form";
+import { IncomeForm, type IncomeSource } from "@/components/income/income-form";
+import { addIncome, removeIncome, updateIncome } from "../actions";
 
 type SheetState = { mode: "add" } | { mode: "edit"; source: IncomeSource } | null;
 
@@ -99,7 +100,7 @@ export function IncomeStep({ sources, schedule }: { sources: IncomeSource[]; sch
             <h2 id="add-income-title" className="text-base font-extrabold text-ink">
               {hasIncome ? "Add another income" : "Add your income"}
             </h2>
-            <IncomeForm layout="inline" schedule={schedule} otherSources={sources} />
+            <IncomeForm layout="inline" schedule={schedule} otherSources={sources} onSave={addIncome} />
           </section>
         </div>
 
@@ -154,6 +155,8 @@ export function IncomeStep({ sources, schedule }: { sources: IncomeSource[]; sch
             schedule={schedule}
             source={sheet.mode === "edit" ? sheet.source : undefined}
             otherSources={others(sheet.mode === "edit" ? sheet.source : undefined)}
+            onSave={(input) => (sheet.mode === "edit" ? updateIncome(sheet.source.id, input) : addIncome(input))}
+            onRemove={sheet.mode === "edit" ? () => removeIncome(sheet.source.id) : undefined}
             onDone={() => setSheet(null)}
           />
         )}

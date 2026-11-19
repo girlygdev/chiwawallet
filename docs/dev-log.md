@@ -2,6 +2,37 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 · 2e-1 Income screen: list, add and edit
+- **What:**
+  - `/income` shows a hero "Expected each month" card, per-payday stats, and source cards (active, starting later, ended), each opening Edit.
+  - Desktop adds the schedule line, "Income sources", "+ Add income source" and an Upcoming paydays column.
+  - Add and edit happen in the sheet, with Starts and an optional Ends.
+- **Files:**
+  - New: `src/app/(app)/income/page.tsx`, `income-sheet.tsx`, `actions.ts`.
+  - Moved: the income form, from `src/app/onboarding/income/` to `src/components/income/income-form.tsx`. It now takes `onSave`, an optional `onRemove`, and an optional `withDates`.
+  - Changed:
+    - `src/components/shell/page-header.tsx`: `desktopTitle`, `eyebrow`, `mobileAction`, `desktopAction`, `HeaderStickerLink`.
+    - `src/lib/income.ts`: `isActiveOn`, `expectedForPeriod`, `upcomingPaydays`, `monthlyAmount`, `sourceScheduleLine`.
+    - `src/lib/validation/income.ts`: optional start and end dates, required on the Income screen.
+    - `src/app/onboarding/income/income-step.tsx`.
+  - Tests: `tests/lib/income.test.ts`, `tests/lib/validation/income.test.ts`.
+- **Decisions** (the owner accepted all recommendations):
+  - Split into 2e-1 and 2e-2.
+  - Received parts wait for Week 3.
+  - The sheet, not separate pages.
+  - Deleting is a simple confirmation for now, with "End it instead".
+  - Deleting the last source is allowed, with an empty state.
+  - Pages can swap the header button.
+  - The sheet opens from the page address, so the header button and cards are plain links (income.md §5: cards are links).
+  - A source counts in a period when it's active on that period's payday.
+  - The before-and-after box compares against active sources only.
+- **Tests:**
+  - Written first and failing. 166 unit tests pass; lint, typecheck and the build pass.
+  - The Income screen rendered with a throwaway local user: empty state; ₱58,000, ₱25,000 and ₱33,000; schedule lines; the Varies and Ends tags; the Starting later and Ended groups; Upcoming paydays; the header; add and edit links.
+  - Onboarding step 2 rechecked after the form move.
+- **AI notes:** The first test script inserted several rows with different columns. supabase-js fills missing ones with null, so `amount_varies` failed. The script was fixed; the app was fine.
+- **Next:** 2e-2, Delete income source.
+
 ## 2026-11-19 · Week 2 · 2d-3 Onboarding step 3 and Done
 - **What:**
   - Step 3 "Starting point": a big starting-balance input (₱0 and negatives allowed), and "Has your Nov 15 pay already arrived?" with Yes or Not yet, no default.

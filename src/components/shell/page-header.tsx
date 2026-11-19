@@ -12,17 +12,30 @@ import { ADD_TRANSACTION_HREF } from "./nav-items";
 // - { backHref }: a back arrow + the page title (pages reached through More)
 type MobileStyle = "greeting" | "title" | { backHref: string; backLabel: string };
 
-export function PageHeader({ title, mobile }: { title: string; mobile: MobileStyle }) {
+type PageHeaderProps = {
+  title: string;
+  mobile: MobileStyle;
+  /** A different desktop h1, e.g. "Income sources" (income.md §3). */
+  desktopTitle?: string;
+  /** Replaces the greeting line above the desktop title, e.g. the pay schedule. */
+  eyebrow?: string;
+  /** A button on the right of the mobile header, e.g. a + sticker. */
+  mobileAction?: React.ReactNode;
+  /** Replaces the desktop "Add transaction" button. */
+  desktopAction?: React.ReactNode;
+};
+
+export function PageHeader({ title, mobile, desktopTitle, eyebrow, mobileAction, desktopAction }: PageHeaderProps) {
   return (
     <>
       {/* Only one of these two is displayed at a time, so there's one h1 on screen. */}
-      <MobileHeader title={title} mobile={mobile} />
-      <DesktopHeader title={title} />
+      <MobileHeader title={title} mobile={mobile} action={mobileAction} />
+      <DesktopHeader title={desktopTitle ?? title} eyebrow={eyebrow} action={desktopAction} />
     </>
   );
 }
 
-function MobileHeader({ title, mobile }: { title: string; mobile: MobileStyle }) {
+function MobileHeader({ title, mobile, action }: { title: string; mobile: MobileStyle; action?: React.ReactNode }) {
   if (mobile === "greeting") {
     return (
       <header className="flex min-h-[52px] items-center gap-3 md:hidden">
@@ -55,6 +68,7 @@ function MobileHeader({ title, mobile }: { title: string; mobile: MobileStyle })
         <ArrowLeft aria-hidden size={24} />
       </Link>
       <h1 className="font-display text-[24px] leading-[1.15] font-semibold text-ink">{title}</h1>
+      {action && <div className="ml-auto">{action}</div>}
     </header>
   );
 }
@@ -71,25 +85,40 @@ async function MobileGreeting() {
   );
 }
 
-function DesktopHeader({ title }: { title: string }) {
+function DesktopHeader({ title, eyebrow, action }: { title: string; eyebrow?: string; action?: React.ReactNode }) {
   return (
     <header className="hidden flex-wrap items-end justify-between gap-4 md:flex">
       <div>
-        <Suspense fallback={<GreetingSkeleton />}>
-          <DesktopGreeting />
-        </Suspense>
+        {eyebrow ? (
+          <p className="text-sm font-bold text-text-3">{eyebrow}</p>
+        ) : (
+          <Suspense fallback={<GreetingSkeleton />}>
+            <DesktopGreeting />
+          </Suspense>
+        )}
         <h1 className="font-display text-[30px] leading-[1.15] font-semibold text-ink">{title}</h1>
       </div>
-      {/* The header's one sticker element. Links to Activity until the add
-          sheet exists (Week 3). */}
-      <Link
-        href={ADD_TRANSACTION_HREF}
-        className="flex h-[50px] items-center gap-2 rounded-[14px] border-2 border-sticker bg-green-500 px-5 text-[15px] font-extrabold text-white shadow-sticker-sm outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
-      >
-        <Plus aria-hidden size={20} strokeWidth={2.5} />
-        Add transaction
-      </Link>
+      {action ?? (
+        <HeaderStickerLink href={ADD_TRANSACTION_HREF}>
+          {/* Links to Activity until the add sheet exists (Week 3). */}
+          Add transaction
+        </HeaderStickerLink>
+      )}
     </header>
+  );
+}
+
+/** The desktop header's one sticker button: "+ Add transaction", "+ Add income source". */
+export function HeaderStickerLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      className="flex h-[50px] items-center gap-2 rounded-[14px] border-2 border-sticker bg-green-500 px-5 text-[15px] font-extrabold text-white shadow-sticker-sm outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
+    >
+      <Plus aria-hidden size={20} strokeWidth={2.5} />
+      {children}
+    </Link>
   );
 }
 

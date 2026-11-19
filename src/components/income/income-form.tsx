@@ -18,7 +18,6 @@ import {
   type IncomeValues,
   incomeSchemaFor,
 } from "@/lib/validation/income";
-import { addIncome, removeIncome, updateIncome } from "../actions";
 
 export type IncomeSource = {
   id: string;
@@ -26,6 +25,15 @@ export type IncomeSource = {
   amount: number;
   amount_varies: boolean;
   pay_slot: string;
+  start_date?: string;
+  end_date?: string | null;
+};
+
+/** What a save or remove returns: errors to show, or ok. */
+export type IncomeFormResult = {
+  ok?: true;
+  formError?: string;
+  fieldErrors?: Partial<Record<string, string>>;
 };
 
 type Props = {
@@ -36,21 +44,35 @@ type Props = {
   source?: IncomeSource;
   /** "sheet": inside the bottom sheet. "inline": desktop's dashed add box. */
   layout: "sheet" | "inline";
+  /** Saves the form: the caller's Server Action (onboarding or the Income screen). */
+  onSave: (input: IncomeFormInput) => Promise<IncomeFormResult>;
+  /** Onboarding's quick remove. The Income screen deletes with its own dialog. */
+  onRemove?: () => Promise<IncomeFormResult>;
+  /** The Income screen shows "Starts" and "Ends"; onboarding doesn't. */
+  withDates?: { defaultStart: string };
   /** Called after a save or remove, e.g. to close the sheet. */
   onDone?: () => void;
 };
 
-const fieldOrder = ["name", "amount", "amountVaries", "paySlot"] as const;
+const fieldOrder = ["name", "amount", "amountVaries", "paySlot", "startDate", "endDate"] as const;
 
 // Add or edit one income source (income.md §4, onboarding.md §4).
-export function IncomeForm({ schedule, otherSources, source, layout, onDone }: Props) {
+export function IncomeForm({ schedule, otherSources, source, layout, onSave, onRemove, withDates, onDone }: Props) {
   const router = useRouter();
   const [formError, setFormError] = useState<string>();
   const [pending, startTransition] = useTransition();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const semiMonthly = schedule.frequency === "semi_monthly";
+  const idPrefix = source?.id ?? layout;
 
-  const blank: IncomeFormInput = { name: "", amount: "", amountVaries: false, paySlot: "every" };
+  const blank: IncomeFormInput = {
+    name: "",
+    amount: "",
+    amountVaries: false,
+    paySlot: "every",
+    startDate: withDates?.defaultStart,
+    endDate: "",
+  };
   const {
     register,
     handleSubmit,
@@ -59,7 +81,7 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
     control,
     formState: { errors },
   } = useForm<IncomeFormInput, unknown, IncomeValues>({
-    resolver: zodResolver(incomeSchemaFor(schedule.frequency)),
+    resolver: zodResolver(incomeSchemaFor(schedule.frequency, { requireStartDate: withDates != null })),
     mode: "onTouched",
     defaultValues: source
       ? {
@@ -67,6 +89,8 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
           amount: formatPesoInput(source.amount),
           amountVaries: source.amount_varies,
           paySlot: source.pay_slot as IncomeFormInput["paySlot"],
+          startDate: source.start_date,
+          endDate: source.end_date ?? "",
         }
       : blank,
   });
@@ -77,7 +101,7 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
   const centavos = parsePesoInput(amountText ?? "");
   const validAmount = centavos != null && centavos > 0 ? centavos : null;
 
-  const finish = (result: { ok?: true; formError?: string; fieldErrors?: Partial<Record<string, string>> }) => {
+  const finish = (result: IncomeFormResult) => {
     if (result.formError) setFormError(result.formError);
     const firstBad = fieldOrder.find((f) => result.fieldErrors?.[f]);
     for (const f of fieldOrder) {
@@ -101,16 +125,16 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
       amount: amountText ?? "",
       amountVaries: values.amountVaries,
       paySlot: values.paySlot,
+      startDate: values.startDate,
+      endDate: values.endDate ?? "",
     };
-    startTransition(async () => {
-      finish(source ? await updateIncome(source.id, input) : await addIncome(input));
-    });
+    startTransition(async () => finish(await onSave(input)));
   };
 
-  const onRemove = () => {
-    if (!source) return;
+  const remove = () => {
+    if (!onRemove) return;
     setFormError(undefined);
-    startTransition(async () => finish(await removeIncome(source.id)));
+    startTransition(async () => finish(await onRemove()));
   };
 
   const impact = validAmount
@@ -121,7 +145,7 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
     <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className={cn("flex flex-col gap-4", layout === "inline" && "lg:grid lg:grid-cols-2")}>
         <TextField
-          id={`${source?.id ?? layout}-name`}
+          id={`${idPrefix}-name`}
           label="Income name"
           placeholder="e.g. Main job"
           autoComplete="off"
@@ -130,7 +154,7 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
           {...register("name")}
         />
         <MoneyInput
-          id={`${source?.id ?? layout}-amount`}
+          id={`${idPrefix}-amount`}
           label="Amount each time"
           placeholder="25,000"
           error={errors.amount?.message}
@@ -138,13 +162,35 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
         />
       </div>
 
+      {withDates && (
+        <div className="grid grid-cols-2 gap-3">
+          <TextField
+            id={`${idPrefix}-start`}
+            type="date"
+            label="Starts"
+            className="h-12"
+            error={errors.startDate?.message}
+            {...register("startDate")}
+          />
+          <TextField
+            id={`${idPrefix}-end`}
+            type="date"
+            label="Ends (optional)"
+            hint="For a job that stops."
+            className="h-12"
+            error={errors.endDate?.message}
+            {...register("endDate")}
+          />
+        </div>
+      )}
+
       <div className={cn("flex flex-col gap-4", layout === "inline" && "lg:grid lg:grid-cols-2")}>
         <Controller
           control={control}
           name="amountVaries"
           render={({ field }) => (
             <Segmented
-              name={`${source?.id ?? layout}-varies`}
+              name={`${idPrefix}-varies`}
               legend="Amount is"
               options={[
                 { value: "fixed", label: "Fixed" },
@@ -162,7 +208,7 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
             name="paySlot"
             render={({ field }) => (
               <Segmented
-                name={`${source?.id ?? layout}-slot`}
+                name={`${idPrefix}-slot`}
                 legend="Lands on"
                 options={[
                   { value: "payday_1", label: paydayLabel(schedule, "payday_1") },
@@ -218,7 +264,7 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
           </SubmitButton>
         </div>
 
-        {source && !confirmingRemove && (
+        {source && onRemove && !confirmingRemove && (
           <button
             type="button"
             onClick={() => setConfirmingRemove(true)}
@@ -227,7 +273,7 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
             Remove income
           </button>
         )}
-        {source && confirmingRemove && (
+        {source && onRemove && confirmingRemove && (
           <div role="group" aria-label={`Remove ${source.name}?`} className="flex flex-col gap-2 rounded-[14px] bg-bg p-3">
             <p className="text-sm font-bold text-ink">Remove {source.name}?</p>
             <div className="grid grid-cols-2 gap-2">
@@ -241,7 +287,7 @@ export function IncomeForm({ schedule, otherSources, source, layout, onDone }: P
               </button>
               <button
                 type="button"
-                onClick={onRemove}
+                onClick={remove}
                 disabled={pending}
                 className="h-11 rounded-md bg-danger font-extrabold text-white outline-link focus-visible:outline-2 disabled:opacity-60"
               >

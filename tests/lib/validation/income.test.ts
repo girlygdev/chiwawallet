@@ -16,6 +16,7 @@ describe("incomeSchemaFor", () => {
       amount: 2_500_050,
       amountVaries: false,
       paySlot: "payday_1",
+      endDate: null,
     });
   });
 
@@ -48,6 +49,29 @@ describe("incomeSchemaFor", () => {
         "This budget has one payday, so income lands on every payday.",
       );
     }
+  });
+
+  it("dates are optional by default (onboarding sets the start itself)", () => {
+    expect(errorsFor("semi_monthly", {})).toEqual({});
+  });
+
+  it("the Income screen needs a start date; the end date is optional and not before the start", () => {
+    const schema = incomeSchemaFor("semi_monthly", { requireStartDate: true });
+    const errors = (input: Record<string, unknown>) => {
+      const r = schema.safeParse({ ...valid, ...input });
+      return r.success ? {} : Object.fromEntries(r.error.issues.map((i) => [i.path[0], i.message]));
+    };
+    expect(errors({ startDate: "" }).startDate).toBe("Pick when this income starts.");
+    expect(errors({ startDate: "2026-11-15", endDate: "" })).toEqual({});
+    expect(errors({ startDate: "2026-11-15", endDate: "2026-12-31" })).toEqual({});
+    expect(errors({ startDate: "2026-11-15", endDate: "2026-11-14" }).endDate).toBe(
+      "Pick an end date on or after the start.",
+    );
+    expect(errors({ startDate: "15/11/2026" }).startDate).toBe("Pick when this income starts.");
+    expect(schema.parse({ ...valid, startDate: "2026-11-15", endDate: "" })).toMatchObject({
+      startDate: "2026-11-15",
+      endDate: null,
+    });
   });
 
   it("rejects unknown pay slots", () => {
