@@ -29,7 +29,7 @@ Built from `docs/designs/auth-screens.md`, which adds forgot password, check you
 ## Rest of Week 1
 
 - [x] **Proxy** (Next.js 16 renamed `middleware.ts` to `proxy.ts`): refresh the Supabase session and redirect logged-out users away from app pages. *(Logged-out redirects checked Nov 19; owner to test logged-in cases.)*
-- [ ] **Set up Vitest** (decided Nov 19): add `npm run test` before the `profiles` table, so its RLS test has somewhere to run.
+- [x] **Set up Vitest** (decided Nov 19): add `npm run test` before the `profiles` table, so its RLS test has somewhere to run.
 - [ ] **`profiles` table** with RLS (own `id`, unique `user_id`), created on sign-up. Copies display name and consent time from the sign-up data.
 - [ ] **App shell:** bottom nav on mobile, sidebar on desktop.
 
@@ -48,5 +48,6 @@ Decided Nov 19, 2026:
 
 ## Decisions
 
+- The `profiles` RLS test (user A can't read user B's rows) runs against local Supabase (`supabase start`), not the hosted project (decided Nov 19). Needs Docker Desktop and the Supabase CLI.
 - `profiles` follows CLAUDE.md: its own `id` plus a unique `user_id` (= auth user). The brief's data model was updated to match.
 - The consent checkbox is on sign-up now (per the design doc). Its time is saved with the Supabase user at sign-up, and the `profiles` task copies it to `profiles.consent_at`.

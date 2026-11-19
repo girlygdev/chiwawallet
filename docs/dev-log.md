@@ -2,6 +2,15 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 1 · Vitest set up
+- **What:** Added `npm run test` (`vitest run`) and `npm run test:watch`. Added the first unit tests: `passwordStrength` (8 tests) and the auth Zod schemas (16 tests). All 24 pass.
+- **Files:** vitest.config.ts, tests/lib/auth/password-strength.test.ts, tests/lib/validation/auth.test.ts, package.json, package-lock.json, README.md, docs/week-1-tasks.md
+- **Decisions:** New dev deps `vitest` 5.1.0 and `vite` 8.3.5 (Vitest's required peer), the newest versions at least two weeks old. Both were installed with `--legacy-peer-deps` because npm 10.9.2 crashes (`Cannot read properties of null (reading 'edgesOut')`) on a normal install, even for Vitest 4.1.12. That flag skips peers, which is why `vite` had to be added by hand. Tests run in Node, live in `tests/` mirroring `src/lib`, and use the same `@/` alias as the app. The `profiles` RLS test will use local Supabase, not the hosted project (owner's call).
+- **Tests:** `npm run test` (24 passed), `npm run lint` and `npm run typecheck` pass.
+- **AI notes:** On Windows, Vitest 5.1.0 fails every test file (`Cannot read properties of undefined (reading 'config')`) when started from a lowercase `c:\` path, which is how VS Code opened the project; from `C:\` everything passes. Claude tried changing directory in the config, setting `root` to the uppercase path, and other pool modes; none worked, so they were removed. Owner chose to run tests from `C:\` (noted in the README) for now.
+- **Open questions:** Try Vitest 5.1.1 after Dec 2 (two weeks old) in case it fixes the Windows path bug. Any future `npm install` may need `--legacy-peer-deps` until npm is updated. The README's env table still lists `NEXT_PUBLIC_SUPABASE_ANON_KEY`, but the app uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+- **Next:** `profiles` table with RLS, plus local Supabase for its RLS test.
+
 ## 2026-11-19 · Week 1 · Proxy: session refresh and page redirects
 - **What:** Added `src/proxy.ts`. On every page request it refreshes the Supabase session cookie, sends logged-out users from app pages (`/dashboard`, `/plan`, `/activity`, `/savings`, `/debts`, `/bills`, `/income`, `/settings` and below) to `/login`, sends logged-in users from `/login` and `/signup` to `/dashboard`, and sends users without consent from app pages to `/consent`.
 - **Files:** src/proxy.ts, src/lib/supabase/proxy.ts, src/lib/supabase/server.ts (comment), src/app/(app)/dashboard/page.tsx (comments), docs/week-1-tasks.md

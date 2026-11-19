@@ -99,7 +99,10 @@ npm run dev                 # http://localhost:3000
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Check TypeScript types |
 | `npm run test` | Run unit tests (Vitest) |
+| `npm run test:watch` | Re-run unit tests when files change |
 | `npm run test:e2e` | Run the end-to-end flow (Playwright) |
+
+> **Windows:** run the tests from a path with an uppercase drive letter (`cd C:\path\to\chiwawallet`). From a lowercase `c:\…` path, such as the terminal VS Code sometimes opens, every test file fails with `Cannot read properties of undefined (reading 'config')`.
 
 ## Project structure
 
