@@ -2,6 +2,14 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 1 · `profiles` migration applied to the live project
+- **What:** Linked the repo to the live Supabase project and pushed `20261119061715_profiles.sql` after the owner's go.
+- **Files:** docs/week-1-tasks.md, docs/plan-review-2026-11-19.md (no code changes; `supabase/.temp`, where the link is stored, is gitignored)
+- **Decisions:** Before pushing, local Supabase was switched to the live versions recorded by `link` (Postgres 17.12, PostgREST 14.18, Auth 2.198; local had been on PostgREST 16.5 and Auth 2.197), and all 20 database tests passed there. A dry run showed only this migration would be applied.
+- **Tests:** Read-only checks on live: the migration is in the history; 2 accounts and 2 profiles (both test users backfilled, both with consent); RLS is on; the sign-up trigger exists.
+- **Correction:** The live project is in **Tokyo (`ap-northeast-1`)**, not Singapore as the Nov 18 entry says (confirmed by the owner). The Privacy Notice must say so (plan review 4.9).
+- **Next:** Profiles part 2: the app reads and writes `profiles`, records `consent_version`, and adds "I'm 18 or older" to the consent text.
+
 ## 2026-11-19 · Week 1 · Plan review against the design specs
 - **What:** The owner added every page spec to `docs/designs/` and moved the style guide there. Claude checked them all against the brief's data model and 9-week plan, and the findings are tracked in `docs/plan-review-2026-11-19.md`.
 - **Files:** docs/plan-review-2026-11-19.md

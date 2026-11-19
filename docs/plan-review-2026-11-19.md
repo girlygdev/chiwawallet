@@ -52,6 +52,7 @@ Changes to the brief's data model need the owner's OK (CLAUDE.md).
 | 4.6 | 8 | Export as a .zip needs a zip library (new dependency) | Add one, or export one CSV per click | open |
 | 4.7 | 8 | Purging soft-deleted rows after 30 days | `pg_cron` (free plan) | open |
 | 4.8 | 8 | Changing paydays rebuilds future periods and moves one-off items (`settings.md` §2) | Keep it simple for the MVP: the new schedule starts at the next period | open |
+| 4.9 | 8 | The live Supabase project is in Tokyo (`ap-northeast-1`), not Singapore as the Nov 18 dev log says | The Privacy Notice's "Where it is stored" section must say Japan | open |
 
 ## 5. Scope
 
