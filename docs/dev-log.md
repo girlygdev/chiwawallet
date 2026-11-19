@@ -2,6 +2,30 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 (extra) · Theme toggle
+- **What:**
+  - Dark mode actually turns on now. Before this, nothing added the `.dark` class.
+  - Light / Dark / Match device: a three-icon switch in the desktop sidebar, and an Appearance section on More.
+  - A choice applies instantly and is saved on the device and to `profiles.theme`.
+  - On app pages the profile's theme wins, so it follows you to other devices.
+  - "Match device" follows the device's setting live; tabs stay in step.
+- **Files:**
+  - New: `src/lib/theme.ts`, `src/components/theme/*` (toggle, sync, watcher, `applyTheme`, `saveThemeToProfile`), `tests/lib/theme.test.ts`.
+  - Changed: `src/app/layout.tsx` (head script, `suppressHydrationWarning` on `<html>`), `src/app/(app)/layout.tsx` (profile sync), `src/components/shell/sidebar.tsx`, `src/components/shell/placeholder-page.tsx` (`children`), `src/app/(app)/more/page.tsx`.
+- **Decisions:**
+  - No `next-themes`: about 30 lines of our own, with no new dependency.
+  - A head script sets the class before the page draws, so there's no flash.
+  - On desktop, an icon switch instead of a button that opens a menu: one tap, no popup.
+  - The profile wins over the device on app pages (owner's go).
+  - The toggle reads the device's choice with `useSyncExternalStore`, so the server and browser renders don't disagree.
+- **Tests:**
+  - 10 theme tests, including running the head script against a fake page. 176 unit tests pass; lint, typecheck and the build pass.
+  - Checked with a throwaway local user: the script is on every page, the toggles render on More and in the sidebar, and `profiles.theme` updates.
+- **AI notes:**
+  - The theme code and its tests were written together, not test-first.
+  - The first toggle set state inside an effect. The React lint rule flagged it, and it was rewritten with `useSyncExternalStore`.
+- **Next:** A quick dark-mode pass over the main screens, now that real users can switch. Then 2e-2.
+
 ## 2026-11-19 · Week 2 · 2e-1 Income screen: list, add and edit
 - **What:**
   - `/income` shows a hero "Expected each month" card, per-payday stats, and source cards (active, starting later, ended), each opening Edit.

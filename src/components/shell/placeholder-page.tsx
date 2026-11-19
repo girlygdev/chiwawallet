@@ -12,10 +12,13 @@ export function PlaceholderPage({
   title,
   mobile,
   showLogOut = false,
-}: HeaderProps & { showLogOut?: boolean }) {
+  children,
+}: HeaderProps & { showLogOut?: boolean; children?: React.ReactNode }) {
   return (
     <PageShell>
       <PageHeader title={title} mobile={mobile} />
+      {/* Anything already built on a mostly-unbuilt page, e.g. More's Appearance. */}
+      {children}
       {/* Cache Components: the login check reads cookies, so it sits in <Suspense>. */}
       <Suspense>
         <PlaceholderBody showLogOut={showLogOut} />
