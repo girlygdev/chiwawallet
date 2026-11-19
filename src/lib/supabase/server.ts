@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseEnv } from "./env";
+import type { Database } from "./types";
 
 // Supabase client for Server Components, Server Actions and Route Handlers.
 // Create a new one per request (never share it between users): it reads the
@@ -10,7 +11,8 @@ export async function createClient() {
   // In Next.js 16, cookies() is async.
   const cookieStore = await cookies();
 
-  return createServerClient(url, publishableKey, {
+  // <Database> types every query from the generated schema (types.ts).
+  return createServerClient<Database>(url, publishableKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

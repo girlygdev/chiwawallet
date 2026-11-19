@@ -98,8 +98,9 @@ A `mint` panel with a 14px radius and `12px 14px` padding, placed between the tw
 ### Consent checkbox (Sign up only)
 
 - A 20–22px checkbox with `accent-color: #177A42`, aligned to the top of the label, 10px gap.
-- Label (13–14px, line height 1.45): "I agree to the **Privacy Notice** and **Terms**. My budget data is used only to run Chiwawallet and is never sold." The two links are weight 700.
-- Leave it **unticked by default**. Keep Create account disabled until it's ticked, and save `profiles.consent_at` when the account is created. This is your DPA consent record.
+- Label (13–14px, line height 1.45): "I'm 18 or older and agree to the **Privacy Notice** and **Terms**. My budget data is used only to run Chiwawallet and is never sold." The two links are weight 700. (The 18+ line was added Nov 19, because the Terms require it; see `legal.md`.)
+- Leave it **unticked by default**. Keep Create account disabled until it's ticked, and save `profiles.consent_at` and `profiles.consent_version` when the account is created. This is your DPA consent record.
+- The same checkbox is used on the one-time consent step for Google sign-ups.
 
 ### Turnstile box
 

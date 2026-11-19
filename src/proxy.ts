@@ -1,4 +1,6 @@
 import type { NextRequest } from "next/server";
+import { hasConsented } from "@/lib/auth/consent";
+import { getMyProfile } from "@/lib/profiles";
 import { createProxyClient, redirectWithCookies } from "@/lib/supabase/proxy";
 
 // Runs before every page request (Next.js 16 renamed middleware.ts to proxy.ts).
@@ -55,12 +57,11 @@ export async function proxy(request: NextRequest) {
   if (isAppPage && typeof claims.user_metadata?.consent_at !== "string") {
     // The token's copy of the user's details only updates when it's refreshed,
     // so right after the consent step it can still say "not consented".
-    // Ask Supabase before redirecting, or the user would bounce between
-    // /consent and /dashboard. This only runs for users without consent.
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (typeof user?.user_metadata?.consent_at !== "string") {
+    // Check the real record (profiles.consent_at, which the pages also use)
+    // before redirecting, or the user would bounce between /consent and
+    // /dashboard. This query only runs for users the quick check didn't pass.
+    const profile = await getMyProfile(supabase);
+    if (!hasConsented(profile)) {
       return redirectWithCookies(request, getResponse(), "/consent");
     }
   }

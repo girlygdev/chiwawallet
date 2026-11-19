@@ -8,7 +8,7 @@ Start with the brief and the style guide, then open the spec for the page you're
 
 | File | What's in it |
 | --- | --- |
-| [`mvp-brief.md`](mvp-brief.md) | Scope, risks, stack, data model, 9-week build plan |
+| [`mvp-brief.md`](../mvp-brief.md) | Scope, risks, stack, data model, 9-week build plan |
 | [`style-guide.md`](style-guide.md) | Colours, type, spacing, components, voice, accessibility, Tailwind tokens |
 | [`app-shell.md`](app-shell.md) | Bottom bar, sidebar, page header, period switcher |
 | [`brand.md`](brand.md) | Logo lockups, app icons, favicon, manifest |

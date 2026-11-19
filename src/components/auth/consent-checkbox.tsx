@@ -19,7 +19,8 @@ export function ConsentCheckbox({
           {...inputProps}
         />
         <label htmlFor="consent" className="text-sm leading-[1.45] text-text-2">
-          I agree to the{" "}
+          {/* 18+ because the Terms require it (plan review 1.2, decided Nov 19) */}
+          I&apos;m 18 or older and agree to the{" "}
           {/* New tab, so following the link doesn't throw away what was typed */}
           <Link href="/privacy" target="_blank" className={linkClass}>
             Privacy Notice

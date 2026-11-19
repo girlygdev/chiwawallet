@@ -6,7 +6,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Chiwawallet theme tokens, from docs/style-guide.md section 10.
+ * Chiwawallet theme tokens, from docs/designs/style-guide.md section 10.
  * This is the only file where raw hex values are allowed.
  * Fixed values live here; each one becomes a utility class,
  * e.g. --color-gold -> bg-gold, --shadow-sticker -> shadow-sticker.

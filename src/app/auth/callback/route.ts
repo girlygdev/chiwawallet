@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { hasConsented } from "@/lib/auth/consent";
+import { getMyProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/server";
 
 // Google sends the user back here (via Supabase) with a one-time ?code=.
@@ -19,5 +20,6 @@ export async function GET(request: NextRequest) {
   }
 
   // First Google sign-in: ask for consent (and a name) before the app opens.
-  return back(hasConsented(data.user) ? "/dashboard" : "/consent");
+  // The sign-up trigger has already created the profile, without consent.
+  return back(hasConsented(await getMyProfile(supabase)) ? "/dashboard" : "/consent");
 }

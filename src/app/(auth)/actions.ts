@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getPendingEmail, setPendingEmail } from "@/lib/auth/pending-email";
+import { CONSENT_VERSION } from "@/lib/legal";
 import { createClient } from "@/lib/supabase/server";
 import {
   type ConsentInput,
@@ -58,9 +59,14 @@ export async function signUp(input: SignUpInput): Promise<SignUpResult> {
     password,
     options: {
       emailRedirectTo: await appUrl("/auth/confirm"),
-      // Stored on the Supabase user. The profiles task copies these into
-      // profiles.display_name and profiles.consent_at (the DPA consent record).
-      data: { display_name: displayName, consent_at: new Date().toISOString() },
+      // Stored on the Supabase user. The sign-up trigger copies them into
+      // profiles: display_name, consent_at (the DPA consent record, using the
+      // database's own time) and consent_version.
+      data: {
+        display_name: displayName,
+        consent_at: new Date().toISOString(),
+        consent_version: CONSENT_VERSION,
+      },
     },
   });
 
@@ -257,12 +263,27 @@ export async function giveConsent(input: ConsentInput): Promise<ConsentResult> {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { error } = await supabase.auth.updateUser({
-    data: { display_name: parsed.data.displayName, consent_at: new Date().toISOString() },
+  // 1. The record: profiles.consent_at, consent_version and the name, written by
+  //    the record_consent database function (users can't write them directly).
+  const { error: consentError } = await supabase.rpc("record_consent", {
+    name: parsed.data.displayName,
+    version: CONSENT_VERSION,
   });
-  if (error) {
-    console.error("giveConsent failed", error.code, error.message);
+  if (consentError) {
+    console.error("record_consent failed", consentError.code, consentError.message);
     return { formError: SOMETHING_WRONG };
   }
+
+  // 2. The same facts on the login data, which the proxy checks quickly on
+  //    every request. If this fails, the profile already holds the consent, so
+  //    the pages still let the user in.
+  const { error } = await supabase.auth.updateUser({
+    data: {
+      display_name: parsed.data.displayName,
+      consent_at: new Date().toISOString(),
+      consent_version: CONSENT_VERSION,
+    },
+  });
+  if (error) console.error("giveConsent updateUser failed", error.code, error.message);
   redirect("/dashboard");
 }

@@ -42,7 +42,7 @@ describe("signUpSchema", () => {
 
   it("requires the consent box to be ticked", () => {
     expect(firstError(signUpSchema.safeParse({ ...validSignUp, consent: false }))).toBe(
-      "Please agree to the Privacy Notice and Terms.",
+      "Please confirm you're 18 or older and agree to the Privacy Notice and Terms.",
     );
   });
 

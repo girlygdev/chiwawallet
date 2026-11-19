@@ -17,9 +17,9 @@ Every spec in `docs/designs/` (see its `index.md`) was checked against the data 
 
 | # | File | Fix | Status |
 | --- | --- | --- | --- |
-| 2.1 | `CLAUDE.md` | Point to `docs/designs/style-guide.md`, and list `docs/designs/` as a source of truth | open |
-| 2.2 | `docs/designs/index.md` | Link to `../mvp-brief.md` | open |
-| 2.3 | `src/app/globals.css` (line 9 comment) | Point to `docs/designs/style-guide.md` | open |
+| 2.1 | `CLAUDE.md` | Point to `docs/designs/style-guide.md`, and list `docs/designs/` as a source of truth | **Done Nov 19** |
+| 2.2 | `docs/designs/index.md` | Link to `../mvp-brief.md` | **Done Nov 19** |
+| 2.3 | `src/app/globals.css` (line 9 comment) | Point to `docs/designs/style-guide.md` | **Done Nov 19** |
 
 ## 3. Data model gaps
 

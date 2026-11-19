@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { logOut } from "@/app/(auth)/actions";
 import { hasConsented } from "@/lib/auth/consent";
+import { getMyProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Dashboard · Chiwawallet" };
@@ -31,10 +32,11 @@ async function Greeting() {
   // src/proxy.ts already redirects for every app page, but it's only a fast
   // first check, so pages keep their own guard.
   if (!user) redirect("/login");
+  const profile = await getMyProfile(supabase);
   // Google sign-ups must finish the consent step before using the app.
-  if (!hasConsented(user)) redirect("/consent");
+  if (!hasConsented(profile)) redirect("/consent");
 
-  const name = (user.user_metadata.display_name as string | undefined) ?? "there";
+  const name = profile?.display_name ?? "there";
 
   return (
     <>

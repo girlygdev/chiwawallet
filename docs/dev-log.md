@@ -2,6 +2,14 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 1 · `profiles` part 2: the app reads and writes profiles
+- **What:** A new `record_consent(name, version)` database function records consent from the one-time Google consent step. Sign-up sends `consent_version`. The dashboard, the consent page and `/auth/callback` check `profiles.consent_at`, and the greeting reads `profiles.display_name`. The Supabase clients are typed with the generated schema. The consent checkbox now says "I'm 18 or older and agree to…".
+- **Files:** supabase/migrations/20261119065318_record_consent.sql, src/lib/legal.ts, src/lib/profiles.ts, src/lib/auth/consent.ts, src/lib/supabase/client.ts, src/lib/supabase/server.ts, src/lib/supabase/proxy.ts, src/lib/supabase/types.ts, src/proxy.ts, src/app/(auth)/actions.ts, src/app/(auth)/consent/page.tsx, src/app/auth/callback/route.ts, src/app/(app)/dashboard/page.tsx, src/components/auth/consent-checkbox.tsx, src/lib/validation/auth.ts, src/app/globals.css (comment), tests/db/record-consent.test.ts, tests/lib/validation/auth.test.ts, docs/designs/auth-screens.md, docs/designs/index.md, CLAUDE.md, docs/week-1-tasks.md, docs/plan-review-2026-11-19.md
+- **Decisions:** Option (a): consent goes through a `security definer` function that only updates the caller's row and uses the database's clock. `CONSENT_VERSION = "2026-11-14"` (legal.md's "Last updated"), kept in `src/lib/legal.ts` for the legal pages to share. `profiles.consent_at` is now the record; the login data still gets a copy so the proxy's quick check passes without a query. When that quick check fails, the proxy now checks `profiles`, not the login data again, so a failed copy can't cause a `/consent` ↔ `/dashboard` loop. Fixed plan review section 2 (paths after the style guide move).
+- **Tests:** `npm run test:db` (26, including 6 for `record_consent`), `npm run test` (24), `npm run lint`, `npm run typecheck` and `npm run build` pass. A dry run shows only `record_consent` would go to live.
+- **Deploy order:** push the migration to live **before** pushing this code, or the consent step calls a function that doesn't exist yet. The migration went live Nov 19 after the owner's go; checked on live that logged-out visitors can't call `record_consent` and logged-in users can.
+- **Next:** Push the migration, then the code; the owner tests sign-up and Google consent on the live URL. Then the app shell frame.
+
 ## 2026-11-19 · Week 1 · `profiles` migration applied to the live project
 - **What:** Linked the repo to the live Supabase project and pushed `20261119061715_profiles.sql` after the owner's go.
 - **Files:** docs/week-1-tasks.md, docs/plan-review-2026-11-19.md (no code changes; `supabase/.temp`, where the link is stored, is gitignored)

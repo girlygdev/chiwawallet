@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { AuthCardLayout } from "@/components/auth/auth-card-layout";
 import { Logo } from "@/components/auth/logo";
 import { hasConsented } from "@/lib/auth/consent";
+import { getMyProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/server";
 import { logOut } from "../actions";
 import { ConsentForm } from "./consent-form";
@@ -42,7 +43,7 @@ async function ConsentForSignedInUser() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
-  if (hasConsented(user)) redirect("/dashboard");
+  if (hasConsented(await getMyProfile(supabase))) redirect("/dashboard");
 
   // Google puts the full name in full_name / name. Suggest just the first name.
   const fullName = (user.user_metadata.full_name ?? user.user_metadata.name ?? "") as string;

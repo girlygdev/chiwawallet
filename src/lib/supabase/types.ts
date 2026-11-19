@@ -25,7 +25,9 @@ export type Database = {
             [_ in never]: never
           }
           Functions: {
-            [_ in never]: never
+            "record_consent":
+{ Args: { "name": string,"version": string }; Returns: undefined
+                           }
           }
           Enums: {
             [_ in never]: never

@@ -4,7 +4,8 @@ Chiwawallet ("Sit. Stay. Save.") is a free budgeting PWA for Filipino earners th
 
 Source of truth (read these before big changes):
 - Product brief, data model, 9-week plan: `docs/mvp-brief.md`
-- Design style guide (colors, type, components, voice): `docs/style-guide.md`
+- Design style guide (colors, type, components, voice): `docs/designs/style-guide.md`
+- Page and component specs (one per screen, each ending with "Fix before building"): `docs/designs/`, starting from `docs/designs/index.md`
 - Screen designs (mobile + desktop): https://claude.ai/artifact/Cj6taSLB1R4SoTxvbm8Hnd
 
 If the code and these documents disagree, stop and ask. Don't silently pick one.

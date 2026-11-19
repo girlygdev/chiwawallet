@@ -26,7 +26,9 @@ export const signUpSchema = z.object({
   password: newPasswordSchema,
   // The DPA consent record: must be ticked, never pre-ticked.
   // A boolean (not z.literal(true)) so the form can start unticked with `false`.
-  consent: z.boolean().refine((v) => v, "Please agree to the Privacy Notice and Terms."),
+  consent: z
+    .boolean()
+    .refine((v) => v, "Please confirm you're 18 or older and agree to the Privacy Notice and Terms."),
 });
 
 export type SignUpInput = z.infer<typeof signUpSchema>;
