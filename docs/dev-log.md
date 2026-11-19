@@ -2,13 +2,52 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 1 · Dev server uses local Supabase
+- **What:** `npm run dev` now uses local Supabase (Docker) instead of the live project. Before this, signing up or clicking around on localhost wrote real rows to the live database.
+- **Files:** `.env.development.local` (new, gitignored, local URL and publishable key), `.env.example` (comment explaining the override).
+- **Decisions:**
+  - Used Next.js's own env file order: `.env.development.local` is loaded before `.env.local`, and only by `next dev`. Builds and Vercel still use live.
+  - To test against live, delete or rename the file and restart the dev server.
+- **Tests:**
+  - `@next/env` resolves dev to `127.0.0.1:54321` and build to the live URL.
+  - The dev server lists `.env.development.local` first.
+  - lint, typecheck and `npm run test` (32) pass.
+- **AI notes:**
+  - The owner asked whether local and live share data. Claude checked the env files: the databases are separate, but the dev server pointed at live.
+  - The old dev server's node process survived a stop, so Claude killed it by its process ID before restarting.
+- **Decided:** `supabase/config.toml` stays as it is. Local sign-up skips the confirmation email and logs in at once, so go to `/dashboard` after the Check your email page. Turning confirmation on would break the database tests, which need a session straight from sign-up, and sign-up confirmation was already tested on live. Password-reset links may open on `127.0.0.1` instead of `localhost`. Google sign-in is off locally; test it on live.
+- **Next:** GitHub Actions (lint and type check on every push).
+
+## 2026-11-19 · Week 1 · App shell frame
+- **What:** Every app page now sits in a shared frame (`src/app/(app)/layout.tsx`):
+  - Under 768px, a bottom bar: Home, Plan, a raised + button, Activity, More.
+  - From 768px, a 240px sidebar with the main links, Settings and a profile chip.
+  - A page header with three mobile styles (greeting, title, or back arrow + title) and a desktop greeting, title and Add transaction button.
+  - A Manila-time greeting.
+  - Placeholder pages for Plan, Activity, More, Income, Bills, Savings, Debts and Settings, each checking the login.
+  - Log out moved from the dashboard to More and Settings.
+- **Files:** src/app/(app)/layout.tsx, src/app/(app)/{plan,activity,more,income,bills,savings,debts,settings}/page.tsx, src/app/(app)/dashboard/page.tsx, src/app/layout.tsx (viewport-fit), src/components/shell/ (nav-items, bottom-bar, sidebar, sidebar-nav, profile-chip, page-header, page-shell, placeholder-page, log-out-button), src/lib/greeting.ts, src/lib/current-profile.ts, src/lib/require-app-user.ts, src/proxy.ts (`/more`), tests/lib/greeting.test.ts, docs/week-1-tasks.md, docs/mvp-brief.md
+- **Decisions:**
+  - The owner chose (a): the + button and Add transaction link to `/activity` until the add sheet exists (Week 3).
+  - Mobile Activity and desktop Transactions share `/activity`.
+  - Each page checks login and consent itself with `requireAppUser()`, because a layout doesn't re-run between pages. The profile query is cached per request, so the chip, greeting and check share one call.
+  - Current links use the theme-aware `link` and `link-hover` tokens, because Forest text on `mint` is unreadable in dark mode.
+  - Left out for now: the period switcher, the budget name, the bell, hiding the bar on sheets, and the desktop `/more` → `/settings` redirect.
+  - Placeholders use a new `PlaceholderPage`, not `ComingSoon` (which has its own `<main>` and a "Back to home" link).
+- **Tests:** `npm run lint`, `npm run typecheck`, `npm run test` (32, including 8 for the greeting) and `npm run build` pass. Logged out, all 9 app routes redirect to `/login`. Logged-in pages need a real session, so the owner checks them by eye.
+- **AI notes:** The first build failed because the server-side sidebar passed icon components to a client component; the client component now imports the nav lists itself.
+- **Brief:** Ticked auth, middleware and profiles in the Week 1 list. The app shell waits for the owner's check. GitHub Actions (lint and type check on push) is still open. It was missing from `week-1-tasks.md` and is now added there.
+- **Next:** The owner checks the shell by eye; then GitHub Actions, the last Week 1 task.
+
 ## 2026-11-19 · Week 1 · Fix the Vercel build: @types/node 22
 - **What:** Vercel's build failed at `npm install` with `ERESOLVE`: Vitest 5.1.0 expects `@types/node` `^22 || >=24`, and the project had `^20`. Moved `@types/node` to `^22` (22.20.5), matching local Node 22.16, and regenerated the lockfile with a normal `npm install`.
 - **Files:** package.json, package-lock.json, README.md (Node 22 or later)
 - **Decisions:** Fixed the real conflict instead of adding `legacy-peer-deps` to `.npmrc`. The same conflict caused npm's `edgesOut` crash on the Vitest and Supabase CLI installs, so `--legacy-peer-deps` is no longer needed (the earlier note about future installs no longer applies). Vercel's Node.js version should be 22.x to match the types.
 - **Tests:** A clean install from the new lockfile in an empty folder worked (594 packages, no conflict). `npm run lint`, `npm run typecheck`, `npm run test` (24), `npm run test:db` (26) and `npm run build` pass.
 - **AI notes:** Claude installed with `--legacy-peer-deps` to get past the crash instead of finding its cause, which hid the conflict until Vercel's normal install hit it.
-- **Next:** Check the Vercel deploy, then the owner tests sign-up and Google consent on the live URL.
+- **Deployed:** The Vercel build passed. The owner logged in on the live URL with an existing account and went straight to the dashboard (consent now read from `profiles`).
+- **Live tests:** A new email sign-up with a plus address worked (owner, Nov 19). A new Google sign-in (`/consent` → `record_consent` → dashboard) is **not tested on live yet**: waiting for a second Google test user or the published consent screen.
+- **Next:** The app shell frame.
 
 ## 2026-11-19 · Week 1 · `profiles` part 2: the app reads and writes profiles
 - **What:** A new `record_consent(name, version)` database function records consent from the one-time Google consent step. Sign-up sends `consent_version`. The dashboard, the consent page and `/auth/callback` check `profiles.consent_at`, and the greeting reads `profiles.display_name`. The Supabase clients are typed with the generated schema. The consent checkbox now says "I'm 18 or older and agree to…".
