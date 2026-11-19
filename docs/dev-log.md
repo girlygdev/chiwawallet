@@ -2,6 +2,14 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 1 · Proxy: session refresh and page redirects
+- **What:** Added `src/proxy.ts`. On every page request it refreshes the Supabase session cookie, sends logged-out users from app pages (`/dashboard`, `/plan`, `/activity`, `/savings`, `/debts`, `/bills`, `/income`, `/settings` and below) to `/login`, sends logged-in users from `/login` and `/signup` to `/dashboard`, and sends users without consent from app pages to `/consent`.
+- **Files:** src/proxy.ts, src/lib/supabase/proxy.ts, src/lib/supabase/server.ts (comment), src/app/(app)/dashboard/page.tsx (comments), docs/week-1-tasks.md
+- **Decisions:** Logged-in users on Log in or Sign up go to the dashboard. Forgot password, Set new password and Check your email stay open because the reset flow uses them while logged in. No `?next=` return-to-page yet; everyone lands on `/dashboard`. Uses `getClaims()` (checks the token locally when possible) instead of `getUser()` on every request. The token's metadata only updates on refresh, so when it says "no consent" the proxy asks Supabase with `getUser()` before redirecting, so the user doesn't loop between `/consent` and `/dashboard` right after consenting. Redirects copy any refreshed cookies. Pages keep their own guards because the proxy is only a fast first check.
+- **Tests:** `npm run lint`, `npm run typecheck` and `npm run build` pass. Logged out on localhost: `/dashboard`, `/dashboard/x` and `/settings` → `/login`; the auth pages, `/privacy`, `/`, the `/auth/*` routes, icons and CSS work as before. Logged-in cases not yet tested.
+- **Owner decided:** `?next=` return-to-page comes later as its own task, once there are more app pages. Set up Vitest as a small task before the `profiles` table.
+- **Next:** Owner tests the logged-in cases. Then Vitest setup, then the `profiles` table.
+
 ## 2026-11-18 · Week 1 · Google sign-in and consent step (3f)
 - **What:** Both Google buttons start Google sign-in through Supabase. `/auth/callback` finishes it. A first-time Google user goes to `/consent` ("One last thing"): a name pre-filled with their first name from Google, plus the same unticked consent checkbox. The dashboard sends anyone without consent there. Cancelling on Google's screen goes back to Log in with a note.
 - **Files:** src/app/(auth)/actions.ts, src/app/auth/callback/route.ts, src/app/(auth)/consent/ (page, consent-form), src/components/auth/google-button.tsx, src/components/auth/consent-checkbox.tsx (moved out of the sign-up form), src/app/(auth)/signup/signup-form.tsx, src/app/(auth)/login/page.tsx, src/app/(auth)/login/login-form.tsx, src/app/(app)/dashboard/page.tsx, src/lib/auth/consent.ts, src/lib/validation/auth.ts, docs/week-1-tasks.md

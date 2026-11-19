@@ -28,7 +28,8 @@ Built from `docs/designs/auth-screens.md`, which adds forgot password, check you
 
 ## Rest of Week 1
 
-- [ ] **Proxy** (Next.js 16 renamed `middleware.ts` to `proxy.ts`): refresh the Supabase session and redirect logged-out users away from app pages.
+- [x] **Proxy** (Next.js 16 renamed `middleware.ts` to `proxy.ts`): refresh the Supabase session and redirect logged-out users away from app pages. *(Logged-out redirects checked Nov 19; owner to test logged-in cases.)*
+- [ ] **Set up Vitest** (decided Nov 19): add `npm run test` before the `profiles` table, so its RLS test has somewhere to run.
 - [ ] **`profiles` table** with RLS (own `id`, unique `user_id`), created on sign-up. Copies display name and consent time from the sign-up data.
 - [ ] **App shell:** bottom nav on mobile, sidebar on desktop.
 
@@ -40,6 +41,10 @@ Decided Nov 18, 2026:
 - "Try the demo" button: hidden until Week 8, when the demo account exists.
 - Privacy Notice and Terms: real pages in Week 8. `/privacy` and `/terms` show a "This feature will come to you soon." placeholder now.
 - After sign-up confirmation: go to the dashboard until onboarding is built.
+
+Decided Nov 19, 2026:
+
+- Return to the original page after logging in (`?next=`, with safe-redirect checks): its own small task once there are more app pages than the dashboard.
 
 ## Decisions
 

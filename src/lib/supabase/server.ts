@@ -22,8 +22,8 @@ export async function createClient() {
           }
         } catch {
           // Server Components can't set cookies (only Server Actions and Route
-          // Handlers can). It's safe to skip here because the proxy task will
-          // refresh the session cookie on every request.
+          // Handlers can). It's safe to skip here because src/proxy.ts
+          // refreshes the session cookie on every request.
         }
       },
     },

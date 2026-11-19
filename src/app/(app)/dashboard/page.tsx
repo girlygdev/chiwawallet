@@ -28,10 +28,10 @@ async function Greeting() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // The proxy task will do this for every app page; until then, guard here.
+  // src/proxy.ts already redirects for every app page, but it's only a fast
+  // first check, so pages keep their own guard.
   if (!user) redirect("/login");
   // Google sign-ups must finish the consent step before using the app.
-  // The proxy task will apply this to every app page.
   if (!hasConsented(user)) redirect("/consent");
 
   const name = (user.user_metadata.display_name as string | undefined) ?? "there";
