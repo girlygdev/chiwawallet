@@ -3,9 +3,81 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export type Database = {
   
-  "public": {
+  "graphql_public": {
           Tables: {
-            "profiles": {
+            [_ in never]: never
+          }
+          Views: {
+            [_ in never]: never
+          }
+          Functions: {
+            "graphql":
+{ Args: { "extensions"?: Json,"operationName"?: string,"query"?: string,"variables"?: Json }; Returns: Json
+                           }
+          }
+          Enums: {
+            [_ in never]: never
+          }
+          CompositeTypes: {
+            [_ in never]: never
+          }
+        },"public": {
+          Tables: {
+            "budget_periods": {
+                  Row: {
+                    "budget_id": string,"carried_in": number,"closed_at": string | null,"created_at": string,"end_date": string,"first_pay_received": boolean,"id": string,"leftover_choice": string | null,"pay_slot": string,"start_date": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "budget_id": string,"carried_in"?: number,"closed_at"?: string | null,"created_at"?: string,"end_date": string,"first_pay_received"?: boolean,"id"?: string,"leftover_choice"?: string | null,"pay_slot": string,"start_date": string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "budget_id"?: string,"carried_in"?: number,"closed_at"?: string | null,"created_at"?: string,"end_date"?: string,"first_pay_received"?: boolean,"id"?: string,"leftover_choice"?: string | null,"pay_slot"?: string,"start_date"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "budget_periods_budget_fkey"
+      columns: ["budget_id","user_id"]
+isOneToOne: false
+      referencedRelation: "budgets"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"budgets": {
+                  Row: {
+                    "ask_on_payday": boolean,"budget_model": string,"carry_over": boolean,"created_at": string,"frequency": string,"id": string,"name": string,"needs_pct": number,"opening_balance": number | null,"pay_day_1": number | null,"pay_day_2": number | null,"pay_weekday": number | null,"savings_debt_pct": number,"updated_at": string,"user_id": string,"wants_pct": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "ask_on_payday"?: boolean,"budget_model"?: string,"carry_over"?: boolean,"created_at"?: string,"frequency": string,"id"?: string,"name": string,"needs_pct"?: number,"opening_balance"?: number | null,"pay_day_1"?: number | null,"pay_day_2"?: number | null,"pay_weekday"?: number | null,"savings_debt_pct"?: number,"updated_at"?: string,"user_id"?: string,"wants_pct"?: number
+                  }
+                  Update: {
+                    "ask_on_payday"?: boolean,"budget_model"?: string,"carry_over"?: boolean,"created_at"?: string,"frequency"?: string,"id"?: string,"name"?: string,"needs_pct"?: number,"opening_balance"?: number | null,"pay_day_1"?: number | null,"pay_day_2"?: number | null,"pay_weekday"?: number | null,"savings_debt_pct"?: number,"updated_at"?: string,"user_id"?: string,"wants_pct"?: number
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"income_sources": {
+                  Row: {
+                    "amount": number,"amount_varies": boolean,"budget_id": string,"created_at": string,"end_date": string | null,"id": string,"name": string,"pay_slot": string,"start_date": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"amount_varies"?: boolean,"budget_id": string,"created_at"?: string,"end_date"?: string | null,"id"?: string,"name": string,"pay_slot": string,"start_date": string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "amount"?: number,"amount_varies"?: boolean,"budget_id"?: string,"created_at"?: string,"end_date"?: string | null,"id"?: string,"name"?: string,"pay_slot"?: string,"start_date"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "income_sources_budget_fkey"
+      columns: ["budget_id","user_id"]
+isOneToOne: false
+      referencedRelation: "budgets"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"profiles": {
                   Row: {
                     "bill_reminders": boolean,"consent_at": string | null,"consent_version": string | null,"created_at": string,"display_name": string | null,"id": string,"is_demo": boolean,"mid_period_checkin": boolean,"payday_summary": boolean,"theme": string,"updated_at": string,"user_id": string,"week_start": string
                   }
@@ -144,7 +216,11 @@ export type CompositeTypes<
   : never
 
 export const Constants = {
-  "public": {
+  "graphql_public": {
+          Enums: {
+            
+          }
+        },"public": {
           Enums: {
             
           }

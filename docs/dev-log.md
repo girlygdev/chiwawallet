@@ -2,6 +2,27 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 · 2b budgets, income_sources, budget_periods
+- **What:** A migration for the three Week 2 tables, with RLS on all of them, plus 36 database tests. Applied to local Supabase only.
+- **Files:** `supabase/migrations/20261119111038_budgets.sql`, `tests/db/budgets.test.ts`, `src/lib/supabase/types.ts` (regenerated), `docs/week-2-tasks.md`.
+- **Decisions:**
+  - `user_id` defaults to `auth.uid()`.
+  - Income sources and periods point at their budget with `(budget_id, user_id)`. RLS alone wouldn't stop someone attaching rows to another user's budget id.
+  - The payday check matches `getPeriod()`, including "payday 1 ≤ 27".
+  - Users can update only the listed columns: never ids, owners, timestamps or a period's dates.
+  - Deleting a budget deletes its income sources and periods.
+  - Income amount must be above ₱0, even when it varies (owner).
+  - Whether a pay slot fits the budget's frequency is checked with Zod in the app, not in the database (owner).
+- **Tests:**
+  - 62 database tests and 62 unit tests pass; lint and typecheck pass.
+  - With RLS turned off locally, the four A-vs-B tests failed (plus two owner tests); RLS is back on.
+  - The live dry run listed only this migration. Pushed live after the owner's go.
+  - On live: RLS is on all three tables, with 4 policies each, no `anon` read access and all 5 key constraints. Migration history matches local.
+- **AI notes:**
+  - Claude's first draft let a missing payday pass the check: in Postgres, a check that comes out null counts as passing. Fixed with `coalesce(..., false)`, and covered by tests.
+  - The first RLS-off check sent several statements in one `db query` call, and they silently didn't run. Redone one statement at a time.
+- **Next:** 2c, creating a period the first time it's opened.
+
 ## 2026-11-19 · Week 2 · 2a getPeriod()
 - **What:** Pure period math in `src/lib/periods.ts`:
   - `getPeriod(date, schedule)` covers semi-monthly, monthly and weekly.

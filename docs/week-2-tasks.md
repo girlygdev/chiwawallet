@@ -13,7 +13,7 @@ Specs: `docs/designs/onboarding.md`, `income.md`, `dashboard.md` (header only), 
   - Dates are plain `date` values in Asia/Manila; no database yet.
   - Also a "Nov 15 – 29" range formatter (month on both sides only when it changes).
   - Done when: every case passes.
-- [ ] **2b. Migration: `budgets`, `budget_periods`, `income_sources`.**
+- [x] **2b. Migration: `budgets`, `budget_periods`, `income_sources`.** *(Pushed live Nov 19 after the owner's go; RLS, policies and constraints checked on live.)*
   - Columns from the brief's data model, plus `income_sources.end_date` (3.2) and `budget_periods.first_pay_received` (3.14).
   - Enums or check constraints for frequency and pay_slot; the 50/30/20 percentages must add up to 100.
   - RLS on all three, with A-can't-read-B tests on local Supabase.
