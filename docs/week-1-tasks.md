@@ -34,8 +34,8 @@ Built from `docs/designs/auth-screens.md`, which adds forgot password, check you
   - [x] **Part 1. Table, trigger and RLS tests on local Supabase.** Migration (including `consent_version`), column permissions, 20 database tests, generated types.
   - [x] **Apply the migration to the live project** (`supabase login`, `link`, `db push`; owner runs or approves). *(Applied Nov 19 after the owner's go.)*
   - [x] **Part 2. App reads and writes `profiles`.** *(Built Nov 19 with option (a), the `record_consent` function. Its migration must be live before the code is deployed.)* The consent step records `consent_at` (users can't write it directly, so this needs a database function or a trigger on the user's metadata); the dashboard greeting reads `display_name`; the Supabase clients use the generated types. Sign-up and the consent step send `consent_version` (a constant shared with the legal pages' "Last updated" date), and the consent text adds "I'm 18 or older" (decided Nov 19, plan review 1.2).
-- [ ] **App shell:** bottom nav on mobile, sidebar on desktop. *(Frame built Nov 19 per plan review §5; waiting for the owner's check by eye at 390px and 1280px, light and dark.)*
-- [ ] **GitHub Actions:** lint and type check on every push (from the brief's Week 1 list; missing from this file until Nov 19).
+- [x] **App shell:** bottom nav on mobile, sidebar on desktop. *(Frame built Nov 19 per plan review §5; owner checked it on mobile and desktop Nov 19.)*
+- [x] **GitHub Actions:** lint and type check on every push (from the brief's Week 1 list; missing from this file until Nov 19). *(Built Nov 19: `.github/workflows/ci.yml` also runs the unit tests. Confirm the first run is green after pushing.)*
 
 ## Moved to later weeks
 

@@ -237,8 +237,8 @@ Each task fits in one session and ends with something you can check. Deploy from
 - [x] Supabase Auth with email + password and Google; login, sign-up and logout pages
 - [x] Middleware that redirects logged-out users away from app pages
 - [x] `profiles` table with RLS, created automatically on sign-up
-- [ ] App shell: bottom nav on mobile, sidebar on desktop
-- [ ] GitHub Actions: lint and type check on every push
+- [x] App shell: bottom nav on mobile, sidebar on desktop
+- [x] GitHub Actions: lint and type check on every push
 
 ### Week 2: Pay-period engine and income
 

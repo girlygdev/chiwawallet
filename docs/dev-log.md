@@ -2,6 +2,21 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 1 · GitHub Actions CI
+- **What:** Every push and pull request runs these on Node 22: `npm ci`, lint, typecheck and the unit tests.
+- **Files:** `.github/workflows/ci.yml`, `docs/week-1-tasks.md`, `docs/mvp-brief.md`. Also ticks the app shell, which the owner checked on mobile and desktop.
+- **Decisions:**
+  - Included unit tests, as the brief's stack table says.
+  - Left out `test:db` (needs Docker) and `next build` (Vercel builds every push).
+  - No secrets. A newer push to the same branch cancels the older run.
+  - A failing run does not block Vercel deploys yet.
+- **Tests:**
+  - The same steps pass locally: `npm ci` in a clean folder (594 packages), lint, typecheck, 32 tests.
+  - The first GitHub run is checked after pushing.
+- **AI notes:** None.
+- **Next:** Week 1 is done. Before Week 2: settle plan review sections 3–5, update the brief's data model, start `V1.1.md` and write `week-2-tasks.md`.
+- **Open:** Should a failed CI run block deploys (branch protection or Vercel setting)? Decide later.
+
 ## 2026-11-19 · Week 1 · Dev server uses local Supabase
 - **What:** `npm run dev` now uses local Supabase (Docker) instead of the live project. Before this, signing up or clicking around on localhost wrote real rows to the live database.
 - **Files:** `.env.development.local` (new, gitignored, local URL and publishable key), `.env.example` (comment explaining the override).
