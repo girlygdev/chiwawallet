@@ -84,6 +84,53 @@ export function formatPeriodRange(start: string, end: string): string {
   return `${format(from, "MMM d")} – ${format(to, "d")}`;
 }
 
+/** `count` periods in a row, starting with the one that contains `date`. */
+export function nextPeriods(date: string, schedule: PaySchedule, count: number): Period[] {
+  const periods: Period[] = [];
+  let day = date;
+  for (let i = 0; i < count; i++) {
+    const period = getPeriod(day, schedule);
+    periods.push(period);
+    // The day after this period ends is the first day of the next one.
+    day = format(addDays(parseDate(period.end), 1), ISO_DATE);
+  }
+  return periods;
+}
+
+/** 1st, 2nd, 3rd, 4th … 11th, 12th, 13th … 21st, 22nd, 23rd … 31st. */
+export function ordinal(n: number): string {
+  const lastTwo = n % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return `${n}th`;
+  const suffix = { 1: "st", 2: "nd", 3: "rd" }[n % 10] ?? "th";
+  return `${n}${suffix}`;
+}
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** The short tag for a period's payday: "15th", "30th", or "Mon" for weekly. */
+export function paydayLabel(schedule: PaySchedule, slot: PaySlot): string {
+  switch (schedule.frequency) {
+    case "weekly":
+      return WEEKDAYS[schedule.payWeekday].slice(0, 3);
+    case "monthly":
+      return ordinal(schedule.payDay1);
+    case "semi_monthly":
+      return ordinal(slot === "payday_2" ? schedule.payDay2 : schedule.payDay1);
+  }
+}
+
+/** One line for the onboarding rail: "Twice a month · 15th & 30th". */
+export function describeSchedule(schedule: PaySchedule): string {
+  switch (schedule.frequency) {
+    case "weekly":
+      return `Weekly · ${WEEKDAYS[schedule.payWeekday]}s`;
+    case "monthly":
+      return `Monthly · ${ordinal(schedule.payDay1)}`;
+    case "semi_monthly":
+      return `Twice a month · ${ordinal(schedule.payDay1)} & ${ordinal(schedule.payDay2)}`;
+  }
+}
+
 /** The payday fields of a `budgets` row. */
 export type BudgetScheduleFields = {
   frequency: string;

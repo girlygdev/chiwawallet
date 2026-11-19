@@ -22,6 +22,7 @@ const APP_PATHS = [
   "/income",
   "/settings",
   "/more", // mobile hub (more-and-categories.md)
+  "/onboarding", // first-time setup (plan review 4.2)
 ];
 
 // Pages only for logged-out users. Forgot password, Set new password and

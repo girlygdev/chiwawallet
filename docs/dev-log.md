@@ -2,6 +2,36 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 · 2d-1 Onboarding frame and step 1
+- **What:** The first part of onboarding:
+  - `/onboarding` resumes at the first unfinished step.
+  - The frame has a mobile top bar and progress bar, plus a desktop mint step rail.
+  - Step 1 "Your budget" has frequency radio cards, payday fields for all three frequencies, the short-month hint, and Week starts on.
+  - A live "Your next payday periods" preview built on `getPeriod()`.
+  - Every app page now sends users who haven't finished setup to onboarding.
+  - Steps 2 and 3 are placeholders.
+- **Files:**
+  - New: `src/lib/money.ts`, `src/lib/onboarding.ts`, `src/lib/current-budget.ts`, `src/lib/validation/budget.ts`, `src/lib/validation/field-errors.ts`.
+  - Changed: `src/lib/periods.ts` (`nextPeriods`, `ordinal`, `paydayLabel`, `describeSchedule`), `src/lib/require-app-user.ts` (`requireConsentedUser` split out, plus the budget check), `src/proxy.ts` (`/onboarding`).
+  - Onboarding: `src/components/onboarding/*`, `src/app/onboarding/*`.
+  - Tests: `tests/lib/money.test.ts`, `tests/lib/onboarding.test.ts`, `tests/lib/validation/budget.test.ts`, `tests/lib/periods.test.ts`.
+- **Decisions:**
+  - Setup counts as finished once the budget has an opening balance, which is saved last. No extra column is needed.
+  - The "not finished" check lives in `requireAppUser()` (plan review 4.1).
+  - The form keeps all three payday fields while you switch frequency; `toBudgetRow()` saves only the ones used.
+  - Both payday menus offer 1st–31st, as the spec says, and the schema explains bad picks.
+  - Fields are 48px.
+  - Money parsing works on the typed text, never through a float.
+  - Owner's decisions: build a reusable sheet in 2d-2; keep all three previews; frequency changes move one-payday income to "Every payday"; the oldest budget is "yours"; always ask the mid-period question.
+- **Tests:**
+  - Written first and failing. 124 unit tests now pass; lint, typecheck and the production build pass.
+  - A throwaway local user was checked at each stage (no budget, budget only, income, finished with ₱0). Every page redirected correctly, and logged-out `/onboarding/budget` goes to `/login`.
+  - The step 1 form itself still needs the owner's check by eye.
+- **AI notes:**
+  - At first Claude limited the 1st payday menu to 1–27, but switching frequency could leave a saved day the menu can't show. Changed to 1–31 with the schema's error messages.
+  - Don't deploy until 2d-3: live users without a budget would land on placeholder steps 2–3 and couldn't finish setup.
+- **Next:** 2d-2, Step 2 Income and the reusable bottom sheet.
+
 ## 2026-11-19 · Week 2 · 2c Create a period the first time it's opened
 - **What:**
   - `getOrCreatePeriod(supabase, budget, date)` returns the budget's period for a date, creating the row on first open.

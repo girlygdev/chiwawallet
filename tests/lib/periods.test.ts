@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  describeSchedule,
   formatPeriodRange,
   getPeriod,
+  nextPeriods,
+  ordinal,
+  paydayLabel,
   type PaySchedule,
   scheduleFromBudget,
   todayInManila,
@@ -294,6 +298,61 @@ describe("scheduleFromBudget", () => {
     expect(() => scheduleFromBudget(row({ frequency: "fortnightly", pay_day_1: 1 }))).toThrow(
       RangeError,
     );
+  });
+});
+
+describe("nextPeriods: the onboarding preview list", () => {
+  it("starts with the period containing the date, then follows on without gaps", () => {
+    expect(nextPeriods("2026-11-19", semi(15, 30), 4)).toEqual([
+      { start: "2026-11-15", end: "2026-11-29", paySlot: "payday_1" },
+      { start: "2026-11-30", end: "2026-12-14", paySlot: "payday_2" },
+      { start: "2026-12-15", end: "2026-12-29", paySlot: "payday_1" },
+      { start: "2026-12-30", end: "2027-01-14", paySlot: "payday_2" },
+    ]);
+  });
+
+  it("weekly", () => {
+    expect(nextPeriods("2026-11-19", weekly(1), 2).map((p) => p.start)).toEqual([
+      "2026-11-16",
+      "2026-11-23",
+    ]);
+  });
+});
+
+describe("ordinal", () => {
+  it.each([
+    [1, "1st"],
+    [2, "2nd"],
+    [3, "3rd"],
+    [4, "4th"],
+    [11, "11th"],
+    [12, "12th"],
+    [13, "13th"],
+    [21, "21st"],
+    [22, "22nd"],
+    [23, "23rd"],
+    [30, "30th"],
+    [31, "31st"],
+  ])("%d → %s", (n, text) => {
+    expect(ordinal(n)).toBe(text);
+  });
+});
+
+describe("paydayLabel and describeSchedule", () => {
+  it("twice a month uses the chosen days", () => {
+    expect(paydayLabel(semi(15, 30), "payday_1")).toBe("15th");
+    expect(paydayLabel(semi(15, 30), "payday_2")).toBe("30th");
+    expect(describeSchedule(semi(15, 30))).toBe("Twice a month · 15th & 30th");
+  });
+
+  it("monthly", () => {
+    expect(paydayLabel(monthly(31), "every")).toBe("31st");
+    expect(describeSchedule(monthly(31))).toBe("Monthly · 31st");
+  });
+
+  it("weekly uses the weekday", () => {
+    expect(paydayLabel(weekly(0), "every")).toBe("Sun");
+    expect(describeSchedule(weekly(5))).toBe("Weekly · Fridays");
   });
 });
 

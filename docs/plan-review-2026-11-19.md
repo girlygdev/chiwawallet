@@ -71,7 +71,7 @@ The specs cover about 25 screens in mobile and desktop versions, plus empty stat
 | 5.2 | Swipe gestures on transaction rows (Edit and Delete buttons stay) | `activity.md` | open |
 | 5.3 | Copy last period's plan | `plan.md` fix #5 | open |
 | 5.4 | "Wins" on the rollover screen (show the plain numbers) | `payday-rollover.md` | open |
-| 5.5 | Desktop-only live previews (onboarding, New debt schedule) | `onboarding.md`, `debts.md` | open |
+| 5.5 | Desktop-only live previews (onboarding, New debt schedule) | `onboarding.md`, `debts.md` | **Decided Nov 19:** keep all three onboarding previews (owner); New debt schedule still open |
 | 5.6 | Rebuilding future periods when paydays change (see 4.8) | `settings.md` | open |
 | 5.7 | "Why are you leaving?" (see 3.12) | `settings.md` | open |
 
