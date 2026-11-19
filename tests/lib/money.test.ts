@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { formatPeso, parsePesoInput } from "@/lib/money";
+import { formatPeso, formatPesoInput, parsePesoInput } from "@/lib/money";
+
+describe("formatPesoInput: centavos → what an input shows", () => {
+  it.each([
+    [2_500_000, "25,000"],
+    [2_500_050, "25,000.50"],
+    [0, "0"],
+    [-120_025, "-1,200.25"],
+  ])("%d → %s", (centavos, text) => {
+    expect(formatPesoInput(centavos)).toBe(text);
+    // What it shows can be read back to the same amount.
+    expect(parsePesoInput(text)).toBe(centavos);
+  });
+});
 
 describe("parsePesoInput: typed pesos → integer centavos", () => {
   it.each([

@@ -29,6 +29,16 @@ export function formatPeso(centavos: number, { signed = false }: { signed?: bool
 }
 
 /**
+ * Centavos → the text a money input shows: "25,000", "25,000.50", "-300".
+ * No ₱ (the input draws it) and a plain hyphen, so it reads back exactly
+ * through parsePesoInput().
+ */
+export function formatPesoInput(centavos: number): string {
+  const text = formatPeso(Math.abs(centavos)).slice(1); // drop the ₱
+  return centavos < 0 ? `-${text}` : text;
+}
+
+/**
  * What someone typed ("5,000", "₱ 1,200.50", "-300") → integer centavos, or
  * null if it isn't a peso amount. Up to two decimal places. Parsed as text,
  * never through a float, so "0.29" is exactly 29 centavos.

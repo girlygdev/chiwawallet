@@ -2,6 +2,32 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 · 2d-2 Onboarding step 2 Income
+- **What:**
+  - Step 2 lists income as cards on mobile and a table on desktop.
+  - Adding uses the bottom sheet on mobile and a dashed inline form on desktop. Editing opens the sheet, and Remove asks "Keep it / Remove".
+  - "Expected per payday" preview; a mint before-and-after box in the form.
+  - Continue is disabled until there's one income.
+  - A note when a frequency change moved income to Every payday.
+- **Files:**
+  - New shared components: `src/components/sheet.tsx` (reusable), `money-input.tsx`, `segmented.tsx`.
+  - New: `src/lib/income.ts` (`expectedIncome`, `incomeImpact`), `src/lib/validation/income.ts`.
+  - Changed: `src/lib/money.ts` (`formatPesoInput`), `src/components/auth/submit-button.tsx` (`className` prop), `src/app/onboarding/actions.ts` (add, update and remove income; `saveBudget` reports moved income).
+  - Step 2: `src/app/onboarding/income/*`.
+  - Tests: `tests/lib/income.test.ts`, `tests/lib/validation/income.test.ts`, `tests/lib/money.test.ts`.
+- **Decisions:**
+  - The Sheet is built on Base UI's Dialog (already installed): a bottom sheet under 768px, a centered sticker dialog from 768px. Base UI handles the focus trap, Esc and returning focus.
+  - Amounts travel as typed text and are parsed by the same Zod schema in the browser and on the server.
+  - In onboarding, removing income is a plain delete, since nothing has been logged against it yet. The Income screen's delete (2e) follows the level 2 pattern.
+  - A new source's start date is the current period's start (3.3).
+  - The one-time-income note and the "Starts" date field are left out of onboarding; they belong to the Income screen and Week 3.
+- **Tests:**
+  - Written first and failing. 141 unit tests pass; lint, typecheck and the build pass.
+  - Step 2 rendered with a throwaway local user: empty state, totals (15th ₱25,000, 30th ₱33,000, ₱58,000 a month), the Continue link, edit labels and the frequency note.
+  - The sheet and the add, edit and remove clicks need the owner's check by eye.
+- **AI notes:** Claude first had the money input tidy its text on blur by setting the input directly. That can leave the form library with the old value, so it was removed.
+- **Next:** 2d-3, Step 3 and Done. Still don't deploy until it's done.
+
 ## 2026-11-19 · Week 2 · 2d-1 Onboarding frame and step 1
 - **What:** The first part of onboarding:
   - `/onboarding` resumes at the first unfinished step.

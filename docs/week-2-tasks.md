@@ -27,7 +27,7 @@ Specs: `docs/designs/onboarding.md`, `income.md`, `dashboard.md` (header only), 
     - The redirect for users who haven't finished setup.
     - Step 1 with the live "Your next payday periods" preview.
     - Steps 2 and 3 are placeholders.
-  - [ ] **2d-2. Step 2 Income.** A reusable bottom sheet (owner, Nov 19: build it now; later features reuse it), the income list, add, edit and remove, `expectedIncome()`, and the "Expected per payday" preview. Shows a note when a frequency change moved income to "Every payday".
+  - [x] **2d-2. Step 2 Income.** *(Built Nov 19; owner checked it Nov 19.)* A reusable bottom sheet (owner, Nov 19: build it now; later features reuse it), the income list, add, edit and remove, `expectedIncome()`, and the "Expected per payday" preview. Shows a note when a frequency change moved income to "Every payday".
   - [ ] **2d-3. Step 3 and Done.** Starting balance, the mid-period question (always asked; tag "Started Nov 15", or "Starts today" on payday), finish (period, then answer, then opening balance last), Done on mobile and desktop, and the "Your first period" preview.
   - Decided Nov 19:
     - All three live previews are kept (plan review 5.5).
