@@ -61,7 +61,7 @@ Everything runs on free tiers.
 
 ### Prerequisites
 
-- Node.js 20 or later
+- Node.js 22 or later
 - A free [Supabase](https://supabase.com) project
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/), for local Supabase and the database tests (the Supabase CLI is installed with `npm install`)
 

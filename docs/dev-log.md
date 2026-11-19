@@ -2,6 +2,14 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 1 · Fix the Vercel build: @types/node 22
+- **What:** Vercel's build failed at `npm install` with `ERESOLVE`: Vitest 5.1.0 expects `@types/node` `^22 || >=24`, and the project had `^20`. Moved `@types/node` to `^22` (22.20.5), matching local Node 22.16, and regenerated the lockfile with a normal `npm install`.
+- **Files:** package.json, package-lock.json, README.md (Node 22 or later)
+- **Decisions:** Fixed the real conflict instead of adding `legacy-peer-deps` to `.npmrc`. The same conflict caused npm's `edgesOut` crash on the Vitest and Supabase CLI installs, so `--legacy-peer-deps` is no longer needed (the earlier note about future installs no longer applies). Vercel's Node.js version should be 22.x to match the types.
+- **Tests:** A clean install from the new lockfile in an empty folder worked (594 packages, no conflict). `npm run lint`, `npm run typecheck`, `npm run test` (24), `npm run test:db` (26) and `npm run build` pass.
+- **AI notes:** Claude installed with `--legacy-peer-deps` to get past the crash instead of finding its cause, which hid the conflict until Vercel's normal install hit it.
+- **Next:** Check the Vercel deploy, then the owner tests sign-up and Google consent on the live URL.
+
 ## 2026-11-19 · Week 1 · `profiles` part 2: the app reads and writes profiles
 - **What:** A new `record_consent(name, version)` database function records consent from the one-time Google consent step. Sign-up sends `consent_version`. The dashboard, the consent page and `/auth/callback` check `profiles.consent_at`, and the greeting reads `profiles.display_name`. The Supabase clients are typed with the generated schema. The consent checkbox now says "I'm 18 or older and agree to…".
 - **Files:** supabase/migrations/20261119065318_record_consent.sql, src/lib/legal.ts, src/lib/profiles.ts, src/lib/auth/consent.ts, src/lib/supabase/client.ts, src/lib/supabase/server.ts, src/lib/supabase/proxy.ts, src/lib/supabase/types.ts, src/proxy.ts, src/app/(auth)/actions.ts, src/app/(auth)/consent/page.tsx, src/app/auth/callback/route.ts, src/app/(app)/dashboard/page.tsx, src/components/auth/consent-checkbox.tsx, src/lib/validation/auth.ts, src/app/globals.css (comment), tests/db/record-consent.test.ts, tests/lib/validation/auth.test.ts, docs/designs/auth-screens.md, docs/designs/index.md, CLAUDE.md, docs/week-1-tasks.md, docs/plan-review-2026-11-19.md
