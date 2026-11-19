@@ -49,7 +49,7 @@ Specs: `docs/designs/onboarding.md`, `income.md`, `dashboard.md` (header only), 
   - Left for Week 3: Received and Expected status lines, Recently received, Log one-time income.
   - Original task: List, New and Edit income source (reusing the onboarding form), Delete as a level 2 delete, an optional end date. Expected income per period by pay slot, as a pure function with tests.
   - Done when: adding, editing and ending a source changes the expected income for the right paydays.
-- [ ] **2f. Dashboard header.** Period dates ("Nov 15 – 29"), days left and expected income for this period.
+- [x] **2f. Dashboard header.** Period dates ("Nov 15 – 29"), days left and expected income for this period.
   - Done when: it matches Week 2's "done when" on live.
   - *(Built Nov 19; checked locally with a test user, including different 15th and 30th amounts. Owner checked it Nov 19, including a dark-mode contrast fix on the "Already in your starting balance" pill. Waiting for the live check after a push.)*
     - Shows the period dates and "15th payday · N days left".

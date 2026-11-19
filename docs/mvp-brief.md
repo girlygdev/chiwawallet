@@ -244,12 +244,12 @@ Each task fits in one session and ends with something you can check. Deploy from
 
 **Done when:** all period tests pass, and the dashboard shows the right period and its expected income (your 15th and 30th amounts differ).
 
-- [ ] `budgets` table + RLS; onboarding form (frequency, pay dates, week start, opening balance)
-- [ ] Pure function `getPeriod(date, budget)` returning start date, end date and pay slot
-- [ ] Vitest cases: semi-monthly 10th/25th, 15th/30th in February (30th becomes Feb 28), pay day 31 in a 30-day month, weekly with Monday and Sunday paydays (weekly periods follow `pay_weekday`; `profiles.week_start` only sets how calendars display), monthly
-- [ ] `budget_periods` table; create a period the first time it's opened
-- [ ] `income_sources` table; Income screen; expected income per period by pay slot
-- [ ] Dashboard header: period dates, days left, expected income
+- [x] `budgets` table + RLS; onboarding form (frequency, pay dates, week start, opening balance)
+- [x] Pure function `getPeriod(date, budget)` returning start date, end date and pay slot
+- [x] Vitest cases: semi-monthly 10th/25th, 15th/30th in February (30th becomes Feb 28), pay day 31 in a 30-day month, weekly with Monday and Sunday paydays (weekly periods follow `pay_weekday`; `profiles.week_start` only sets how calendars display), monthly
+- [x] `budget_periods` table; create a period the first time it's opened
+- [x] `income_sources` table; Income screen; expected income per period by pay slot
+- [x] Dashboard header: period dates, days left, expected income
 
 ### Week 3: Categories and transactions
 

@@ -2,6 +2,32 @@
 
 Newest entry first.
 
+## 2026-11-19 · Week 2 (extra) · More › Money links on mobile
+- **What:**
+  - Phones had no way to reach Income. More now has the spec's MONEY section, with Income, Bills, Savings pots and Debts.
+  - Income shows a live "2 sources · ₱58,000 a month".
+  - The Appearance toggle moved into the spec's section style.
+- **Files:** `src/app/(app)/more/money-section.tsx` (new), `src/app/(app)/more/page.tsx`.
+- **Decisions:**
+  - Built ahead of More's Week 3 task, from `more-and-categories.md` §1.
+  - Bills, Savings pots and Debts open their placeholder pages until those features exist; their detail lines come with them.
+  - The Income detail streams in after the rows appear.
+- **Tests:** Lint, typecheck and the build pass. With a test user, More shows all four links, "2 sources · ₱58,000 a month", Appearance and Log out.
+- **AI notes:** The Income screen (2e-1) went in without a mobile way to reach it. The owner found it.
+- **Next:** Push, then check Week 2's "done when" on live.
+
+## 2026-11-19 · Week 2 · Week 2 complete (end of day)
+- **What:** All six Week 2 boxes are ticked in `mvp-brief.md` (owner's call), and every task in `week-2-tasks.md` is done.
+- **Open for next session:**
+  - Open the live dashboard after this push and confirm the "done when": the right period, plus expected income that differs on the 15th and 30th.
+  - Plan Week 3 (transactions). First settle plan review 3.4–3.6 (system categories, pot withdrawals, what happens to history when something is deleted), then write `week-3-tasks.md`.
+  - Still open from before:
+    - plan review 4.4–4.9 and 5.1–5.7
+    - starting `V1.1.md`
+    - the Google consent live test
+    - a dark-mode readability pass across screens
+    - trying Vitest 5.1.1 after Dec 2 for the Windows path bug
+
 ## 2026-11-19 · Week 2 · 2f Dashboard header
 - **What:**
   - The dashboard shows this period's dates ("Nov 15 – 29") and "15th payday · 10 days left".
