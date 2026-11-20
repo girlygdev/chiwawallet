@@ -2,6 +2,19 @@
 
 Newest entry first.
 
+## 2026-11-20 · Week 2 (extra) · Mint sticker border in dark mode
+- **What:** In dark mode the sticker outline and offset shadow are now mid mint (#7FD3A3) instead of black, which disappeared on the dark background. Light mode is unchanged.
+- **Files:** `src/app/globals.css`, `docs/designs/style-guide.md`.
+- **Decisions:**
+  - A new `--sticker` variable (black in `:root`, mint in `.dark`) feeds `border-sticker` and all three `shadow-sticker*` sizes, so no component changed.
+  - The style guide said stickers "stay black in dark mode"; the owner changed that rule.
+- **Tests:** Lint and typecheck pass; 187 unit tests pass. The compiled CSS has both values. The owner checked the screens.
+- **AI notes:**
+  - The dev server missed the last CSS edit and needed a restart.
+  - Vitest must run from `C:\Projects\...` (uppercase drive); from `c:\` every suite crashes (the known Windows path bug).
+- **Open:** The dimmer behind sheets and delete dialogs uses `bg-sticker/50`, so in dark mode it's now a mint wash. Suggested fix: a fixed `scrim` token. Waiting on the owner.
+- **Also:** The Google consent live test passed on the owner's phone (Nov 19 night), and the live screens check out.
+
 ## 2026-11-19 · Week 2 (extra) · More › Money links on mobile
 - **What:**
   - Phones had no way to reach Income. More now has the spec's MONEY section, with Income, Bills, Savings pots and Debts.

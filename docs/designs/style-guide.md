@@ -27,7 +27,7 @@ Green means money and progress, ink black gives the sticker look, and everything
 | `green-700` Deep Green | #157A41 | Hero cards, selected period, Needs in charts |
 | `green-800` Forest | #0F5E34 | Text on mint, link hover |
 | `ink` | #1C1C1E | Body text (turns light in dark mode) |
-| `sticker` | #1C1C1E | Sticker outlines and shadows (black in light and dark mode) |
+| `sticker` | #1C1C1E | Sticker outlines and shadows (mid mint #7FD3A3 in dark mode) |
 | `text-2` | #3E4C44 | Secondary text, labels in lists |
 | `text-3` | #55645B | Hints, captions, dates (smallest allowed grey) |
 | `gold` Coin Gold | #F4C430 | Accent only: clasp, progress on green, Wants in charts |
@@ -68,6 +68,7 @@ The 50/30/20 bar always uses the same order and colors: **Needs** #157A41, **Wan
 | `surface` | #FFFFFF | #17261D |
 | `line` | #D5E3DA | #2C3F33 |
 | `ink` (text) | #1C1C1E | #EAF2EC |
+| `sticker` (outline + shadow) | #1C1C1E | #7FD3A3 (mid mint; black blends into the dark background) |
 | `text-3` | #55645B | #A7BDB0 |
 | Primary button | #177A42 + white text | #2FBF6E + #0B1A11 text |
 | Link | #177A42 | #5DD68F |
@@ -133,7 +134,7 @@ Everything sits on a 4px grid with soft, generous corners. Depth comes from one 
 
 ### The sticker shadow
 
-A 2px `sticker` border plus a solid `sticker` shadow with no blur: `box-shadow: 4px 4px 0 #1C1C1E`. Both stay black in dark mode. Use 3px for buttons, 4–5px for cards and 6px for big desktop panels.
+A 2px `sticker` border plus a solid `sticker` shadow with no blur: `box-shadow: 4px 4px 0 #1C1C1E`. In dark mode both turn mid mint (#7FD3A3), because black disappears on the dark background. Use 3px for buttons, 4–5px for cards and 6px for big desktop panels.
 
 Use it on **one hero element per area**: the Safe to spend card, the main save button in a sheet, the + button, the selected payday, or a key summary card. If two stickers sit side by side, remove one. Other cards stay flat.
 
@@ -298,7 +299,7 @@ Paste this into `app/globals.css` (Tailwind v4 reads the theme from CSS). Classe
   --color-green-800: #0F5E34; /* Forest: text on mint */
   --color-gold: #F4C430;
   --color-danger: #B42318;    /* destructive only */
-  --color-sticker: #1C1C1E;   /* sticker border: black in light and dark */
+  --color-sticker: var(--sticker); /* black in light, mid mint in dark */
 
   --color-ink: var(--ink);
   --color-text-2: var(--text-2);
@@ -325,21 +326,23 @@ Paste this into `app/globals.css` (Tailwind v4 reads the theme from CSS). Classe
   --radius-xl: 24px;
   --radius-sheet: 28px;
 
-  --shadow-sticker-sm: 3px 3px 0 #1C1C1E;
-  --shadow-sticker: 4px 4px 0 #1C1C1E;
-  --shadow-sticker-lg: 6px 6px 0 #1C1C1E;
+  --shadow-sticker-sm: 3px 3px 0 var(--sticker);
+  --shadow-sticker: 4px 4px 0 var(--sticker);
+  --shadow-sticker-lg: 6px 6px 0 var(--sticker);
 }
 
 :root {
   --ink: #1C1C1E; --text-2: #3E4C44; --text-3: #55645B;
   --bg: #F4FAF6; --surface: #FFFFFF; --mint: #E8F6EE;
   --line: #D5E3DA; --line-soft: #E3EAE6; --track: #E3EDE7;
+  --sticker: #1C1C1E;
 }
 
 .dark {
   --ink: #EAF2EC; --text-2: #C9D6CE; --text-3: #A7BDB0;
   --bg: #0F1A14; --surface: #17261D; --mint: #15301F;
   --line: #2C3F33; --line-soft: #22342A; --track: #22342A;
+  --sticker: #7FD3A3; /* mid mint */
 }
 ```
 
