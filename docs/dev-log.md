@@ -2,6 +2,23 @@
 
 Newest entry first.
 
+## 2026-11-20 · Week 2 (extra) · Loading skeletons for onboarding and Income
+- **What:**
+  - Onboarding steps and the Income screen now show grey skeleton blocks while their data loads, instead of a blank screen (onboarding) or a "Loading…" line (Income).
+  - The owner had seen a lag between onboarding steps on live, where the screen seemed unresponsive.
+- **Files:**
+  - New: `src/components/skeleton.tsx` (`Skeleton`, `SkeletonRegion`), `src/components/onboarding/onboarding-skeleton.tsx` (`OnboardingSkeleton`, `OnboardingDoneSkeleton`).
+  - Changed: `src/app/onboarding/{page,budget/page,income/page,start/page,done/page}.tsx`, `src/app/(app)/income/page.tsx`.
+- **Decisions:**
+  - Skeletons, not a spinner (app-shell.md §5; owner's call).
+  - They go in each page's existing `<Suspense>` fallback, not `loading.tsx`. With Cache Components every page already has its own `<Suspense>`, so a `loading.tsx` would never show; the empty fallback was the blank moment.
+  - Each skeleton matches its page's layout, and the onboarding progress bar keeps the current step filled.
+  - Screen readers hear "Loading…" once (`role="status"`). The pulse is off with reduced motion.
+  - Other app pages get skeletons with their features, or in Week 9's loading-states task.
+- **Tests:** Lint and typecheck pass; 187 unit tests pass; the build passes and all six prerendered pages include the skeleton. The owner checks the look on a phone.
+- **AI notes:** The first plan (`loading.tsx`) wouldn't have worked with Cache Components. Caught while reading the pages, before writing it.
+- **Next:** Push both commits, then settle plan review 3.4–3.6 and write `week-3-tasks.md`.
+
 ## 2026-11-20 · Week 2 (extra) · Mint sticker border in dark mode
 - **What:** In dark mode the sticker outline and offset shadow are now mid mint (#7FD3A3) instead of black, which disappeared on the dark background. Light mode is unchanged.
 - **Files:** `src/app/globals.css`, `docs/designs/style-guide.md`.

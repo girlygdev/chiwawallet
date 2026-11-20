@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { OnboardingSkeleton } from "@/components/onboarding/onboarding-skeleton";
 import { OnboardingFrame } from "@/components/onboarding/onboarding-frame";
 import { isOnboarded, ONBOARDING_PATHS } from "@/lib/onboarding";
 import { getFirstPeriodInfo } from "@/lib/onboarding-data";
@@ -12,7 +13,7 @@ export const metadata: Metadata = { title: "Starting point · Chiwawallet" };
 export default function StartStepPage() {
   // Cache Components: the login check reads cookies, so it sits in <Suspense>.
   return (
-    <Suspense>
+    <Suspense fallback={<OnboardingSkeleton step={3} />}>
       <StartStep />
     </Suspense>
   );

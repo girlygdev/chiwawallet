@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
+import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import {
   expectedIncome,
   isActiveOn,
@@ -36,7 +37,7 @@ export default function IncomePage() {
     <PageShell>
       {/* Cache Components: the header shows the budget's pay schedule, which
           needs the login (cookies), so header and body stream in together. */}
-      <Suspense fallback={<p className="text-[15px] text-text-3">Loading…</p>}>
+      <Suspense fallback={<IncomeSkeleton />}>
         <IncomeContent />
       </Suspense>
     </PageShell>
@@ -240,6 +241,38 @@ function UpcomingPaydays({ paydays, schedule }: { paydays: UpcomingPayday[]; sch
         ))}
       </ul>
     </section>
+  );
+}
+
+// Shown while the sources load: the same layout as the real page (header,
+// hero, payday stats, source cards, desktop Upcoming paydays), all in grey.
+function IncomeSkeleton() {
+  return (
+    <SkeletonRegion className="flex flex-col gap-4 md:gap-6">
+      {/* Header: mobile back + title + add button; desktop eyebrow + title + button */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-1.5">
+          <Skeleton className="hidden h-4 w-40 md:block" />
+          <Skeleton className="h-8 w-44" />
+        </div>
+        <Skeleton className="size-11 rounded-[14px] md:h-12 md:w-48" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+        <Skeleton className="col-span-2 h-[124px] rounded-xl md:col-span-1" />
+        <Skeleton className="h-[78px] rounded-xl" />
+        <Skeleton className="h-[78px] rounded-xl" />
+      </div>
+
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-3.5 w-20" />
+          <Skeleton className="h-[84px] rounded-2xl" />
+          <Skeleton className="h-[84px] rounded-2xl" />
+        </div>
+        <Skeleton className="hidden h-[280px] rounded-xl lg:block" />
+      </div>
+    </SkeletonRegion>
   );
 }
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { OnboardingSkeleton } from "@/components/onboarding/onboarding-skeleton";
 import { OnboardingFrame } from "@/components/onboarding/onboarding-frame";
 import { getCurrentBudget } from "@/lib/current-budget";
 import { isOnboarded } from "@/lib/onboarding";
@@ -14,7 +15,7 @@ export const metadata: Metadata = { title: "Your budget · Chiwawallet" };
 export default function BudgetStepPage() {
   // Cache Components: the login check reads cookies, so it sits in <Suspense>.
   return (
-    <Suspense>
+    <Suspense fallback={<OnboardingSkeleton step={1} />}>
       <BudgetStep />
     </Suspense>
   );

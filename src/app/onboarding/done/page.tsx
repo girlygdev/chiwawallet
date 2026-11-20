@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { OnboardingDoneSkeleton } from "@/components/onboarding/onboarding-skeleton";
 import { FirstPeriodCard } from "@/components/onboarding/first-period-card";
 import { StepHeading } from "@/components/onboarding/step-heading";
 import { getFirstPeriodInfo } from "@/lib/onboarding-data";
@@ -12,7 +13,7 @@ export const metadata: Metadata = { title: "You're all set · Chiwawallet" };
 export default function DonePage() {
   // Cache Components: the login check reads cookies, so it sits in <Suspense>.
   return (
-    <Suspense>
+    <Suspense fallback={<OnboardingDoneSkeleton />}>
       <Done />
     </Suspense>
   );

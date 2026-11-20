@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { OnboardingSkeleton } from "@/components/onboarding/onboarding-skeleton";
 import { countIncomeSources, getCurrentBudget } from "@/lib/current-budget";
 import { nextOnboardingStep, ONBOARDING_PATHS } from "@/lib/onboarding";
 import { requireConsentedUser } from "@/lib/require-app-user";
@@ -8,7 +9,7 @@ import { requireConsentedUser } from "@/lib/require-app-user";
 // or to the dashboard when setup is done. App pages send users here.
 export default function OnboardingPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<OnboardingSkeleton />}>
       <ResumeOnboarding />
     </Suspense>
   );
