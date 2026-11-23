@@ -45,6 +45,13 @@ export async function proxy(request: NextRequest) {
   const claims = data?.claims;
 
   const { pathname } = request.nextUrl;
+
+  // The home page has no screen of its own: logged-out visitors go to Log in,
+  // logged-in users straight to Dashboard (one redirect, not two).
+  if (pathname === "/") {
+    return redirectWithCookies(request, getResponse(), claims ? "/dashboard" : "/login");
+  }
+
   const isAppPage = startsWithAny(pathname, APP_PATHS);
 
   if (!claims) {

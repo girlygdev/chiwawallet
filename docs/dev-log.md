@@ -2,6 +2,17 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 (extra) · Home page goes to Log in
+- **What:** `/` no longer shows the temporary theme-check page. Logged-out visitors go to Log in; logged-in users go straight to Dashboard.
+- **Files:** `src/proxy.ts`, `src/app/page.tsx`.
+- **Decisions:**
+  - The proxy handles `/` itself, so logged-in users get one redirect, not `/` → `/login` → `/dashboard`.
+  - `page.tsx` is a fallback `redirect("/login")` in case the proxy doesn't run.
+  - The theme-check page was dropped (owner, Nov 23); it's in git history.
+  - "Back to home" on the Privacy and Terms placeholders now lands on Log in or Dashboard.
+- **Tests:** Lint, typecheck and 187 unit tests pass. On the dev server, a logged-out request to `/` returns 307 to `/login`. The owner checks the logged-in case.
+- **Next:** 3a-2, the `transactions` migration.
+
 ## 2026-11-23 · Week 3 · 3a-1: `categories` migration and default categories
 - **What:** Added the `categories` table. Every new sign-up gets 16 default categories: 7 Needs, 6 Wants, and the locked Income, Savings pot and Extra debt payment. Existing accounts got them too. Applied on local, then on live (owner's go, Nov 23).
 - **Files:** `supabase/migrations/20261123105712_categories.sql` (new), `tests/db/categories.test.ts` (new), `src/lib/supabase/types.ts` (regenerated from live; most of the diff is the CLI's formatting), `CLAUDE.md`, `docs/mvp-brief.md`, `docs/designs/more-and-categories.md`, `docs/week-3-tasks.md`.
