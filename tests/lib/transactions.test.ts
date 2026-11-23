@@ -3,6 +3,7 @@ import {
   cashOnHand,
   type CategoryChoice,
   groupByDay,
+  editImpact,
   moneyInImpact,
   moneyOutImpact,
   periodTotals,
@@ -302,5 +303,26 @@ describe("moneyInImpact", () => {
 
   it("starts from ₱0 in an empty period", () => {
     expect(moneyInImpact([], 50_000)).toEqual({ before: 0, after: 50_000 });
+  });
+});
+
+describe("editImpact: the edit sheet's impact line and the delete dialog's effect", () => {
+  const rows = [pay, lunch, loan, toPot];
+
+  it("swaps the old amount for the new one in money out", () => {
+    // Money out is lunch ₱180 + loan ₱4,000 = ₱4,180.
+    expect(editImpact(rows, lunch, 20_000)).toEqual({ line: "out", before: 418_000, after: 420_000 });
+  });
+
+  it("uses money in for income", () => {
+    expect(editImpact(rows, pay, 2_400_000)).toEqual({ line: "in", before: 2_500_000, after: 2_400_000 });
+  });
+
+  it("takes the amount away for a delete (new amount 0)", () => {
+    expect(editImpact(rows, lunch, 0)).toEqual({ line: "out", before: 418_000, after: 400_000 });
+  });
+
+  it("uses To savings for pot moves", () => {
+    expect(editImpact(rows, toPot, 0)).toEqual({ line: "savings", before: 300_000, after: 0 });
   });
 });

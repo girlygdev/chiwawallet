@@ -11,7 +11,7 @@ import { type ActivityRow, periodNav, resolvePeriod } from "@/lib/activity";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { duePay, receivedSourceIds } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
-import { type PaySlot, periodStatusLine, scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { formatPeriodRange, type PaySlot, periodStatusLine, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { periodTotals } from "@/lib/transactions";
@@ -23,7 +23,7 @@ const MAX_ROWS = 500;
 
 // Activity (mobile) / Transactions (desktop), activity.md §1–2 and §5: one
 // period's transactions at /activity?period=<any day in it>, the current
-// period by default. Read-only for now: edit and delete come in 3e-2.
+// period by default. Rows open Edit transaction and have Delete (3e-2).
 export default function ActivityPage({ searchParams }: PageProps<"/activity">) {
   return (
     <PageShell>
@@ -141,7 +141,11 @@ async function ActivityContent({ searchParams }: { searchParams: PageProps<"/act
           startingBalance={isFirst ? budget.opening_balance : null}
         />
       ) : (
-        <ActivityList rows={rows} today={today} />
+        <ActivityList
+          rows={rows}
+          today={today}
+          periodLabel={isCurrent ? "this period" : formatPeriodRange(period.start, period.end)}
+        />
       )}
     </>
   );

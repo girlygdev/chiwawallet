@@ -3,13 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { type Resolver, useForm, useWatch } from "react-hook-form";
-import type { AddSheetData, SaveExpenseResult } from "@/app/(app)/activity/actions";
+import type { AddSheetData, EditingTransaction, SaveExpenseResult } from "@/app/(app)/activity/actions";
 import { FormError } from "@/components/auth/form-error";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { TextField } from "@/components/auth/text-field";
-import { formatPeso, parsePesoInput } from "@/lib/money";
-import { formatPeriodRange, getPeriod, todayInManila } from "@/lib/periods";
-import { moneyOutImpact } from "@/lib/transactions";
+import { formatPesoInput, parsePesoInput } from "@/lib/money";
+import { todayInManila } from "@/lib/periods";
 import {
   type TransactionFormInput,
   type TransactionValues,
@@ -19,6 +18,8 @@ import { AmountField } from "./amount-field";
 import { CategoryGrid } from "./category-grid";
 import { CategoryPicker } from "./category-picker";
 import { DateButton } from "./date-button";
+import { DeleteLink } from "./delete-link";
+import { sheetImpact } from "./sheet-impact";
 
 const FIELD_ORDER = ["amount", "categoryId", "date", "note"] as const;
 
@@ -29,6 +30,9 @@ const FIELD_ORDER = ["amount", "categoryId", "date", "note"] as const;
 // More swaps the form for the category picker. The form stays mounted (only
 // hidden), so what was typed is kept; `picking` lives in the provider because
 // the sheet's title and back arrow change with it.
+//
+// With `editing`, it's Edit transaction (activity.md fix #6): filled in from
+// the row, Save changes, and a Delete link at the bottom.
 export function ExpenseForm({
   data,
   amountRef,
@@ -38,6 +42,8 @@ export function ExpenseForm({
   onSaved,
   picking,
   onPickingChange,
+  editing = null,
+  onDelete,
 }: {
   data: AddSheetData | null;
   amountRef: React.RefObject<HTMLInputElement | null>;
@@ -48,6 +54,8 @@ export function ExpenseForm({
   onSaved: (saved: { id: string; amount: number }) => void;
   picking: boolean;
   onPickingChange: (picking: boolean) => void;
+  editing?: EditingTransaction | null;
+  onDelete?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string>();
@@ -75,7 +83,15 @@ export function ExpenseForm({
   } = useForm<TransactionFormInput, unknown, TransactionValues>({
     resolver,
     mode: "onSubmit",
-    defaultValues: { type: "expense", amount: defaultAmount, categoryId: "", date: today, note: "" },
+    defaultValues: editing
+      ? {
+          type: "expense",
+          amount: formatPesoInput(editing.amount),
+          categoryId: editing.categoryId,
+          date: editing.date,
+          note: editing.note ?? "",
+        }
+      : { type: "expense", amount: defaultAmount, categoryId: "", date: today, note: "" },
   });
 
   const amountText = useWatch({ control, name: "amount" }) ?? "";
@@ -85,19 +101,8 @@ export function ExpenseForm({
   const centavos = parsePesoInput(amountText);
   const validAmount = centavos != null && centavos > 0 ? centavos : null;
 
-  // The effect in pesos before saving (CLAUDE.md UI rules). A date in an
-  // earlier period says where it goes instead (owner, Nov 23).
-  let impact: string | null = null;
-  if (data && validAmount) {
-    const inCurrent = date >= data.currentPeriod.start && date <= data.currentPeriod.end;
-    if (inCurrent) {
-      const { before, after } = moneyOutImpact(data.periodRows, validAmount);
-      impact = `Money out this period: ${formatPeso(before)} → ${formatPeso(after)}`;
-    } else {
-      const period = getPeriod(date, data.schedule);
-      impact = `Goes in ${formatPeriodRange(period.start, period.end)}.`;
-    }
-  }
+  // The effect in pesos before saving (CLAUDE.md UI rules).
+  const impact = sheetImpact({ data, editing, kind: "out", amount: validAmount, date });
 
   const finish = (result: SaveExpenseResult) => {
     if (result.formError) setFormError(result.formError);
@@ -200,8 +205,10 @@ export function ExpenseForm({
           // The sheet's one hero button (style-guide.md "Buttons").
           className="h-14 border-2 border-sticker bg-green-500 text-white shadow-sticker-sm hover:bg-green-500/90 aria-busy:bg-green-500 aria-busy:text-white"
         >
-          Save expense
+          {editing ? "Save changes" : "Save expense"}
         </SubmitButton>
+
+        {editing && onDelete && <DeleteLink onClick={onDelete} />}
       </form>
     </>
   );

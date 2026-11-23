@@ -1,9 +1,11 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Pencil, Search, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { inputClassName } from "@/components/auth/text-field";
+import { useTransactionSheet } from "@/components/transactions/add-transaction-provider";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
+import type { DeleteTarget } from "@/components/transactions/delete-transaction-dialog";
 import {
   type ActivityFilter,
   type ActivityRow,
@@ -13,7 +15,8 @@ import {
   typeLabel,
 } from "@/lib/activity";
 import { formatPeso } from "@/lib/money";
-import { groupByDay, signedAmount } from "@/lib/transactions";
+import { formatShortDate } from "@/lib/periods";
+import { editImpact, groupByDay, signedAmount } from "@/lib/transactions";
 import { cn } from "@/lib/utils";
 import { SEARCH_INPUT_ID, useActivitySearch } from "./search-context";
 
@@ -27,9 +30,42 @@ const CHIPS: { value: ActivityFilter; label: string }[] = [
 // The period's rows (activity.md §1–2), filtered in the browser: the whole
 // period loads at once (owner, Nov 23), so chips, search and the category
 // select are instant. Mobile shows day groups of row cards; desktop a table.
-// Edit and Delete on each row come in 3e-2.
-export function ActivityList({ rows, today }: { rows: ActivityRow[]; today: string }) {
+//
+// Every row can be edited and deleted (3e-2). Mobile: tap the row to edit,
+// plus a Delete button (owner, Nov 23). Desktop: Edit and Delete buttons in
+// an Actions column. Swipe is in V1.1.md.
+export function ActivityList({
+  rows,
+  today,
+  periodLabel,
+}: {
+  rows: ActivityRow[];
+  today: string;
+  /** "this period", or "Nov 1 – 14" for an older one (the delete dialog's effect line). */
+  periodLabel: string;
+}) {
   const { open, query, setQuery } = useActivitySearch();
+  const sheet = useTransactionSheet();
+
+  // What the delete dialog shows for a row. The effect uses every row of the
+  // period, not just the ones a filter leaves.
+  const deleteTarget = (row: ActivityRow): DeleteTarget => {
+    const { name, detail } = rowLabels(row);
+    return {
+      id: row.id,
+      name,
+      detail: `${detail} · ${formatShortDate(row.date)}`,
+      signedAmount: signedAmount(row),
+      icon: row.category.icon,
+      color: row.category.color,
+      impact: editImpact(rows, row, 0),
+      periodLabel,
+    };
+  };
+  const actions: RowActions = {
+    edit: (row) => sheet.openEditSheet(row.id, deleteTarget(row)),
+    remove: (row) => sheet.openDelete(deleteTarget(row)),
+  };
   const [type, setType] = useState<ActivityFilter>("all");
   const [categoryId, setCategoryId] = useState("");
   // Mobile: the header's search button shows the field; put the cursor in it.
@@ -137,8 +173,8 @@ export function ActivityList({ rows, today }: { rows: ActivityRow[]; today: stri
         </div>
       ) : (
         <>
-          <MobileDays days={days} today={today} />
-          <DesktopTable days={days} today={today} />
+          <MobileDays days={days} today={today} actions={actions} />
+          <DesktopTable days={days} today={today} actions={actions} />
         </>
       )}
     </div>
@@ -146,6 +182,19 @@ export function ActivityList({ rows, today }: { rows: ActivityRow[]; today: stri
 }
 
 type Days = ReturnType<typeof groupByDay<ActivityRow>>;
+type RowActions = { edit: (row: ActivityRow) => void; remove: (row: ActivityRow) => void };
+
+const ICON_BUTTON =
+  "flex size-11 shrink-0 items-center justify-center rounded-full text-text-2 outline-link hover:bg-bg focus-visible:outline-2";
+
+/** A 44px icon button named for its row: "Edit Lunch", "Delete Lunch". */
+function DeleteButton({ row, actions }: { row: ActivityRow; actions: RowActions }) {
+  return (
+    <button type="button" aria-label={`Delete ${rowLabels(row).name}`} onClick={() => actions.remove(row)} className={ICON_BUTTON}>
+      <Trash2 aria-hidden size={20} />
+    </button>
+  );
+}
 
 /** "−₱180" for money out, "+₱25,000" (green) for money in. */
 function Amount({ row, className }: { row: ActivityRow; className?: string }) {
@@ -158,7 +207,7 @@ function Amount({ row, className }: { row: ActivityRow; className?: string }) {
 }
 
 // Mobile (activity.md §1.6): an h3 per day with its net, then a card of rows.
-function MobileDays({ days, today }: { days: Days; today: string }) {
+function MobileDays({ days, today, actions }: { days: Days; today: string; actions: RowActions }) {
   return (
     <div className="flex flex-col gap-5 md:hidden">
       {days.map((day) => (
@@ -175,13 +224,22 @@ function MobileDays({ days, today }: { days: Days; today: string }) {
             {day.rows.map((row) => {
               const { name, detail } = rowLabels(row);
               return (
-                <li key={row.id} className="flex items-center gap-3 px-3.5 py-3">
-                  <CategoryIconTile icon={row.category.icon} color={row.category.color} size="md" />
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-[15px] font-extrabold text-ink">{name}</span>
-                    <span className="truncate text-[13px] text-text-3">{detail}</span>
-                  </span>
-                  <Amount row={row} className="text-base" />
+                <li key={row.id} className="flex items-center gap-1 pr-1.5">
+                  {/* The row is the Edit button (activity.md §1: tapping a row opens it). */}
+                  <button
+                    type="button"
+                    onClick={() => actions.edit(row)}
+                    aria-label={`Edit ${name}, ${formatPeso(signedAmount(row), { signed: true })}`}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-[14px] py-3 pl-3.5 text-left outline-link focus-visible:outline-2 focus-visible:-outline-offset-2"
+                  >
+                    <CategoryIconTile icon={row.category.icon} color={row.category.color} size="md" />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-[15px] font-extrabold text-ink">{name}</span>
+                      <span className="truncate text-[13px] text-text-3">{detail}</span>
+                    </span>
+                    <Amount row={row} className="text-base" />
+                  </button>
+                  <DeleteButton row={row} actions={actions} />
                 </li>
               );
             })}
@@ -193,7 +251,7 @@ function MobileDays({ days, today }: { days: Days; today: string }) {
 }
 
 // Desktop (activity.md §2): one table, a full-width row per day, then its rows.
-function DesktopTable({ days, today }: { days: Days; today: string }) {
+function DesktopTable({ days, today, actions }: { days: Days; today: string; actions: RowActions }) {
   const HEAD = "px-4 py-3 text-left text-xs font-extrabold tracking-wide text-text-3 uppercase";
   return (
     <div className="hidden overflow-hidden rounded-2xl border-[1.5px] border-line bg-surface md:block">
@@ -215,12 +273,15 @@ function DesktopTable({ days, today }: { days: Days; today: string }) {
             <th scope="col" className={cn(HEAD, "text-right")}>
               Amount
             </th>
+            <th scope="col" className="w-[104px]">
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
         {days.map((day) => (
           <tbody key={day.date}>
             <tr className="bg-bg">
-              <th scope="rowgroup" colSpan={5} className="px-4 py-2 text-left text-[13px] font-extrabold text-text-3">
+              <th scope="rowgroup" colSpan={6} className="px-4 py-2 text-left text-[13px] font-extrabold text-text-3">
                 <span className="flex justify-between">
                   <span>{dayHeading(day.date, today)}</span>
                   <span>
@@ -245,6 +306,19 @@ function DesktopTable({ days, today }: { days: Days; today: string }) {
                   <td className="px-4 py-2.5 text-text-2">{typeLabel(row.type)}</td>
                   <td className="px-4 py-2.5 text-right">
                     <Amount row={row} className="text-base" />
+                  </td>
+                  <td className="py-1 pr-2">
+                    <span className="flex justify-end">
+                      <button
+                        type="button"
+                        aria-label={`Edit ${name}`}
+                        onClick={() => actions.edit(row)}
+                        className={ICON_BUTTON}
+                      >
+                        <Pencil aria-hidden size={18} />
+                      </button>
+                      <DeleteButton row={row} actions={actions} />
+                    </span>
                   </td>
                 </tr>
               );

@@ -2,6 +2,48 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 · 3e-2 Edit and delete transactions
+- **What:** Every Activity row can be edited and deleted.
+  - **Mobile:** tap the row to edit it, plus a Delete button.
+  - **Desktop:** Edit and Delete buttons in an Actions column.
+  - **Edit transaction** reuses the add sheet, filled in from the row, with **Save changes** and a **Delete transaction** link.
+  - **Delete:** the level 1 dialog (the item, its effect in pesos, then **Delete transaction** or **Keep it**). Then "Lunch deleted" with Undo.
+- **Files:**
+  - New: `src/components/transactions/delete-transaction-dialog.tsx`, `delete-link.tsx`, `sheet-impact.ts`
+  - Edited: `add-transaction-provider.tsx`, `expense-form.tsx`, `income-form.tsx`, `src/components/activity/activity-list.tsx`, `src/app/(app)/activity/page.tsx`, `src/app/(app)/activity/actions.ts`, `src/lib/transactions.ts` (+ tests)
+- **Decisions:**
+  - **Mobile rows:** the row is the Edit button ("Edit Lunch, −₱180"), with a 44px Delete button beside it (owner). Swipe stays in `V1.1.md`.
+  - **Edit mode:**
+    - The type tabs are hidden, because a row's type can't change.
+    - The sheet waits for the row, so the form starts filled in. Focus goes to the sheet, not the amount, so the phone keyboard doesn't cover the form.
+    - Picking another source keeps the saved amount.
+    - A row whose source no longer pays still shows that source as a card.
+  - **Edit impact line:** counts only the change ("Money out this period: ₱230 → ₱250"). A new date in another period shows "Moves to Oct 30 – Nov 14." and saving moves the row there (`getOrCreatePeriod`). For an older period it says "Money out in Oct 30 – Nov 14: …". `editImpact` does the math; `sheet-impact.ts` words it for both forms.
+  - **Server:** `saveExpense` and `updateExpense` share one write, as do `saveIncome` and `updateIncome`, so edits get exactly the same checks. An update also checks that the row still exists, isn't deleted, and has the same type. Ids are checked as UUIDs.
+  - **Delete:** a soft delete, and Undo clears `deleted_at` (`restoreTransaction`).
+    - The dialog reuses `ConfirmDelete`: Keep it is focused first, and Esc keeps the row.
+    - The effect uses every row in the period, not only the filtered ones.
+    - Delete inside Edit closes the sheet and opens the dialog, the same as Delete income source.
+  - **Left out:**
+    - "Food budget left" and "₱180 is back in your Food budget" (Week 5).
+    - The toast's countdown line (owner: leave it).
+  - **Your duplicate "Bonus":** left for you to delete with the new button (owner).
+- **Tests:**
+  - New unit tests for `editImpact` (edit, delete, income and savings). 272 unit tests pass, plus lint, typecheck and the build.
+  - Throwaway browser check (local, Edge, 390px and 1280px):
+    - **Editing an amount:** ₱180 → ₱200 updates the row and the totals.
+    - **Changing a date:** moves the row to the previous period (checked in the database).
+    - **Delete:** Keep it leaves the row; Delete removes it and updates the totals, and Undo brings it back.
+    - **One-time income:** renaming it works.
+    - **Delete from inside Edit:** works.
+    - **An older period:** its effect line is worded for that period.
+    - **Desktop:** the Actions column opens Edit with Main job selected.
+    - **Earlier checks:** all 6 browser checks pass together.
+- **AI notes:**
+  - Claude's test used a loose "Name" locator that also matched "Search notes or names".
+  - **One dev-server error:** "Switched to client rendering… useAddTransaction must be used inside AddTransactionProvider". It appeared once, on the first `/activity` render after the code changed, with 4 browsers hitting the dev server at once. It didn't come back in two more full runs, so it looks like a dev-only hot-reload hiccup. Watch for it in the 3g live check.
+- **Next:** 3f Dashboard: expected vs actual income, spent, and available (`cashOnHand`) for this period.
+
 ## 2026-11-23 · Week 3 · 3e-1 Activity list
 - **What:** `/activity` is now the real list:
   - Period bar with previous and next arrows.

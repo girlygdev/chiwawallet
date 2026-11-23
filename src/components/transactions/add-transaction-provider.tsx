@@ -5,15 +5,22 @@ import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import {
   type AddSheetData,
+  type EditingTransaction,
   getAddSheetData,
+  getEditTransaction,
+  restoreTransaction,
   saveExpense,
   saveIncome,
   undoTransaction,
+  updateExpense,
+  updateIncome,
 } from "@/app/(app)/activity/actions";
 import { Sheet } from "@/components/sheet";
+import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { Toast, type ToastMessage } from "@/components/toast";
 import { formatPeso, formatPesoInput } from "@/lib/money";
 import { ONE_TIME } from "@/lib/validation/transaction";
+import { type DeleteTarget, DeleteTransactionDialog } from "./delete-transaction-dialog";
 import { ExpenseForm } from "./expense-form";
 import { IncomeForm } from "./income-form";
 import { type SheetTab, TAB_PANEL_ID, tabId, TypeTabs } from "./type-tabs";
@@ -27,7 +34,13 @@ type OpenOptions = {
   amount?: number;
 };
 
-type AddTransaction = { openAddSheet: (options?: OpenOptions) => void };
+type AddTransaction = {
+  openAddSheet: (options?: OpenOptions) => void;
+  /** Edit transaction for row `id`; `deleteTarget` is what its Delete link confirms. */
+  openEditSheet: (id: string, deleteTarget: DeleteTarget) => void;
+  /** Delete transaction's confirmation (delete-pattern.md §3). */
+  openDelete: (target: DeleteTarget) => void;
+};
 
 const AddTransactionContext = createContext<AddTransaction | null>(null);
 
@@ -37,6 +50,10 @@ const TITLES: Record<SheetTab, string> = { expense: "Add expense", income: "Add 
 // sheet over any app page (week-3-tasks.md 3c, 3d). It always opens on
 // Expense, so logging spending stays fast after a payday (owner, Nov 23).
 // Also owns the toast shown after saving, so it stays up after the sheet closes.
+//
+// The same sheet edits a row (Edit transaction, activity.md fix #6, task 3e)
+// and the delete confirmation lives here too, so a row's Delete button and the
+// Delete link inside Edit share one flow and one Undo toast.
 export function AddTransactionProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -45,6 +62,11 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   const [tab, setTab] = useState<SheetTab>("expense");
   const [incomeSource, setIncomeSource] = useState<string>("");
   const [data, setData] = useState<AddSheetData | null>(null);
+  // Edit mode: the row once it has loaded, and what its Delete link confirms.
+  const [mode, setMode] = useState<"add" | "edit">("add");
+  const [editing, setEditing] = useState<EditingTransaction | null>(null);
+  const [editDelete, setEditDelete] = useState<DeleteTarget | null>(null);
+  const [deleting, setDeleting] = useState<DeleteTarget | null>(null);
   // True while the category picker shows in place of the expense form.
   const [picking, setPicking] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -63,6 +85,8 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   };
 
   const openAddSheet = useCallback((options: OpenOptions = {}) => {
+    setMode("add");
+    setEditing(null);
     setData(null);
     setTab(options.tab ?? "expense");
     setIncomeSource(options.incomeSource ?? "");
@@ -78,6 +102,65 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
       .then(setData)
       .catch((error) => console.error("activity: couldn't load the add sheet", error));
   }, []);
+
+  const openEditSheet = useCallback((id: string, deleteTarget: DeleteTarget) => {
+    setMode("edit");
+    setEditing(null);
+    setEditDelete(deleteTarget);
+    setData(null);
+    setPicking(false);
+    setOpenCount((n) => n + 1);
+    setOpen(true);
+    Promise.all([getAddSheetData(), getEditTransaction(id)])
+      .then(([sheetData, row]) => {
+        if (!row) {
+          // Deleted in another tab, or a type this sheet can't edit yet.
+          setOpen(false);
+          setToast({ id: Date.now(), text: "This transaction can't be edited." });
+          return;
+        }
+        setTab(row.type);
+        setData(sheetData);
+        setEditing(row);
+      })
+      .catch((error) => console.error("activity: couldn't load the transaction", error));
+  }, []);
+
+  const openDelete = useCallback((target: DeleteTarget) => setDeleting(target), []);
+
+  // After Delete transaction: the list and totals update, then "Lunch deleted"
+  // with Undo for 5 seconds, which clears deleted_at again.
+  const onDeleted = (target: DeleteTarget) => {
+    setDeleting(null);
+    router.refresh();
+    setToast({
+      id: Date.now(),
+      text: `${target.name} deleted`,
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          setToast(null);
+          const result = await restoreTransaction(target.id);
+          router.refresh();
+          setToast({ id: Date.now(), text: result.ok ? `${target.name} is back` : (result.formError ?? "Couldn't undo.") });
+        },
+      },
+    });
+  };
+
+  // Edit's Delete link: the sheet closes and the confirmation opens, like
+  // Delete income source. Keep it leaves the row as it was.
+  const deleteFromEdit = () => {
+    if (!editDelete) return;
+    setOpen(false);
+    setDeleting(editDelete);
+  };
+
+  const onEdited = () => {
+    setOpen(false);
+    router.refresh();
+    setToast({ id: Date.now(), text: "Changes saved" });
+  };
 
   const dismissToast = useCallback(() => setToast(null), []);
 
@@ -102,9 +185,38 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   };
 
   const formProps = { data, amountRef, defaultAmount: carriedAmount, onAmountChange };
+  const editMode = mode === "edit";
+  // Edit mode waits for the row before showing a form, so it starts filled in.
+  const loadingEdit = editMode && editing == null;
+  const title = picking ? "Choose a category" : editMode ? "Edit transaction" : TITLES[tab];
+
+  const forms =
+    tab === "expense" ? (
+      <ExpenseForm
+        // A fresh form per opening and per tab switch.
+        key={`${openCount}-expense`}
+        {...formProps}
+        onSave={editing ? (input) => updateExpense(editing.id, input) : saveExpense}
+        onSaved={editing ? onEdited : savedToast("Expense", -1)}
+        picking={picking}
+        onPickingChange={setPicking}
+        editing={editing}
+        onDelete={deleteFromEdit}
+      />
+    ) : (
+      <IncomeForm
+        key={`${openCount}-income`}
+        {...formProps}
+        defaultSource={incomeSource}
+        onSave={editing ? (input) => updateIncome(editing.id, input) : saveIncome}
+        onSaved={editing ? onEdited : savedToast("Income", 1)}
+        editing={editing}
+        onDelete={deleteFromEdit}
+      />
+    );
 
   return (
-    <AddTransactionContext.Provider value={{ openAddSheet }}>
+    <AddTransactionContext.Provider value={{ openAddSheet, openEditSheet, openDelete }}>
       {children}
       <Sheet
         open={open}
@@ -117,35 +229,43 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
           }
           setOpen(next);
         }}
-        title={picking ? "Choose a category" : TITLES[tab]}
-        back={picking ? { label: "Back to Add expense", onClick: () => setPicking(false) } : undefined}
-        initialFocus={amountRef}
+        title={title}
+        back={
+          picking
+            ? { label: editMode ? "Back to Edit transaction" : "Back to Add expense", onClick: () => setPicking(false) }
+            : undefined
+        }
+        // Adding: straight to the amount. Editing: the sheet itself (Base UI's
+        // default), so the phone keyboard doesn't cover the filled-in form.
+        initialFocus={editMode ? undefined : amountRef}
       >
-        <div className="flex flex-col gap-5">
-          {!picking && <TypeTabs value={tab} onChange={switchTab} />}
-          <div id={TAB_PANEL_ID} role="tabpanel" aria-labelledby={tabId(tab)}>
-            {tab === "expense" ? (
-              <ExpenseForm
-                // A fresh form per opening and per tab switch.
-                key={`${openCount}-expense`}
-                {...formProps}
-                onSave={saveExpense}
-                onSaved={savedToast("Expense", -1)}
-                picking={picking}
-                onPickingChange={setPicking}
-              />
-            ) : (
-              <IncomeForm
-                key={`${openCount}-income`}
-                {...formProps}
-                defaultSource={incomeSource}
-                onSave={saveIncome}
-                onSaved={savedToast("Income", 1)}
-              />
-            )}
+        {loadingEdit ? (
+          <SkeletonRegion className="flex flex-col gap-5">
+            <Skeleton className="h-16 w-48" />
+            <Skeleton className="h-40 rounded-[14px]" />
+            <Skeleton className="h-[46px] rounded-md" />
+            <Skeleton className="h-14 rounded-md" />
+          </SkeletonRegion>
+        ) : editMode ? (
+          // The type can't change while editing, so no tabs.
+          forms
+        ) : (
+          <div className="flex flex-col gap-5">
+            {!picking && <TypeTabs value={tab} onChange={switchTab} />}
+            <div id={TAB_PANEL_ID} role="tabpanel" aria-labelledby={tabId(tab)}>
+              {forms}
+            </div>
           </div>
-        </div>
+        )}
       </Sheet>
+      {deleting && (
+        <DeleteTransactionDialog
+          key={deleting.id}
+          target={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={onDeleted}
+        />
+      )}
       <Toast toast={toast} onDismiss={dismissToast} />
     </AddTransactionContext.Provider>
   );
@@ -227,4 +347,9 @@ export function OpenAddSheetButton({
       {children}
     </button>
   );
+}
+
+/** The add sheet's controls, for components that open it (Activity rows). */
+export function useTransactionSheet(): AddTransaction {
+  return useAddTransaction();
 }

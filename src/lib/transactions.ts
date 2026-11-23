@@ -187,3 +187,24 @@ export function gridCategories<T extends { id: string }>(categories: T[], topCou
   const picked = categories.find((c) => c.id === value);
   return picked ? [...top.slice(0, topCount - 1), picked] : top;
 }
+
+/**
+ * What editing a row (or deleting it: `newAmount` 0) does to its period's
+ * total, for the edit sheet's impact line and the delete dialog (delete-
+ * pattern.md §3): "Money out this period: ₱230 → ₱50". `rows` are the row's
+ * period, including the row itself as it is now.
+ */
+export function editImpact(
+  rows: Row[],
+  edited: Pick<TransactionRow, "type" | "amount">,
+  newAmount: number,
+): { line: "in" | "out" | "savings"; before: number; after: number } {
+  const totals = periodTotals(rows);
+  const [line, before] =
+    edited.type === "income"
+      ? (["in", totals.moneyIn] as const)
+      : edited.type === "savings"
+        ? (["savings", totals.toSavings] as const)
+        : (["out", totals.moneyOut] as const);
+  return { line, before, after: before - edited.amount + newAmount };
+}

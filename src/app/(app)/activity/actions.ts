@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { isActiveOn, receivedSourceIds, sourcePayday } from "@/lib/income";
 import { type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
@@ -142,6 +143,16 @@ export type SaveExpenseResult = {
 };
 
 export async function saveExpense(input: TransactionFormInput): Promise<SaveExpenseResult> {
+  return writeExpense(input, null);
+}
+
+/** Edit transaction (activity.md fix #6): the same checks as adding. */
+export async function updateExpense(id: string, input: TransactionFormInput): Promise<SaveExpenseResult> {
+  return writeExpense(input, id);
+}
+
+/** Adds an expense, or changes expense `id` when given. */
+async function writeExpense(input: TransactionFormInput, id: string | null): Promise<SaveExpenseResult> {
   const { budget } = await requireAppUser();
   const supabase = await createClient();
   const today = todayInManila(new Date());
@@ -152,6 +163,8 @@ export async function saveExpense(input: TransactionFormInput): Promise<SaveExpe
   if (!parsed.success) return { fieldErrors: toFieldErrors<TransactionFormInput>(parsed.error.issues) };
   const values = parsed.data;
   if (values.type !== "expense") return { formError: SOMETHING_WRONG };
+  const notEditable = await checkEditable(id, "expense");
+  if (notEditable) return notEditable;
 
   // The category must be one the sheet offers: the user's own, an expense
   // category, and not a system one (Savings pot and Extra debt payment are
@@ -168,20 +181,22 @@ export async function saveExpense(input: TransactionFormInput): Promise<SaveExpe
 
   try {
     // The period that contains the date, created if it's the first entry there.
+    // A changed date can move the row to another period.
     const period = await getOrCreatePeriod(supabase, budget, values.date);
-    const { data, error } = await supabase
-      .from("transactions")
-      .insert({
-        period_id: period.id,
-        category_id: values.categoryId,
-        type: "expense",
-        amount: values.amount,
-        date: values.date,
-        note: values.note,
-      })
+    const fields = {
+      period_id: period.id,
+      category_id: values.categoryId,
+      amount: values.amount,
+      date: values.date,
+      note: values.note,
+    };
+    const { data, error } = await (id
+      ? supabase.from("transactions").update(fields).eq("id", id).is("deleted_at", null)
+      : supabase.from("transactions").insert({ ...fields, type: "expense" })
+    )
       .select("id, amount")
       .single();
-    if (error) return fail("save expense", error);
+    if (error) return fail(id ? "update expense" : "save expense", error);
     return { ok: true, saved: data };
   } catch (error) {
     return fail("find period", error as Error);
@@ -196,6 +211,15 @@ export type SaveIncomeResult = {
 };
 
 export async function saveIncome(input: IncomeFormInput): Promise<SaveIncomeResult> {
+  return writeIncome(input, null);
+}
+
+export async function updateIncome(id: string, input: IncomeFormInput): Promise<SaveIncomeResult> {
+  return writeIncome(input, id);
+}
+
+/** Adds income, or changes income `id` when given. */
+async function writeIncome(input: IncomeFormInput, id: string | null): Promise<SaveIncomeResult> {
   const { budget } = await requireAppUser();
   const supabase = await createClient();
   const today = todayInManila(new Date());
@@ -204,6 +228,8 @@ export async function saveIncome(input: IncomeFormInput): Promise<SaveIncomeResu
   const parsed = incomeSchemaFor({ today, firstPeriodStart: first }).safeParse(input);
   if (!parsed.success) return { fieldErrors: toFieldErrors<IncomeFormInput>(parsed.error.issues) };
   const values = parsed.data;
+  const notEditable = await checkEditable(id, "income");
+  if (notEditable) return notEditable;
 
   // A source must be one of this budget's, and not ended before the date.
   if (values.incomeSourceId) {
@@ -229,29 +255,34 @@ export async function saveIncome(input: IncomeFormInput): Promise<SaveIncomeResu
 
   try {
     const period = await getOrCreatePeriod(supabase, budget, values.date);
-    const { data, error } = await supabase
-      .from("transactions")
-      .insert({
-        period_id: period.id,
-        category_id: category.id,
-        type: "income",
-        amount: values.amount,
-        date: values.date,
-        note: values.note,
-        income_source_id: values.incomeSourceId,
-      })
+    const fields = {
+      period_id: period.id,
+      category_id: category.id,
+      amount: values.amount,
+      date: values.date,
+      note: values.note,
+      income_source_id: values.incomeSourceId,
+    };
+    const { data, error } = await (id
+      ? supabase.from("transactions").update(fields).eq("id", id).is("deleted_at", null)
+      : supabase.from("transactions").insert({ ...fields, type: "income" })
+    )
       .select("id, amount")
       .single();
-    if (error) return fail("save income", error);
+    if (error) return fail(id ? "update income" : "save income", error);
     return { ok: true, saved: data };
   } catch (error) {
     return fail("find period", error as Error);
   }
 }
 
-/** Undo from the toast: soft-deletes the row just saved (delete-pattern.md level 1). */
+/**
+ * Soft-deletes a row: Undo after adding, and Delete transaction
+ * (delete-pattern.md level 1). Only `deleted_at` changes, so restoring is exact.
+ */
 export async function undoTransaction(id: string): Promise<{ ok?: true; formError?: string }> {
   await requireAppUser();
+  if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("transactions")
@@ -262,6 +293,100 @@ export async function undoTransaction(id: string): Promise<{ ok?: true; formErro
   if (error) return fail("undo", error);
   if (data.length === 0) return { formError: "That entry was already removed." };
   return { ok: true };
+}
+
+/** Delete transaction: the same soft delete as Undo after adding. */
+export async function deleteTransaction(id: string): Promise<{ ok?: true; formError?: string }> {
+  return undoTransaction(id);
+}
+
+/** Undo after Delete transaction: clears `deleted_at`. */
+export async function restoreTransaction(id: string): Promise<{ ok?: true; formError?: string }> {
+  await requireAppUser();
+  if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .update({ deleted_at: null })
+    .eq("id", id)
+    .not("deleted_at", "is", null)
+    .select("id");
+  if (error) return fail("restore", error);
+  if (data.length === 0) return { formError: "That entry is already back." };
+  return { ok: true };
+}
+
+/** A row in Edit transaction, with its period for the impact line. */
+export type EditingTransaction = {
+  id: string;
+  type: "expense" | "income";
+  amount: number;
+  date: string;
+  note: string | null;
+  categoryId: string;
+  incomeSourceId: string | null;
+  /** The source's name and amount, in case it no longer pays (no card in the list). */
+  source: { name: string; amount: number } | null;
+  period: { start: string; end: string };
+  /** The row's period, including the row as it is now. */
+  periodRows: Pick<TransactionRow, "type" | "amount" | "deleted_at">[];
+};
+
+/** Loads a row for Edit transaction; null if it's gone or can't be edited here. */
+export async function getEditTransaction(id: string): Promise<EditingTransaction | null> {
+  await requireAppUser();
+  if (!z.uuid().safeParse(id).success) return null;
+  const supabase = await createClient();
+  const { data: row, error } = await supabase
+    .from("transactions")
+    .select(
+      "id, type, amount, date, note, category_id, income_source_id, period_id, source:income_sources(name, amount), period:budget_periods(start_date, end_date)",
+    )
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw new Error(`Couldn't load the transaction: ${error.message}`, { cause: error });
+  // Savings and debt payments get their own sheets in Weeks 4-5.
+  if (!row || (row.type !== "expense" && row.type !== "income")) return null;
+
+  const { data: rows, error: rowsError } = await supabase
+    .from("transactions")
+    .select("type, amount, deleted_at")
+    .eq("period_id", row.period_id)
+    .is("deleted_at", null);
+  if (rowsError) throw new Error(`Couldn't load the period: ${rowsError.message}`, { cause: rowsError });
+
+  // Each row has exactly one period and at most one source.
+  const period = row.period as unknown as { start_date: string; end_date: string };
+  const source = row.source as unknown as { name: string; amount: number } | null;
+  return {
+    id: row.id,
+    type: row.type,
+    amount: row.amount,
+    date: row.date,
+    note: row.note,
+    categoryId: row.category_id,
+    incomeSourceId: row.income_source_id,
+    source,
+    period: { start: period.start_date, end: period.end_date },
+    periodRows: rows as EditingTransaction["periodRows"],
+  };
+}
+
+/**
+ * For an update: the row must still exist, not be deleted, and be of the
+ * type being saved (the sheet can't change a row's type). Returns an error
+ * result to send back, or null when it's fine (or `id` is null: adding).
+ */
+async function checkEditable(id: string | null, type: "expense" | "income"): Promise<{ formError: string } | null> {
+  if (id == null) return null;
+  if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("transactions").select("type, deleted_at").eq("id", id).maybeSingle();
+  if (error) return fail("load the transaction", error);
+  if (!data || data.deleted_at != null) return { formError: "This transaction was deleted." };
+  if (data.type !== type) return { formError: SOMETHING_WRONG };
+  return null;
 }
 
 /** The budget's earliest period start, or null if it has none yet. */

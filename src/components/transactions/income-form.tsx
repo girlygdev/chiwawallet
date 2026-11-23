@@ -4,17 +4,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleAlert } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { type Resolver, useForm, useWatch } from "react-hook-form";
-import type { AddSheetData, SaveIncomeResult, SheetSource } from "@/app/(app)/activity/actions";
+import type { AddSheetData, EditingTransaction, SaveIncomeResult, SheetSource } from "@/app/(app)/activity/actions";
 import { FormError } from "@/components/auth/form-error";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { TextField } from "@/components/auth/text-field";
 import { formatPeso, formatPesoInput, parsePesoInput } from "@/lib/money";
-import { formatPeriodRange, formatShortDate, getPeriod, todayInManila } from "@/lib/periods";
-import { moneyInImpact } from "@/lib/transactions";
+import { formatShortDate, todayInManila } from "@/lib/periods";
 import { cn } from "@/lib/utils";
 import { type IncomeFormInput, type IncomeValues, incomeSchemaFor, ONE_TIME } from "@/lib/validation/transaction";
 import { AmountField } from "./amount-field";
 import { DateButton } from "./date-button";
+import { DeleteLink } from "./delete-link";
+import { sheetImpact } from "./sheet-impact";
 
 const FIELD_ORDER = ["amount", "source", "name", "date"] as const;
 
@@ -39,6 +40,8 @@ export function IncomeForm({
   onAmountChange,
   onSave,
   onSaved,
+  editing = null,
+  onDelete,
 }: {
   data: AddSheetData | null;
   amountRef: React.RefObject<HTMLInputElement | null>;
@@ -48,6 +51,9 @@ export function IncomeForm({
   onAmountChange: (text: string) => void;
   onSave: (input: IncomeFormInput) => Promise<SaveIncomeResult>;
   onSaved: (saved: { id: string; amount: number }) => void;
+  /** Edit transaction: filled in from the row, Save changes, and a Delete link. */
+  editing?: EditingTransaction | null;
+  onDelete?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string>();
@@ -75,7 +81,15 @@ export function IncomeForm({
   } = useForm<IncomeFormInput, unknown, IncomeValues>({
     resolver,
     mode: "onSubmit",
-    defaultValues: { amount: defaultAmount, source: defaultSource, name: "", date: today },
+    defaultValues: editing
+      ? {
+          amount: formatPesoInput(editing.amount),
+          source: editing.incomeSourceId ?? ONE_TIME,
+          // One-time income's name is its note.
+          name: editing.incomeSourceId ? "" : (editing.note ?? ""),
+          date: editing.date,
+        }
+      : { amount: defaultAmount, source: defaultSource, name: "", date: today },
   });
 
   const amountText = useWatch({ control, name: "amount" }) ?? "";
@@ -88,8 +102,9 @@ export function IncomeForm({
   // The text the last source pick put in the amount. A pick may replace that
   // (or an empty amount), but not something the user typed.
   // An amount that arrived with a source ("I got paid") counts as filled in.
+  // A saved amount (editing) doesn't: picking another source keeps it.
   const [autoFilled, setAutoFilled] = useState<string | null>(
-    defaultSource && defaultSource !== ONE_TIME && defaultAmount ? defaultAmount : null,
+    !editing && defaultSource && defaultSource !== ONE_TIME && defaultAmount ? defaultAmount : null,
   );
   const pickSource = (value: string) => {
     setValue("source", value, { shouldValidate: errors.source != null });
@@ -103,17 +118,7 @@ export function IncomeForm({
 
   // The effect in pesos before saving. "Safe to spend goes from…" replaces
   // this once the Plan exists (Week 5).
-  let impact: string | null = null;
-  if (data && validAmount) {
-    const inCurrent = date >= data.currentPeriod.start && date <= data.currentPeriod.end;
-    if (inCurrent) {
-      const { before, after } = moneyInImpact(data.periodRows, validAmount);
-      impact = `Money in this period: ${formatPeso(before)} → ${formatPeso(after)}`;
-    } else {
-      const period = getPeriod(date, data.schedule);
-      impact = `Goes in ${formatPeriodRange(period.start, period.end)}.`;
-    }
-  }
+  const impact = sheetImpact({ data, editing, kind: "in", amount: validAmount, date });
 
   const finish = (result: SaveIncomeResult) => {
     if (result.formError) setFormError(result.formError);
@@ -140,6 +145,18 @@ export function IncomeForm({
   const sourceError = errors.source?.message;
   const options: { value: string; title: string; line: string; received: boolean }[] = [
     ...(data?.sources ?? []).map((s) => ({ value: s.id, title: s.name, line: sourceLine(s), received: s.received })),
+    // The row's own source when it no longer pays today (ended, or not
+    // started), so editing still shows where the money came from.
+    ...(editing?.incomeSourceId && editing.source && !data?.sources.some((s) => s.id === editing.incomeSourceId)
+      ? [
+          {
+            value: editing.incomeSourceId,
+            title: editing.source.name,
+            line: `${formatPeso(editing.source.amount)} expected`,
+            received: false,
+          },
+        ]
+      : []),
     { value: ONE_TIME, title: "One-time income", line: "Bonus, 13th month, gift, refund, side sale", received: false },
   ];
 
@@ -242,8 +259,10 @@ export function IncomeForm({
         disabled={pending || data == null}
         className="h-14 border-2 border-sticker bg-green-500 text-white shadow-sticker-sm hover:bg-green-500/90 aria-busy:bg-green-500 aria-busy:text-white"
       >
-        Save income
+        {editing ? "Save changes" : "Save income"}
       </SubmitButton>
+
+      {editing && onDelete && <DeleteLink onClick={onDelete} />}
     </form>
   );
 }
