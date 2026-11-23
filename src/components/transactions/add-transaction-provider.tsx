@@ -13,11 +13,19 @@ import {
 import { Sheet } from "@/components/sheet";
 import { Toast, type ToastMessage } from "@/components/toast";
 import { formatPeso } from "@/lib/money";
+import { ONE_TIME } from "@/lib/validation/transaction";
 import { ExpenseForm } from "./expense-form";
 import { IncomeForm } from "./income-form";
 import { type SheetTab, TAB_PANEL_ID, tabId, TypeTabs } from "./type-tabs";
 
-type AddTransaction = { openAddExpense: () => void };
+/** Where the sheet opens. Default: Expense (owner, Nov 23). */
+type OpenOptions = {
+  tab?: SheetTab;
+  /** The Income tab's starting choice: a source id or ONE_TIME. */
+  incomeSource?: string;
+};
+
+type AddTransaction = { openAddSheet: (options?: OpenOptions) => void };
 
 const AddTransactionContext = createContext<AddTransaction | null>(null);
 
@@ -33,6 +41,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   // A new key per opening gives a fresh, empty form each time.
   const [openCount, setOpenCount] = useState(0);
   const [tab, setTab] = useState<SheetTab>("expense");
+  const [incomeSource, setIncomeSource] = useState<string>("");
   const [data, setData] = useState<AddSheetData | null>(null);
   // True while the category picker shows in place of the expense form.
   const [picking, setPicking] = useState(false);
@@ -51,9 +60,10 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
     setTab(next);
   };
 
-  const openAddExpense = useCallback(() => {
+  const openAddSheet = useCallback((options: OpenOptions = {}) => {
     setData(null);
-    setTab("expense");
+    setTab(options.tab ?? "expense");
+    setIncomeSource(options.incomeSource ?? "");
     setPicking(false);
     amountText.current = "";
     setCarriedAmount("");
@@ -91,7 +101,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   const formProps = { data, amountRef, defaultAmount: carriedAmount, onAmountChange };
 
   return (
-    <AddTransactionContext.Provider value={{ openAddExpense }}>
+    <AddTransactionContext.Provider value={{ openAddSheet }}>
       {children}
       <Sheet
         open={open}
@@ -125,6 +135,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
               <IncomeForm
                 key={`${openCount}-income`}
                 {...formProps}
+                defaultSource={incomeSource}
                 onSave={saveIncome}
                 onSaved={savedToast("Income", 1)}
               />
@@ -149,7 +160,8 @@ function useAddTransaction() {
  * - "header": the desktop header's "+ Add transaction" sticker button
  */
 export function AddTransactionButton({ variant }: { variant: "fab" | "header" }) {
-  const { openAddExpense } = useAddTransaction();
+  const { openAddSheet } = useAddTransaction();
+  const openAddExpense = () => openAddSheet();
 
   if (variant === "fab") {
     return (
@@ -172,6 +184,23 @@ export function AddTransactionButton({ variant }: { variant: "fab" | "header" })
     >
       <Plus aria-hidden size={20} strokeWidth={2.5} />
       Add transaction
+    </button>
+  );
+}
+
+/**
+ * The Income screen's **Log one-time income** (income.md §2, secondary): opens
+ * the add sheet on Income with One-time income already chosen.
+ */
+export function LogOneTimeIncomeButton() {
+  const { openAddSheet } = useAddTransaction();
+  return (
+    <button
+      type="button"
+      onClick={() => openAddSheet({ tab: "income", incomeSource: ONE_TIME })}
+      className="flex h-12 w-full items-center justify-center rounded-md border-[1.5px] border-line bg-surface px-6 text-[15px] font-extrabold text-ink outline-link hover:border-line-dash focus-visible:outline-2 focus-visible:outline-offset-2 md:w-auto md:self-start"
+    >
+      Log one-time income
     </button>
   );
 }

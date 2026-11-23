@@ -5,10 +5,16 @@ import { Suspense } from "react";
 import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
+import { LogOneTimeIncomeButton } from "@/components/transactions/add-transaction-provider";
+import { getOrCreatePeriod } from "@/lib/budget-periods";
 import {
   expectedIncome,
+  incomeResult,
   isActiveOn,
+  receivedOn,
   sourceScheduleLine,
+  sourceStatusLines,
+  type StatusLine,
   type UpcomingPayday,
   upcomingPaydays,
 } from "@/lib/income";
@@ -18,6 +24,7 @@ import {
   formatShortDate,
   getPeriod,
   type PaySchedule,
+  type PaySlot,
   scheduleFromBudget,
   todayInManila,
 } from "@/lib/periods";
@@ -29,9 +36,12 @@ import { IncomeSheet } from "./income-sheet";
 export const metadata: Metadata = { title: "Income · Chiwawallet" };
 
 const ADD_HREF = "/income?add=1";
+/** Recently received shows the last four (income.md §2). */
+const RECENT_ROWS = 4;
 
-// The Income screen (income.md). Expected amounts only: "Received", "Recently
-// received" and "Log one-time income" need transactions (Week 3, decided Nov 19).
+// The Income screen (income.md): expected amounts per payday and per month,
+// each source's Received or Expected status this period, Recently received,
+// and Log one-time income (week-3-tasks.md 3d).
 export default function IncomePage() {
   return (
     <PageShell>
@@ -72,6 +82,47 @@ async function IncomeContent() {
   const ended = sources.filter((s) => s.end_date != null && s.end_date < today);
   const totals = expectedIncome(active, schedule);
 
+  // This period's income (for Received) and the latest pay from sources.
+  // The Dashboard creates the period the same way when it's missing.
+  const period = await getOrCreatePeriod(supabase, budget, today);
+  const [periodIncome, recent] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select("type, income_source_id, date, deleted_at")
+      .eq("period_id", period.id)
+      .eq("type", "income")
+      .is("deleted_at", null),
+    supabase
+      .from("transactions")
+      .select("id, amount, date, note, income_source_id")
+      .eq("type", "income")
+      .is("deleted_at", null)
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(RECENT_ROWS),
+  ]);
+  for (const result of [periodIncome, recent]) {
+    if (result.error) throw new Error(`Couldn't load income: ${result.error.message}`, { cause: result.error });
+  }
+  const received = receivedOn(
+    periodIncome.data!,
+    // The column's check constraint allows only the three pay slots.
+    { start: period.start_date, paySlot: period.pay_slot as PaySlot, first_pay_received: period.first_pay_received },
+    sources,
+    schedule,
+  );
+  const statusFor = (s: Source) => sourceStatusLines(s, schedule, today, received.get(s.id) ?? null);
+  const byId = new Map(sources.map((s) => [s.id, s]));
+  const recentRows: RecentRow[] = recent.data!.map((row) => ({
+    id: row.id,
+    amount: row.amount,
+    date: row.date,
+    // One-time income has no source; its name is the note. A deleted source
+    // also leaves the link empty (plan review 3.6), with no note: "Income".
+    source: row.income_source_id ? (byId.get(row.income_source_id) ?? null) : null,
+    name: row.note ?? "Income",
+  }));
+
   return (
     <>
       <PageHeader
@@ -99,16 +150,24 @@ async function IncomeContent() {
           <Summary totals={totals} active={active} />
           <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
             <div className="flex flex-col gap-6">
-              <SourceList title="Sources" sources={active} schedule={schedule} />
+              <SourceList title="Sources" sources={active} schedule={schedule} statusFor={statusFor} />
               {upcoming.length > 0 && (
-                <SourceList title="Starting later" sources={upcoming} schedule={schedule} />
+                <SourceList title="Starting later" sources={upcoming} schedule={schedule} statusFor={statusFor} />
               )}
               {ended.length > 0 && <SourceList title="Ended" sources={ended} schedule={schedule} />}
             </div>
-            <UpcomingPaydays paydays={upcomingPaydays(today, schedule, sources, 4)} schedule={schedule} />
+            <div className="flex flex-col gap-6">
+              <UpcomingPaydays
+                paydays={upcomingPaydays(today, schedule, sources, 4, new Set(received.keys()))}
+                schedule={schedule}
+              />
+              <RecentlyReceived rows={recentRows} />
+            </div>
           </div>
         </>
       )}
+
+      <LogOneTimeIncomeButton />
 
       <IncomeSheet
         sources={sources}
@@ -147,7 +206,18 @@ function Summary({ totals, active }: { totals: ReturnType<typeof expectedIncome>
   );
 }
 
-function SourceList({ title, sources, schedule }: { title: string; sources: Source[]; schedule: PaySchedule }) {
+function SourceList({
+  title,
+  sources,
+  schedule,
+  statusFor,
+}: {
+  title: string;
+  sources: Source[];
+  schedule: PaySchedule;
+  /** Status lines per source; ended sources have none. */
+  statusFor?: (source: Source) => StatusLine[];
+}) {
   if (sources.length === 0) return null;
   const headingId = `sources-${title.toLowerCase().replace(/\s+/g, "-")}`;
   return (
@@ -169,6 +239,18 @@ function SourceList({ title, sources, schedule }: { title: string; sources: Sour
                 <span className="text-base font-extrabold text-ink">{s.name}</span>
                 <span className="text-[13px] text-text-3">{sourceScheduleLine(s, schedule)}</span>
                 <SourceTags source={s} />
+                {statusFor?.(s).map((line) => (
+                  // "Received" and "Expected" are words, not only colours (income.md §5).
+                  <span
+                    key={line.text}
+                    className={cn(
+                      "text-[13px] font-bold",
+                      line.tone === "positive" ? "text-link-hover" : "text-text-2",
+                    )}
+                  >
+                    {line.text}
+                  </span>
+                ))}
               </span>
               <span className="shrink-0 text-right">
                 <span className="block font-display text-xl font-semibold text-ink">{formatPeso(s.amount)}</span>
@@ -204,8 +286,8 @@ function SourceTags({ source }: { source: Source }) {
   );
 }
 
-// Desktop right column (income.md §3). Without transactions yet, every
-// payday says "Expected"; the current one says "This period".
+// Desktop right column (income.md §3). The current payday says "Received"
+// once every source paying on it is logged; the rest say "Expected".
 function UpcomingPaydays({ paydays, schedule }: { paydays: UpcomingPayday[]; schedule: PaySchedule }) {
   const span =
     schedule.frequency === "weekly"
@@ -232,13 +314,70 @@ function UpcomingPaydays({ paydays, schedule }: { paydays: UpcomingPayday[]; sch
             <span
               className={cn(
                 "rounded-full px-2 py-0.5 text-xs font-bold",
-                p.current ? "bg-mint text-link-hover" : "bg-track text-text-2",
+                p.received ? "bg-mint text-link-hover" : "bg-track text-text-2",
               )}
             >
-              {p.current ? "This period" : "Expected"}
+              {p.received ? "Received" : "Expected"}
             </span>
           </li>
         ))}
+      </ul>
+    </section>
+  );
+}
+
+type RecentRow = {
+  id: string;
+  amount: number;
+  date: string;
+  /** Null for one-time income. */
+  source: Source | null;
+  /** One-time income's name (its note). */
+  name: string;
+};
+
+// RECENTLY RECEIVED (income.md §2–3): the last four income entries. Pay from
+// a source shows how it compared to the source's expected amount; one-time
+// income has nothing to compare with, so it gets a "One-time" pill (owner,
+// Nov 23: the spec listed sources only, which left it nowhere to be seen).
+function RecentlyReceived({ rows }: { rows: RecentRow[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <section aria-labelledby="recent-income-title" className="flex flex-col gap-3">
+      <h2 id="recent-income-title" className="text-xs font-extrabold tracking-wide text-text-3 uppercase">
+        Recently received
+      </h2>
+      <ul className="flex flex-col divide-y divide-line-soft rounded-2xl border-[1.5px] border-line bg-surface">
+        {rows.map((row) => {
+          // A status pill (style-guide.md): Warning or Positive for pay from a
+          // source, Info (the neutral tag) for one-time income. All are fixed
+          // pairs that read the same in light and dark.
+          const result = row.source
+            ? incomeResult(row.amount, row.source.amount)
+            : { text: "One-time", tone: "info" as const };
+          return (
+            <li key={row.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <span className="flex min-w-0 flex-col items-start gap-1">
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs font-extrabold",
+                    result.tone === "warn" && "bg-warn-bg text-warn-fg",
+                    result.tone === "positive" && "bg-mint text-link-hover",
+                    result.tone === "info" && "bg-info-bg text-info-fg",
+                  )}
+                >
+                  {result.text}
+                </span>
+                <span className="max-w-full truncate text-[13px] text-text-3">
+                  {formatShortDate(row.date)} · {row.source?.name ?? row.name}
+                </span>
+              </span>
+              <span className="shrink-0 font-display text-lg font-semibold text-link">
+                {formatPeso(row.amount, { signed: true })}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

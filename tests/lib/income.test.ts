@@ -5,12 +5,15 @@ import {
   expectedForSlot,
   expectedIncome,
   incomeImpact,
+  incomeResult,
   isActiveOn,
   monthlyAmount,
+  receivedOn,
   receivedSourceIds,
   removalImpact,
   sourcePayday,
   sourceScheduleLine,
+  sourceStatusLines,
   upcomingPaydays,
 } from "@/lib/income";
 
@@ -66,10 +69,10 @@ describe("expectedForPeriod and upcomingPaydays", () => {
 
   it("lists the next paydays from the current period on", () => {
     expect(upcomingPaydays("2026-11-19", semi, sources, 4)).toEqual([
-      { date: "2026-11-15", label: "15th", total: 2_500_000, current: true },
-      { date: "2026-11-30", label: "30th", total: 3_300_000, current: false },
-      { date: "2026-12-15", label: "15th", total: 2_600_000, current: false },
-      { date: "2026-12-30", label: "30th", total: 2_500_000, current: false },
+      { date: "2026-11-15", label: "15th", total: 2_500_000, current: true, received: false },
+      { date: "2026-11-30", label: "30th", total: 3_300_000, current: false, received: false },
+      { date: "2026-12-15", label: "15th", total: 2_600_000, current: false, received: false },
+      { date: "2026-12-30", label: "30th", total: 2_500_000, current: false, received: false },
     ]);
   });
 });
@@ -257,5 +260,102 @@ describe("receivedSourceIds: the Received tag", () => {
     const first = { ...period, first_pay_received: true };
     // Main and Allowance pay on the 15th; Freelance doesn't.
     expect(receivedSourceIds([], first, sources, semi)).toEqual(new Set(["main", "allowance"]));
+  });
+});
+
+describe("upcomingPaydays: Received on the current payday", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const sources = [
+    { id: "main", amount: 2_500_000, pay_slot: "every", start_date: "2026-11-01", end_date: null },
+    { id: "allowance", amount: 300_000, pay_slot: "payday_1", start_date: "2026-11-01", end_date: null },
+    { id: "freelance", amount: 800_000, pay_slot: "payday_2", start_date: "2026-11-01", end_date: null },
+  ];
+
+  it("is Received only when every source paying this payday is logged", () => {
+    const some = upcomingPaydays("2026-11-20", semi, sources, 2, new Set(["main"]));
+    expect(some.map((p) => p.received)).toEqual([false, false]);
+    // Freelance doesn't pay on the 15th, so it isn't needed.
+    const all = upcomingPaydays("2026-11-20", semi, sources, 2, new Set(["main", "allowance"]));
+    expect(all.map((p) => p.received)).toEqual([true, false]);
+  });
+
+  it("isn't Received when nothing pays this payday", () => {
+    expect(upcomingPaydays("2026-11-20", semi, [sources[2]], 1, new Set(["freelance"]))[0].received).toBe(false);
+  });
+});
+
+describe("receivedOn: when each source's pay arrived this period", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const sources = [
+    { id: "main", amount: 2_500_000, pay_slot: "every", start_date: "2026-11-01", end_date: null },
+    { id: "freelance", amount: 800_000, pay_slot: "payday_2", start_date: "2026-11-01", end_date: null },
+  ];
+  const period = { start: "2026-11-15", paySlot: "payday_1" as const, first_pay_received: false };
+  const row = (income_source_id: string, date: string, extra = {}) => ({
+    type: "income",
+    income_source_id,
+    date,
+    deleted_at: null,
+    ...extra,
+  });
+
+  it("gives the latest live date per source", () => {
+    const rows = [
+      row("main", "2026-11-15"),
+      row("main", "2026-11-17"),
+      row("freelance", "2026-11-20", { deleted_at: "2026-11-20T00:00:00Z" }),
+    ];
+    expect(receivedOn(rows, period, sources, semi)).toEqual(new Map([["main", "2026-11-17"]]));
+  });
+
+  it("uses the payday for pay onboarding counted (3.14), unless it was also logged", () => {
+    const first = { ...period, first_pay_received: true };
+    expect(receivedOn([], first, sources, semi)).toEqual(new Map([["main", "2026-11-15"]]));
+    expect(receivedOn([row("main", "2026-11-16")], first, sources, semi)).toEqual(new Map([["main", "2026-11-16"]]));
+  });
+});
+
+describe("sourceStatusLines: the source card's status lines", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const main = { amount: 2_500_000, pay_slot: "every", start_date: "2026-11-01", end_date: null };
+  const freelance = { amount: 800_000, pay_slot: "payday_2", start_date: "2026-11-01", end_date: null };
+
+  it("shows this period's payday, received or expected, then the next one", () => {
+    expect(sourceStatusLines(main, semi, "2026-11-23", "2026-11-16")).toEqual([
+      { text: "15th: Received Nov 16", tone: "positive" },
+      { text: "30th: Expected Nov 30", tone: "neutral" },
+    ]);
+    expect(sourceStatusLines(main, semi, "2026-11-23", null)).toEqual([
+      { text: "15th: Expected Nov 15", tone: "neutral" },
+      { text: "30th: Expected Nov 30", tone: "neutral" },
+    ]);
+  });
+
+  it("shows only the next payday for a source that doesn't pay this period", () => {
+    expect(sourceStatusLines(freelance, semi, "2026-11-23", null)).toEqual([
+      { text: "30th: Expected Nov 30", tone: "neutral" },
+    ]);
+  });
+
+  it("shows nothing next for a source that ends this period", () => {
+    expect(sourceStatusLines({ ...main, end_date: "2026-11-20" }, semi, "2026-11-18", null)).toEqual([
+      { text: "15th: Expected Nov 15", tone: "neutral" },
+    ]);
+  });
+
+  it("uses the weekday on weekly budgets", () => {
+    const weekly: PaySchedule = { frequency: "weekly", payWeekday: 5 };
+    expect(sourceStatusLines(main, weekly, "2026-11-23", null)).toEqual([
+      { text: "Fri: Expected Nov 20", tone: "neutral" },
+      { text: "Fri: Expected Nov 27", tone: "neutral" },
+    ]);
+  });
+});
+
+describe("incomeResult: the Recently received result line", () => {
+  it("compares what arrived with what was expected", () => {
+    expect(incomeResult(2_500_000, 2_500_000)).toEqual({ text: "Received as expected", tone: "positive" });
+    expect(incomeResult(2_450_000, 2_500_000)).toEqual({ text: "₱500 less than expected", tone: "warn" });
+    expect(incomeResult(2_550_050, 2_500_000)).toEqual({ text: "₱500.50 more than expected", tone: "positive" });
   });
 });

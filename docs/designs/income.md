@@ -22,7 +22,7 @@ Routes: `/income`, `/income/new`, `/income/[sourceId]/edit`.
 - **SOURCES:** one card per source, each a link to edit.
   - Top row: the name, the schedule line ("Every payday · ₱50,000 a month", "30th only · ₱8,000 a month"), and the amount per payday on the right.
   - Status lines, one per payday this period: "15th: Received Nov 15" (positive) and "30th: Expected Nov 30" (neutral).
-- **RECENTLY RECEIVED:** the last four income transactions from sources. Each row shows a result line, "date · source", and the amount (+₱25,000, green).
+- **RECENTLY RECEIVED:** the last four income transactions. Each row shows a result line, "date · source", and the amount (+₱25,000, green). One-time income shows a neutral "One-time" pill and its name instead ("Nov 23 · Bonus"), since it has no expected amount (decided Nov 23).
 
 | Result | When |
 | --- | --- |

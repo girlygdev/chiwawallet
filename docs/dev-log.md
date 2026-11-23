@@ -2,6 +2,39 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 · 3d-2 Income screen: Received, Recently received, Log one-time income
+- **What:** The Income screen now shows what actually came in:
+  - **Status lines** on each source card ("15th: Received Nov 23", "30th: Expected Nov 30").
+  - **RECENTLY RECEIVED:** the last 4 pays from sources, each with a result line.
+  - **Log one-time income:** opens the add sheet on Income with One-time income chosen.
+  - **Desktop Upcoming paydays:** says Received or Expected.
+- **Files:** `src/app/(app)/income/page.tsx`, `src/lib/income.ts`, `tests/lib/income.test.ts`, `src/components/transactions/add-transaction-provider.tsx`, `income-form.tsx`.
+- **Decisions:**
+  - **Status lines:** at most two (owner).
+    - This period's payday, if the source pays in it: Received with the date it arrived, or Expected.
+    - Then the next payday it pays on.
+    - In the first period, pay that onboarding counted (3.14) shows Received on the payday's date.
+  - **Results compare against the source's current amount** (owner), because past amounts aren't stored. "Received as expected", "₱500 less than expected" (warning pill) or "₱500 more than expected" (positive pill). Pills instead of coloured text, because `warn-fg` doesn't change for dark mode.
+  - **Recently received includes one-time income** with a neutral "One-time" pill and its name ("Nov 23 · Bonus") (owner, changed after testing). The spec said "from sources", which left one-time income with nowhere to show until Activity (3e). `income.md` §2 is updated.
+  - **Upcoming paydays:** the current payday is Received once every source paying on it is logged (owner).
+  - **`openAddSheet({ tab, incomeSource })`** replaces `openAddExpense`. The + button still opens on Expense.
+  - **Period:** the page uses `getOrCreatePeriod` for the current period, like the Dashboard.
+  - **New helpers:** `receivedOn` (when each source's pay arrived) is new, and `receivedSourceIds` now uses it.
+- **Tests:**
+  - New unit tests for `receivedOn`, `sourceStatusLines` (including weekly and a source ending mid-period), `incomeResult` and Received in `upcomingPaydays`. 253 unit tests pass, plus lint, typecheck and the build.
+  - Throwaway browser check (local, Edge, 390px and 1280px):
+    - **Status lines:** they read right before and after logging pay.
+    - **Log one-time income:** opens Income with One-time checked, Name showing and the amount focused. One-time income appears in Recently received with the One-time pill.
+    - **Short pay:** ₱24,500 against ₱25,000 shows "₱500 less than expected".
+    - **Upcoming paydays:** Nov 15 says Received and Nov 30 says Expected.
+    - **Earlier flows:** the expense and income flows still pass.
+    - **Dark mode:** checked.
+- **AI notes:**
+  - Claude first coloured the "less than expected" text with `warn-fg`, which would be unreadable in dark mode. It switched to the status pill before testing.
+  - The owner logged one-time income and saw nothing change, because the screen only showed pay from sources. Claude hadn't flagged that gap in the plan.
+  - **Open:** the owner has a duplicate "Bonus" ₱2,000 on local. Delete it once 3e adds delete.
+- **Next:** 3e Activity list.
+
 ## 2026-11-23 · Week 3 · 3d-1 Income tab in the add sheet
 - **What:** The add sheet has Expense and Income tabs. Income has the amount, "Where is it from?" (source cards plus One-time income), Date received, a "Money in this period" impact line and **Save income**. After saving, the toast reads "Income saved · +₱25,000" with Undo.
 - **Files:**

@@ -46,7 +46,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
   - **After saving:** close the sheet and show our own toast "Expense saved · −₱180" with Undo.
   - **The + button:** opens the sheet over any page (it links to Activity today).
   - Done when: amount → category → Save works on a phone in under 10 seconds.
-- [ ] **3d. Income tab.** Split in two: **3d-1 (the Income tab in the add sheet) done Nov 23;** 3d-2 (the Income screen leftovers and Log one-time income) next.
+- [x] **3d. Income tab.** Done Nov 23 in two parts: 3d-1 (the Income tab in the add sheet) and 3d-2 (the Income screen's status lines, Recently received and Log one-time income).
   - "Where is it from?": source cards fill in the expected amount. One-time income saves its name as the note.
   - "Received" tag on sources already logged this period. The first period also counts `first_pay_received` (3.14 as changed).
   - **Save income**.

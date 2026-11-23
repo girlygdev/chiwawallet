@@ -35,6 +35,7 @@ export function IncomeForm({
   data,
   amountRef,
   defaultAmount,
+  defaultSource = "",
   onAmountChange,
   onSave,
   onSaved,
@@ -42,6 +43,8 @@ export function IncomeForm({
   data: AddSheetData | null;
   amountRef: React.RefObject<HTMLInputElement | null>;
   defaultAmount: string;
+  /** A source id or ONE_TIME, e.g. from the Income screen's Log one-time income. */
+  defaultSource?: string;
   onAmountChange: (text: string) => void;
   onSave: (input: IncomeFormInput) => Promise<SaveIncomeResult>;
   onSaved: (saved: { id: string; amount: number }) => void;
@@ -72,7 +75,7 @@ export function IncomeForm({
   } = useForm<IncomeFormInput, unknown, IncomeValues>({
     resolver,
     mode: "onSubmit",
-    defaultValues: { amount: defaultAmount, source: "", name: "", date: today },
+    defaultValues: { amount: defaultAmount, source: defaultSource, name: "", date: today },
   });
 
   const amountText = useWatch({ control, name: "amount" }) ?? "";

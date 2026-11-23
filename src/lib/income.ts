@@ -1,5 +1,5 @@
 import { formatPeso } from "@/lib/money";
-import { nextPeriods, type PaySchedule, type PaySlot, paydayLabel } from "@/lib/periods";
+import { formatShortDate, nextPeriods, type PaySchedule, type PaySlot, paydayLabel } from "@/lib/periods";
 
 // Expected income per payday and per month (income.md §1). Pure functions:
 // amounts are integer centavos, and screens only display what these return.
@@ -60,21 +60,36 @@ export function expectedForPeriod(
   return expectedForSlot(active, schedule, period.paySlot);
 }
 
-export type UpcomingPayday = { date: string; label: string; total: number; current: boolean };
+export type UpcomingPayday = {
+  date: string;
+  label: string;
+  total: number;
+  current: boolean;
+  /** The current payday, once every source paying on it is logged. */
+  received: boolean;
+};
 
-/** The next `count` paydays from the current period on, with expected totals. */
+/**
+ * The next `count` paydays from the current period on, with expected totals.
+ * `receivedIds` are the sources received this period (receivedSourceIds).
+ */
 export function upcomingPaydays(
   today: string,
   schedule: PaySchedule,
-  sources: DatedSource[],
+  sources: (DatedSource & { id?: string })[],
   count: number,
+  receivedIds: Set<string> = new Set(),
 ): UpcomingPayday[] {
-  return nextPeriods(today, schedule, count).map((period, i) => ({
-    date: period.start,
-    label: paydayLabel(schedule, period.paySlot),
-    total: expectedForPeriod(sources, schedule, period),
-    current: i === 0,
-  }));
+  return nextPeriods(today, schedule, count).map((period, i) => {
+    const paying = sources.filter((s) => paysIn(s, schedule, period));
+    return {
+      date: period.start,
+      label: paydayLabel(schedule, period.paySlot),
+      total: expectedForPeriod(sources, schedule, period),
+      current: i === 0,
+      received: i === 0 && paying.length > 0 && paying.every((s) => s.id != null && receivedIds.has(s.id)),
+    };
+  });
 }
 
 /** One source's money in a month: twice for "every payday" on twice-a-month budgets. */
@@ -168,23 +183,85 @@ export function sourcePayday(
 }
 
 /**
- * The sources with a "Received" tag this period: those with live income
- * logged in it, plus, when onboarding said the first pay had already arrived
- * (`first_pay_received`, plan review 3.14 as changed Nov 20), every source
+ * When each source's pay arrived this period, for the Received tags and the
+ * Income screen's status lines: the latest live income from it, or, when
+ * onboarding said the first pay had already arrived (`first_pay_received`,
+ * plan review 3.14 as changed Nov 20), the payday itself for every source
  * that pays in that period. `rows` are the period's transactions.
  */
+export function receivedOn(
+  rows: { type: string; income_source_id: string | null; date: string; deleted_at: string | null }[],
+  period: { start: string; paySlot: PaySlot; first_pay_received: boolean },
+  sources: (DatedSource & { id: string })[],
+  schedule: PaySchedule,
+): Map<string, string> {
+  const dates = new Map<string, string>();
+  if (period.first_pay_received) {
+    for (const source of sources) if (paysIn(source, schedule, period)) dates.set(source.id, period.start);
+  }
+  for (const row of rows) {
+    if (row.type !== "income" || row.deleted_at != null || !row.income_source_id) continue;
+    const latest = dates.get(row.income_source_id);
+    // A logged date beats onboarding's stand-in, and later beats earlier.
+    if (!latest || row.date > latest || (period.first_pay_received && latest === period.start)) {
+      dates.set(row.income_source_id, row.date);
+    }
+  }
+  return dates;
+}
+
+/** The sources with a "Received" tag this period (see receivedOn). */
 export function receivedSourceIds(
   rows: { type: string; income_source_id: string | null; deleted_at: string | null }[],
   period: { start: string; paySlot: PaySlot; first_pay_received: boolean },
   sources: (DatedSource & { id: string })[],
   schedule: PaySchedule,
 ): Set<string> {
-  const ids = new Set<string>();
-  for (const row of rows) {
-    if (row.type === "income" && row.deleted_at == null && row.income_source_id) ids.add(row.income_source_id);
+  // Only whether, not when: any date in the period will do.
+  const dated = rows.map((row) => ({ ...row, date: period.start }));
+  return new Set(receivedOn(dated, period, sources, schedule).keys());
+}
+
+export type StatusLine = { text: string; tone: "positive" | "neutral" };
+
+/**
+ * A source card's status lines (income.md §2): this period's payday when the
+ * source pays in it ("15th: Received Nov 16" or "15th: Expected Nov 15"),
+ * then the next payday it pays on ("30th: Expected Nov 30").
+ * `receivedDate` comes from receivedOn.
+ */
+export function sourceStatusLines(
+  source: DatedSource,
+  schedule: PaySchedule,
+  today: string,
+  receivedDate: string | null,
+): StatusLine[] {
+  const [current, ...later] = nextPeriods(today, schedule, LOOKAHEAD_PERIODS);
+  const lines: StatusLine[] = [];
+  if (paysIn(source, schedule, current)) {
+    const label = paydayLabel(schedule, current.paySlot);
+    lines.push(
+      receivedDate
+        ? { text: `${label}: Received ${formatShortDate(receivedDate)}`, tone: "positive" }
+        : { text: `${label}: Expected ${formatShortDate(current.start)}`, tone: "neutral" },
+    );
   }
-  if (period.first_pay_received) {
-    for (const source of sources) if (paysIn(source, schedule, period)) ids.add(source.id);
+  const next = later.find((p) => paysIn(source, schedule, p));
+  if (next) {
+    lines.push({ text: `${paydayLabel(schedule, next.paySlot)}: Expected ${formatShortDate(next.start)}`, tone: "neutral" });
   }
-  return ids;
+  return lines;
+}
+
+/**
+ * Recently received's result line (income.md §2): what arrived against the
+ * source's expected amount. The amount today, since past amounts aren't
+ * stored (owner, Nov 23).
+ */
+export function incomeResult(amount: number, expected: number): { text: string; tone: "positive" | "warn" } {
+  if (amount === expected) return { text: "Received as expected", tone: "positive" };
+  const difference = formatPeso(Math.abs(amount - expected));
+  return amount < expected
+    ? { text: `${difference} less than expected`, tone: "warn" }
+    : { text: `${difference} more than expected`, tone: "positive" };
 }
