@@ -101,7 +101,12 @@ export type CategoryChoice = {
   system_key: string | null;
 };
 
-const GROUP_ORDER = ["needs", "wants", "savings_debt"];
+export type BudgetGroup = "needs" | "wants" | "savings_debt";
+
+const GROUP_ORDER: BudgetGroup[] = ["needs", "wants", "savings_debt"];
+
+/** Offered in the add sheet: expense categories that aren't system ones. */
+const offerable = (c: CategoryChoice) => c.kind === "expense" && c.system_key == null;
 
 /**
  * The categories offered in the Add expense grid, best first: the most used
@@ -114,12 +119,12 @@ export function topCategories<T extends CategoryChoice>(categories: T[], recentC
   const uses = new Map<string, number>();
   for (const id of recentCategoryIds) uses.set(id, (uses.get(id) ?? 0) + 1);
   const groupRank = (c: T) => {
-    const i = GROUP_ORDER.indexOf(c.budget_group ?? "");
+    const i = (GROUP_ORDER as string[]).indexOf(c.budget_group ?? "");
     return i === -1 ? GROUP_ORDER.length : i;
   };
 
   return categories
-    .filter((c) => c.kind === "expense" && c.system_key == null)
+    .filter(offerable)
     .toSorted(
       (a, b) =>
         (uses.get(b.id) ?? 0) - (uses.get(a.id) ?? 0) ||
@@ -127,4 +132,52 @@ export function topCategories<T extends CategoryChoice>(categories: T[], recentC
         a.name.localeCompare(b.name, "en", { sensitivity: "base" }),
     )
     .slice(0, limit);
+}
+
+/**
+ * The picker's RECENT row (activity.md §4): the categories of the user's
+ * latest expenses, each once, newest first. `latestCategoryIds` is newest
+ * first. Income, system and missing categories are skipped before `limit`.
+ */
+export function recentCategories<T extends CategoryChoice>(
+  categories: T[],
+  latestCategoryIds: string[],
+  limit: number,
+): T[] {
+  const byId = new Map(categories.filter(offerable).map((c) => [c.id, c]));
+  const recent = new Set<T>();
+  for (const id of latestCategoryIds) {
+    if (recent.size >= limit) break;
+    const category = byId.get(id);
+    if (category) recent.add(category);
+  }
+  return [...recent];
+}
+
+/**
+ * The picker's sections (activity.md §4): one per 50/30/20 group in that
+ * order, keeping the given order inside each, with empty groups left out
+ * (owner, Nov 23). `query` keeps names that contain it, ignoring case.
+ */
+export function groupCategories<T extends CategoryChoice>(
+  categories: T[],
+  query: string,
+): { group: BudgetGroup; categories: T[] }[] {
+  const needle = query.trim().toLocaleLowerCase("en");
+  const matches = categories.filter((c) => c.name.toLocaleLowerCase("en").includes(needle));
+  return GROUP_ORDER
+    .map((group) => ({ group, categories: matches.filter((c) => c.budget_group === group) }))
+    .filter((section) => section.categories.length > 0);
+}
+
+/**
+ * The grid's tiles: the top `topCount`, except that a category picked from
+ * the picker takes the last place when it isn't among them, so the choice is
+ * always visible.
+ */
+export function gridCategories<T extends { id: string }>(categories: T[], topCount: number, value?: string): T[] {
+  const top = categories.slice(0, topCount);
+  if (!value || top.some((c) => c.id === value)) return top;
+  const picked = categories.find((c) => c.id === value);
+  return picked ? [...top.slice(0, topCount - 1), picked] : top;
 }

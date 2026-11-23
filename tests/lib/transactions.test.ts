@@ -6,6 +6,9 @@ import {
   moneyOutImpact,
   periodTotals,
   signedAmount,
+  gridCategories,
+  groupCategories,
+  recentCategories,
   topCategories,
   type TransactionRow,
 } from "@/lib/transactions";
@@ -175,5 +178,117 @@ describe("topCategories", () => {
   it("puts a custom Savings & debt category after Needs and Wants", () => {
     const withCustom = [...categories, cat("emergency", "Emergency fund", "savings_debt")];
     expect(ids(topCategories(withCustom, [], 99)).at(-1)).toBe("emergency");
+  });
+});
+
+describe("recentCategories", () => {
+  const cat = (id: string, extra: Partial<CategoryChoice> = {}) => ({
+    id,
+    name: id,
+    kind: "expense",
+    budget_group: "needs",
+    system_key: null,
+    ...extra,
+  });
+  const categories: CategoryChoice[] = [
+    cat("food"),
+    cat("transport"),
+    cat("fun", { budget_group: "wants" }),
+    cat("rent"),
+    cat("bills"),
+    cat("income", { kind: "income", budget_group: null, system_key: "income" }),
+    cat("pot", { budget_group: "savings_debt", system_key: "savings_pot" }),
+  ];
+  const ids = (list: CategoryChoice[]) => list.map((c) => c.id);
+
+  it("lists each category once, newest first, up to the limit", () => {
+    const latestFirst = ["fun", "food", "fun", "transport", "food", "rent", "bills"];
+    expect(ids(recentCategories(categories, latestFirst, 4))).toEqual(["fun", "food", "transport", "rent"]);
+  });
+
+  it("is empty for a new user", () => {
+    expect(recentCategories(categories, [], 4)).toEqual([]);
+  });
+
+  it("skips income, system and deleted categories without using up the limit", () => {
+    const latestFirst = ["pot", "gone", "income", "food", "transport"];
+    expect(ids(recentCategories(categories, latestFirst, 2))).toEqual(["food", "transport"]);
+  });
+});
+
+describe("groupCategories", () => {
+  const cat = (id: string, name: string, budget_group: string | null) => ({
+    id,
+    name,
+    kind: "expense",
+    budget_group,
+    system_key: null,
+  });
+  // Already in the picker's order (topCategories), which groups keep.
+  const categories: CategoryChoice[] = [
+    cat("dining", "Dining out", "wants"),
+    cat("food", "Food", "needs"),
+    cat("load", "Load & data", "needs"),
+    cat("fun", "Fun", "wants"),
+    cat("emergency", "Emergency fund", "savings_debt"),
+  ];
+  const shape = (groups: ReturnType<typeof groupCategories<CategoryChoice>>) =>
+    groups.map((g) => [g.group, g.categories.map((c) => c.id)]);
+
+  it("makes one section per group in Needs, Wants, Savings & debt order, keeping the given order inside", () => {
+    expect(shape(groupCategories(categories, ""))).toEqual([
+      ["needs", ["food", "load"]],
+      ["wants", ["dining", "fun"]],
+      ["savings_debt", ["emergency"]],
+    ]);
+  });
+
+  it("leaves out empty groups", () => {
+    expect(shape(groupCategories(categories.slice(0, 3), ""))).toEqual([
+      ["needs", ["food", "load"]],
+      ["wants", ["dining"]],
+    ]);
+  });
+
+  it("searches names anywhere in the word, ignoring case and outer spaces", () => {
+    expect(shape(groupCategories(categories, "  D "))).toEqual([
+      ["needs", ["food", "load"]],
+      ["wants", ["dining"]],
+      ["savings_debt", ["emergency"]],
+    ]);
+    expect(shape(groupCategories(categories, "FUN"))).toEqual([
+      ["wants", ["fun"]],
+      ["savings_debt", ["emergency"]],
+    ]);
+  });
+
+  it("returns nothing when no name matches", () => {
+    expect(groupCategories(categories, "rent")).toEqual([]);
+  });
+
+  it("drops categories without a group (income)", () => {
+    expect(shape(groupCategories([cat("pay", "Income", null)], ""))).toEqual([]);
+  });
+});
+
+describe("gridCategories", () => {
+  const list = ["a", "b", "c", "d", "e", "f", "g"].map((id) => ({ id }));
+  const ids = (l: { id: string }[]) => l.map((c) => c.id);
+
+  it("shows the top ones when nothing or a top one is picked", () => {
+    expect(ids(gridCategories(list, 5))).toEqual(["a", "b", "c", "d", "e"]);
+    expect(ids(gridCategories(list, 5, "c"))).toEqual(["a", "b", "c", "d", "e"]);
+  });
+
+  it("puts a category picked from More in the last place", () => {
+    expect(ids(gridCategories(list, 5, "g"))).toEqual(["a", "b", "c", "d", "g"]);
+  });
+
+  it("ignores a picked id that isn't in the list", () => {
+    expect(ids(gridCategories(list, 5, "zz"))).toEqual(["a", "b", "c", "d", "e"]);
+  });
+
+  it("handles fewer categories than tiles", () => {
+    expect(ids(gridCategories(list.slice(0, 2), 5, "b"))).toEqual(["a", "b"]);
   });
 });

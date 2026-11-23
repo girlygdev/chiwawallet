@@ -16,6 +16,7 @@ import {
   transactionSchemaFor,
 } from "@/lib/validation/transaction";
 import { CategoryGrid } from "./category-grid";
+import { CategoryPicker } from "./category-picker";
 import { DateButton } from "./date-button";
 
 const FIELD_ORDER = ["amount", "categoryId", "date", "note"] as const;
@@ -23,16 +24,24 @@ const FIELD_ORDER = ["amount", "categoryId", "date", "note"] as const;
 // The Add expense form (activity.md §3): amount → category → Save in under
 // 10 seconds; date and note are optional. `data` arrives a moment after the
 // sheet opens; the amount field works before that, and Save waits for it.
+//
+// More swaps the form for the category picker. The form stays mounted (only
+// hidden), so what was typed is kept; `picking` lives in the provider because
+// the sheet's title and back arrow change with it.
 export function ExpenseForm({
   data,
   amountRef,
   onSave,
   onSaved,
+  picking,
+  onPickingChange,
 }: {
   data: AddExpenseData | null;
   amountRef: React.RefObject<HTMLInputElement | null>;
   onSave: (input: TransactionFormInput) => Promise<SaveExpenseResult>;
   onSaved: (saved: { id: string; amount: number }) => void;
+  picking: boolean;
+  onPickingChange: (picking: boolean) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string>();
@@ -108,84 +117,114 @@ export function ExpenseForm({
 
   const amountField = register("amount");
 
+  // Back from the picker: focus the chosen tile, or More if nothing was
+  // picked, so keyboard and screen-reader users land where they left.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const wasPicking = useRef(false);
+  useEffect(() => {
+    if (wasPicking.current && !picking) {
+      const grid = gridRef.current;
+      (grid?.querySelector<HTMLElement>('[aria-pressed="true"]') ?? grid?.querySelector<HTMLElement>("[data-more]"))?.focus();
+    }
+    wasPicking.current = picking;
+  }, [picking]);
+
+  const pick = (id: string) => {
+    setValue("categoryId", id, { shouldValidate: errors.categoryId != null });
+    onPickingChange(false);
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="expense-amount" className="text-sm font-bold text-ink">
-          Amount
-        </label>
-        <div className="flex items-baseline gap-1.5">
-          <span aria-hidden className="font-display text-4xl font-semibold text-text-3">
-            ₱
-          </span>
-          <input
-            {...amountField}
-            ref={(el) => {
-              amountField.ref(el);
-              amountRef.current = el;
-            }}
-            id="expense-amount"
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="0"
-            aria-invalid={errors.amount ? true : undefined}
-            aria-describedby={errors.amount ? "expense-amount-error" : undefined}
-            className="w-full min-w-0 bg-transparent font-display text-[56px] leading-[1.1] font-semibold text-ink outline-none placeholder:text-placeholder"
-          />
+    <>
+      {picking && data && (
+        <CategoryPicker
+          categories={data.categories}
+          recentIds={data.recentIds}
+          targets={data.targets}
+          value={categoryId || undefined}
+          onPick={pick}
+        />
+      )}
+      <form onSubmit={handleSubmit(onSubmit)} noValidate hidden={picking} className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="expense-amount" className="text-sm font-bold text-ink">
+            Amount
+          </label>
+          <div className="flex items-baseline gap-1.5">
+            <span aria-hidden className="font-display text-4xl font-semibold text-text-3">
+              ₱
+            </span>
+            <input
+              {...amountField}
+              ref={(el) => {
+                amountField.ref(el);
+                amountRef.current = el;
+              }}
+              id="expense-amount"
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="0"
+              aria-invalid={errors.amount ? true : undefined}
+              aria-describedby={errors.amount ? "expense-amount-error" : undefined}
+              className="w-full min-w-0 bg-transparent font-display text-[56px] leading-[1.1] font-semibold text-ink outline-none placeholder:text-placeholder"
+            />
+          </div>
+          {errors.amount && (
+            <p id="expense-amount-error" className="text-[13px] font-bold text-bad-fg">
+              {errors.amount.message}
+            </p>
+          )}
         </div>
-        {errors.amount && (
-          <p id="expense-amount-error" className="text-[13px] font-bold text-bad-fg">
-            {errors.amount.message}
-          </p>
-        )}
-      </div>
 
-      <CategoryGrid
-        categories={data?.categories ?? null}
-        topCount={data?.topCount ?? 5}
-        loading={data == null}
-        value={categoryId || undefined}
-        onChange={(id) => setValue("categoryId", id, { shouldValidate: errors.categoryId != null })}
-        error={errors.categoryId?.message}
-      />
+        <CategoryGrid
+          categories={data?.categories ?? null}
+          topCount={data?.topCount ?? 5}
+          loading={data == null}
+          value={categoryId || undefined}
+          onChange={(id) => setValue("categoryId", id, { shouldValidate: errors.categoryId != null })}
+          onMore={() => onPickingChange(true)}
+          error={errors.categoryId?.message}
+          ref={gridRef}
+        />
 
-      <DateButton
-        id="expense-date"
-        value={date}
-        onChange={(d) => setValue("date", d, { shouldValidate: errors.date != null })}
-        today={today}
-        min={data?.firstPeriodStart ?? today}
-        error={errors.date?.message}
-      />
+        <DateButton
+          id="expense-date"
+          value={date}
+          onChange={(d) => setValue("date", d, { shouldValidate: errors.date != null })}
+          today={today}
+          min={data?.firstPeriodStart ?? today}
+          error={errors.date?.message}
+        />
 
-      <TextField
-        id="expense-note"
-        label="Note (optional)"
-        placeholder="Lunch"
-        autoComplete="off"
-        maxLength={100}
-        error={errors.note?.message}
-        className="h-[46px]"
-        {...register("note")}
-      />
+        <TextField
+          id="expense-note"
+          label="Note (optional)"
+          placeholder="Lunch"
+          autoComplete="off"
+          maxLength={100}
+          error={errors.note?.message}
+          className="h-[46px]"
+          {...register("note")}
+        />
 
-      <div aria-live="polite">
-        {impact && <p className="rounded-[14px] bg-mint px-4 py-3 text-sm font-bold text-link-hover">{impact}</p>}
-      </div>
+        <div aria-live="polite">
+          {impact && <p className="rounded-[14px] bg-mint px-4 py-3 text-sm font-bold text-link-hover">{impact}</p>}
+        </div>
 
-      <FormError message={formError} />
+        <FormError message={formError} />
 
-      <SubmitButton
-        pending={pending}
-        pendingLabel="Saving…"
-        // Waits for the sheet's data (the first period's start and the categories).
-        disabled={pending || data == null}
-        // The sheet's one hero button (style-guide.md "Buttons").
-        className="h-14 border-2 border-sticker bg-green-500 text-white shadow-sticker-sm hover:bg-green-500/90 aria-busy:bg-green-500 aria-busy:text-white"
-      >
-        Save expense
-      </SubmitButton>
-    </form>
+        <SubmitButton
+          pending={pending}
+          pendingLabel="Saving…"
+          // Waits for the sheet's data (the first period's start and the categories).
+          disabled={pending || data == null}
+          // The sheet's one hero button (style-guide.md "Buttons").
+          className="h-14 border-2 border-sticker bg-green-500 text-white shadow-sticker-sm hover:bg-green-500/90 aria-busy:bg-green-500 aria-busy:text-white"
+        >
+          Save expense
+        </SubmitButton>
+      </form>
+    </>
   );
 }

@@ -61,6 +61,15 @@
   --color-link: var(--link);
   --color-link-hover: var(--link-hover);
 
+  /* Category colours (more-and-categories.md §2): a soft tile background
+     and its icon colour, e.g. bg-cat-orange-bg text-cat-orange-fg */
+  --color-cat-orange-bg: var(--cat-orange-bg); --color-cat-orange-fg: var(--cat-orange-fg);
+  --color-cat-blue-bg: var(--cat-blue-bg);     --color-cat-blue-fg: var(--cat-blue-fg);
+  --color-cat-purple-bg: var(--cat-purple-bg); --color-cat-purple-fg: var(--cat-purple-fg);
+  --color-cat-yellow-bg: var(--cat-yellow-bg); --color-cat-yellow-fg: var(--cat-yellow-fg);
+  --color-cat-red-bg: var(--cat-red-bg);       --color-cat-red-fg: var(--cat-red-fg);
+  --color-cat-green-bg: var(--cat-green-bg);   --color-cat-green-fg: var(--cat-green-fg);
+
   /* Sticker outline and offset shadow: black in light, mid mint in dark
      (the black disappeared on the dark background) */
   --color-sticker: var(--sticker);
@@ -110,6 +119,13 @@
   --sticker: #1C1C1E;
   /* Text links and focused inputs */
   --link: #177A42; --link-hover: #0F5E34;
+  /* Category colours: soft background / icon (icon contrast 4.8 to 8.3:1) */
+  --cat-orange-bg: #FFF0E0; --cat-orange-fg: #8A4B00;
+  --cat-blue-bg: #E7F1FB;   --cat-blue-fg: #1F4E8C;
+  --cat-purple-bg: #EFEDFF; --cat-purple-fg: #4B3FA6;
+  --cat-yellow-bg: #FFF6D6; --cat-yellow-fg: #5C4600;
+  --cat-red-bg: #FBEBEB;    --cat-red-fg: #9B2C2C;
+  --cat-green-bg: #E8F6EE;  --cat-green-fg: #177A42;
 
   /* shadcn/ui variables, so its components match without overrides */
   --radius: 14px;
@@ -152,6 +168,13 @@
   --line: #2C3F33; --line-soft: #22342A; --track: #22342A;
   --sticker: #7FD3A3; /* mid mint */
   --link: #5DD68F; --link-hover: #8EE3B0; /* links in dark mode */
+  /* Category colours in dark: deep tile, light icon (icon contrast 7.9 to 9.2:1; owner, Nov 23) */
+  --cat-orange-bg: #3A2A16; --cat-orange-fg: #FFC48A;
+  --cat-blue-bg: #16283D;   --cat-blue-fg: #9CC6F2;
+  --cat-purple-bg: #262245; --cat-purple-fg: #BDB5FF;
+  --cat-yellow-bg: #3A3212; --cat-yellow-fg: #F4D97A;
+  --cat-red-bg: #3A1C1C;    --cat-red-fg: #F2A5A5;
+  --cat-green-bg: #15301F;  --cat-green-fg: #7FD3A3;
 
   --primary: #2FBF6E;
   --primary-foreground: #0B1A11;

@@ -2,6 +2,32 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 · 3c-2 Category picker and category colours
+- **What:** More in the Add expense sheet now opens "Choose a category". It has a search field, a RECENT row (your last 4) and one section per group with the budget's target ("NEEDS · 50% target"). Category icons now show their colour, in light and dark.
+- **Files:**
+  - New: `src/components/transactions/category-picker.tsx`
+  - Edited: `category-grid.tsx`, `expense-form.tsx`, `add-transaction-provider.tsx`, `src/components/sheet.tsx`, `src/app/(app)/activity/actions.ts`, `src/lib/transactions.ts`, `tests/lib/transactions.test.ts`, `src/app/globals.css`, `docs/designs/style-guide.md`
+- **Decisions:**
+  - **One sheet, two views:** the picker replaces the form inside the same sheet. The form stays mounted but hidden, so the amount, date and note are kept. The title changes and a back arrow appears. Esc goes back to the form instead of closing the sheet. Focus goes to the picker on open (not the search field, which would pop the phone keyboard over the tiles), and back to the chosen tile or More afterwards.
+  - **Grid:** a category picked from More that isn't in your top 5 takes the 5th tile's place, so the choice is visible (`gridCategories`).
+  - **Empty groups are hidden.** For now that's always Savings & debt payoff, because its two categories are system ones (owner).
+  - **Targets** come from the budget's `needs_pct`, `wants_pct` and `savings_debt_pct`.
+  - **Colour tokens:** `cat-{colour}-bg` and `cat-{colour}-fg`. Light values are from more-and-categories.md §2. Dark values are new (owner approved) and were added to the style guide. Icon contrast is 4.8–9.2:1.
+  - **Tiles use `aria-pressed`, not the spec's `aria-current`:** they're toggle buttons, the same as in the grid (activity.md §6).
+  - **Left for later:** the New category tile (3h, owner) and "₱X left" on tiles (needs the Plan, Week 5).
+- **Tests:**
+  - New unit tests for `recentCategories`, `groupCategories` and `gridCategories`. 230 unit tests pass, plus lint, typecheck and the build.
+  - Throwaway browser check (local, Edge, 390px and 1280px):
+    - The picker opens and gets focus. RECENT and the two group headings show, with 14 tiles and no Savings pot.
+    - Search: "tra" finds 2, and "zzz" shows the no-match line.
+    - Esc and the back arrow both return to the form with "75" still typed, and focus lands on More.
+    - Picking Travel shows it selected and focused in the grid. Saving stores it as Travel.
+    - No console errors.
+- **AI notes:**
+  - The colours didn't show at first. The dev build (Turbopack) silently dropped every declaration after an en dash (–) inside a CSS comment in `globals.css`. Plain ASCII in comments fixed it. Keep `globals.css` comments ASCII.
+  - Claude's first test step tapped Transport, which isn't in a new user's top 5. That was a test bug, not an app bug.
+- **Next:** 3d Income tab.
+
 ## 2026-11-23 · Week 3 (extra) · Fix the `Date.now()` prerender error
 - **What:** Dev showed "Next.js encountered the unstable value `Date.now()` while prerendering" on Dashboard, Income and More. It's gone.
 - **Files:** `src/lib/supabase/server.ts`.

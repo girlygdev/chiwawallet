@@ -35,7 +35,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
   - `cashOnHand()` = opening balance + income − spending − net savings − debt payments. Week 6's carry-over refines this.
   - Zod schemas in `src/lib/validation/transaction.ts`.
   - Done when: the Vitest cases pass (including a withdrawal, a deleted row, and an empty period).
-- [ ] **3c. Add expense sheet.** Likely split in two: the sheet and saving, then the category picker. **3c-1 (sheet and saving) done Nov 23;** 3c-2 (category picker) next.
+- [x] **3c. Add expense sheet.** Done Nov 23 in two parts: 3c-1 (sheet and saving) and 3c-2 (category picker and category colours). The New category tile waits for 3h, and "₱X left" on tiles waits for the Plan (Week 5). The phone timing check is part of 3g.
   - **Fields:**
     - Amount, focused on open.
     - Category grid: your 5 most-used plus **More**, which opens the category picker (search, Recent, one section per group). System categories are hidden from the picker.
@@ -67,7 +67,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
 - [ ] **3f. Dashboard.** Expected vs actual income, spent, and available (`cashOnHand`) for this period.
   - Done when: it matches the Activity totals.
 - [ ] **3g. Live check.** Push, then log a real expense on your phone in under 10 seconds.
-- [ ] **3h. Categories (optional, else Week 4).** The category list from More › Categories, New category, Edit category, and a level 2 delete that moves rows first.
+- [ ] **3h. Categories (optional, else Week 4).** The category list from More › Categories, New category, Edit category, and a level 2 delete that moves rows first. Also add the picker's last tile, **New category**, which returns to the picker with the new category selected (activity.md §4).
 
 ## Decisions
 

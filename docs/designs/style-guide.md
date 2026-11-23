@@ -58,6 +58,8 @@ Green means money and progress, ink black gives the sticker look, and everything
 
 Category icons use a soft background with a darker stroke of the same hue: orange #FFF0E0 / #8A4B00 (food), blue #E7F1FB / #1F4E8C (transport, travel), purple #EFEDFF / #4B3FA6 (personal, fun), yellow #FFF6D6 / #5C4600 (bills), red #FBEBEB / #9B2C2C (debts, health), green #E8F6EE / #177A42 (income, savings).
 
+In dark mode each pair turns into a deep tile with a light icon (added Nov 23): orange #3A2A16 / #FFC48A, blue #16283D / #9CC6F2, purple #262245 / #BDB5FF, yellow #3A3212 / #F4D97A, red #3A1C1C / #F2A5A5, green #15301F / #7FD3A3. Tokens: `cat-{colour}-bg` and `cat-{colour}-fg`.
+
 The 50/30/20 bar always uses the same order and colors: **Needs** #157A41, **Wants** #F4C430, **Savings & debt payoff** #7FD3A3, **Not assigned** #E3EDE7. Each segment also gets a text label, so color is never the only cue.
 
 ### Dark mode

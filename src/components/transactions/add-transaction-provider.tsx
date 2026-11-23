@@ -27,11 +27,14 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   // A new key per opening gives a fresh, empty form each time.
   const [openCount, setOpenCount] = useState(0);
   const [data, setData] = useState<AddExpenseData | null>(null);
+  // True while the category picker shows in place of the form.
+  const [picking, setPicking] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const amountRef = useRef<HTMLInputElement>(null);
 
   const openAddExpense = useCallback(() => {
     setData(null);
+    setPicking(false);
     setOpenCount((n) => n + 1);
     setOpen(true);
     // Loads while the user types the amount; fresh each time, so totals and
@@ -65,8 +68,30 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   return (
     <AddTransactionContext.Provider value={{ openAddExpense }}>
       {children}
-      <Sheet open={open} onOpenChange={setOpen} title="Add expense" initialFocus={amountRef}>
-        <ExpenseForm key={openCount} data={data} amountRef={amountRef} onSave={saveExpense} onSaved={onSaved} />
+      <Sheet
+        open={open}
+        onOpenChange={(next, details) => {
+          // Esc in the picker goes back to the form instead of closing everything.
+          if (!next && picking && details.reason === "escape-key") {
+            details.cancel();
+            setPicking(false);
+            return;
+          }
+          setOpen(next);
+        }}
+        title={picking ? "Choose a category" : "Add expense"}
+        back={picking ? { label: "Back to Add expense", onClick: () => setPicking(false) } : undefined}
+        initialFocus={amountRef}
+      >
+        <ExpenseForm
+          key={openCount}
+          data={data}
+          amountRef={amountRef}
+          onSave={saveExpense}
+          onSaved={onSaved}
+          picking={picking}
+          onPickingChange={setPicking}
+        />
       </Sheet>
       <Toast toast={toast} onDismiss={dismissToast} />
     </AddTransactionContext.Provider>

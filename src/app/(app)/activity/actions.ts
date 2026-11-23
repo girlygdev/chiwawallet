@@ -4,7 +4,13 @@ import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { type PaySchedule, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
-import { type CategoryChoice, topCategories, type TransactionRow } from "@/lib/transactions";
+import {
+  type BudgetGroup,
+  type CategoryChoice,
+  recentCategories,
+  topCategories,
+  type TransactionRow,
+} from "@/lib/transactions";
 import { SOMETHING_WRONG, toFieldErrors } from "@/lib/validation/field-errors";
 import { type TransactionFormInput, transactionSchemaFor } from "@/lib/validation/transaction";
 
@@ -16,6 +22,8 @@ import { type TransactionFormInput, transactionSchemaFor } from "@/lib/validatio
 const RECENT_EXPENSES = 200;
 /** Tiles shown before More. */
 const TOP_TILES = 5;
+/** The picker's RECENT row (activity.md §4). */
+const RECENT_TILES = 4;
 
 export type SheetCategory = CategoryChoice & { icon: string; color: string };
 
@@ -31,6 +39,10 @@ export type AddExpenseData = {
   /** Every offerable category, best first; the grid shows the first five. */
   categories: SheetCategory[];
   topCount: number;
+  /** The picker's RECENT row, newest first. */
+  recentIds: string[];
+  /** The budget's 50/30/20 percentages, for the picker's section headings. */
+  targets: Record<BudgetGroup, number>;
 };
 
 /** Everything the sheet needs; called when it opens. */
@@ -56,6 +68,9 @@ export async function getAddExpenseData(): Promise<AddExpenseData> {
     if (result.error) throw new Error(`Couldn't load the add sheet: ${result.error.message}`, { cause: result.error });
   }
 
+  // Newest first: the query orders by created_at.
+  const latestIds = recent.data!.map((r) => r.category_id);
+
   return {
     today,
     firstPeriodStart: first ?? period.start_date,
@@ -64,12 +79,10 @@ export async function getAddExpenseData(): Promise<AddExpenseData> {
     // The generated types say `string`; the column's check constraint allows
     // only the four transaction types.
     periodRows: rows.data! as AddExpenseData["periodRows"],
-    categories: topCategories(
-      categories.data!,
-      recent.data!.map((r) => r.category_id),
-      Infinity,
-    ),
+    categories: topCategories(categories.data!, latestIds, Infinity),
     topCount: TOP_TILES,
+    recentIds: recentCategories(categories.data!, latestIds, RECENT_TILES).map((c) => c.id),
+    targets: { needs: budget.needs_pct, wants: budget.wants_pct, savings_debt: budget.savings_debt_pct },
   };
 }
 

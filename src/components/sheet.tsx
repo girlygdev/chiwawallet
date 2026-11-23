@@ -1,12 +1,15 @@
 "use client";
 
 import { Dialog } from "@base-ui/react/dialog";
-import { X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 
 type SheetProps = {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  /** `details.reason` says why (e.g. "escape-key"); `details.cancel()` keeps it open. */
+  onOpenChange: (open: boolean, details: Dialog.Root.ChangeEventDetails) => void;
   title: string;
+  /** Shows a back arrow before the title, for a second view inside the sheet. */
+  back?: { label: string; onClick: () => void };
   description?: string;
   /** The field to focus on open, e.g. Add expense's amount. Default: the first focusable element. */
   initialFocus?: React.RefObject<HTMLElement | null>;
@@ -20,9 +23,9 @@ type SheetProps = {
 // Base UI's Dialog does the accessibility work: it traps focus inside, closes
 // on Esc or a click outside, returns focus to what opened it, and hides the
 // rest of the page from screen readers while open.
-export function Sheet({ open, onOpenChange, title, description, initialFocus, children }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, back, description, initialFocus, children }: SheetProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => onOpenChange(next)}>
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         {/* Dims the screen behind at 50%. */}
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-sticker/50 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
@@ -34,7 +37,17 @@ export function Sheet({ open, onOpenChange, title, description, initialFocus, ch
           <div aria-hidden className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-line md:hidden" />
 
           <div className="flex items-start justify-between gap-3 px-5 pt-3 pb-2 md:px-6 md:pt-5">
-            <div className="flex flex-col gap-1">
+            {back && (
+              <button
+                type="button"
+                onClick={back.onClick}
+                aria-label={back.label}
+                className="-mt-1 -ml-2 flex size-11 shrink-0 items-center justify-center rounded-full text-text-2 outline-link hover:bg-bg focus-visible:outline-2"
+              >
+                <ArrowLeft aria-hidden size={22} />
+              </button>
+            )}
+            <div className="flex flex-1 flex-col gap-1">
               <Dialog.Title className="font-display text-[22px] leading-tight font-semibold">{title}</Dialog.Title>
               {description && (
                 <Dialog.Description className="text-sm text-text-3">{description}</Dialog.Description>
