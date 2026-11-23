@@ -3,8 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Logo } from "@/components/auth/logo";
 import { getCurrentProfile } from "@/lib/current-profile";
+import { AddTransactionButton } from "@/components/transactions/add-transaction-provider";
 import { getGreeting } from "@/lib/greeting";
-import { ADD_TRANSACTION_HREF } from "./nav-items";
 
 // How the header looks on mobile (app-shell.md §3):
 // - "greeting": logo + "Good afternoon," and the name (Dashboard)
@@ -98,12 +98,7 @@ function DesktopHeader({ title, eyebrow, action }: { title: string; eyebrow?: st
         )}
         <h1 className="font-display text-[30px] leading-[1.15] font-semibold text-ink">{title}</h1>
       </div>
-      {action ?? (
-        <HeaderStickerLink href={ADD_TRANSACTION_HREF}>
-          {/* Links to Activity until the add sheet exists (Week 3). */}
-          Add transaction
-        </HeaderStickerLink>
-      )}
+      {action ?? <AddTransactionButton variant="header" />}
     </header>
   );
 }

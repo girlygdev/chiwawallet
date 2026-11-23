@@ -2,6 +2,36 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 · 3c-1: Add expense sheet and saving
+- **What:** The mobile + and the desktop "+ Add transaction" now open an Add expense sheet over any app page. You type an amount, tap a category and Save, and a toast says "Expense saved · −₱180" with Undo.
+- **Files:**
+  - New: `src/app/(app)/activity/actions.ts`, `src/components/transactions/{add-transaction-provider,expense-form,category-grid,date-button}.tsx`, `src/components/toast.tsx`.
+  - Changed: `src/lib/transactions.ts` and its tests (`topCategories`, `moneyOutImpact`), `src/components/sheet.tsx` (optional `initialFocus`), `src/components/shell/{bottom-bar,page-header,nav-items}`, `src/app/(app)/layout.tsx`, `docs/week-3-tasks.md`.
+- **Decisions (owner, Nov 23):**
+  - **Grid:** "Most used" counts your last 200 expenses. Ties go Needs first, then A to Z, so a new user sees Bills, Food, Health, Load & data, Padala. Income and system categories are never offered.
+  - **Impact line:** "Money out this period: ₱X → ₱Y". A date in an earlier period shows "Goes in Nov 1 – 14." instead.
+  - **More:** shows every category in the grid until the 3c-2 picker exists.
+  - **No type tabs yet:** 3d adds Income.
+  - **Loading:** the sheet loads its data when it opens (Server Action). The amount field is focused at once and works before the data arrives, and Save waits for it.
+  - **Server checks:** the action validates with the same Zod schema, refuses system categories (the database would accept Savings pot as an expense category), and saves into the period that contains the date (`getOrCreatePeriod`).
+  - **Undo:** soft-deletes the row.
+  - **Date:** the button opens the native picker with `showPicker()`, falling back to focusing the hidden date input.
+  - **Toast:** our own. A single always-present `role="status"` region, gone after 5 seconds.
+  - `Sheet` got an optional `initialFocus` ref. Without it, the Close button would get focus first. This file wasn't in the plan; it's a three-line pass-through to Base UI.
+  - Tiles use neutral `track` icon backgrounds for now. There are no tokens yet for the six category colours.
+- **Tests:**
+  - Lint, typecheck, build and 218 unit tests pass (7 new).
+  - A throwaway browser check ran against local Supabase and the dev server in Edge, at 390px. The amount is focused on open. 180 → Food → Save writes one ₱180 expense and shows the toast. Undo sets `deleted_at`. More shows all 13 categories and no system ones.
+  - The amount → category → Save path took about 0.9 seconds of automated input.
+- **AI notes:**
+  - Lint caught a ref being written during render; it's now written in an effect.
+  - The browser console shows "Route /dashboard: Next.js encountered the unstable value `Date.now()` while prerendering". It shows up without this change too (checked by stashing it), so it comes from the Dashboard and isn't part of this task.
+- **Open:**
+  - Category colour tokens (orange, blue, purple, yellow, red, green, in light and dark) for the tiles.
+  - The Dashboard's `Date.now()` prerender error.
+  - Playwright browsers aren't installed (`@playwright/test` isn't a dependency yet), so the check used the local Edge.
+- **Next:** 3c-2, the category picker.
+
 ## 2026-11-23 · Week 3 · 3b: transaction math and schema
 - **What:** Pure functions for signed amounts, period totals, day groups and cash on hand, plus the Zod schema for the add and edit sheet. Tests written first.
 - **Files:** `src/lib/transactions.ts`, `src/lib/validation/transaction.ts`, `tests/lib/transactions.test.ts`, `tests/lib/validation/transaction.test.ts` (all new), `docs/week-3-tasks.md`.

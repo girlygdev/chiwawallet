@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { BottomBar } from "@/components/shell/bottom-bar";
 import { Sidebar } from "@/components/shell/sidebar";
 import { ThemeSync } from "@/components/theme/theme-sync";
+import { AddTransactionProvider } from "@/components/transactions/add-transaction-provider";
 import { getCurrentProfile } from "@/lib/current-profile";
 
 // The frame around every logged-in page (app-shell.md): the sidebar from
@@ -9,6 +10,8 @@ import { getCurrentProfile } from "@/lib/current-profile";
 // content, and checks the login itself (see requireAppUser).
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
+    // The provider lets any page open the Add expense sheet (+ button).
+    <AddTransactionProvider>
     <div className="flex flex-1 bg-bg">
       <Sidebar />
       {/* Bottom padding = the bottom bar's height, so the last row is never
@@ -22,6 +25,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <ProfileThemeSync />
       </Suspense>
     </div>
+    </AddTransactionProvider>
   );
 }
 

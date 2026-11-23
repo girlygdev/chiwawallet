@@ -35,7 +35,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
   - `cashOnHand()` = opening balance + income − spending − net savings − debt payments. Week 6's carry-over refines this.
   - Zod schemas in `src/lib/validation/transaction.ts`.
   - Done when: the Vitest cases pass (including a withdrawal, a deleted row, and an empty period).
-- [ ] **3c. Add expense sheet.** Likely split in two: the sheet and saving, then the category picker.
+- [ ] **3c. Add expense sheet.** Likely split in two: the sheet and saving, then the category picker. **3c-1 (sheet and saving) done Nov 23;** 3c-2 (category picker) next.
   - **Fields:**
     - Amount, focused on open.
     - Category grid: your 5 most-used plus **More**, which opens the category picker (search, Recent, one section per group). System categories are hidden from the picker.

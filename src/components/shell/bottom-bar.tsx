@@ -1,11 +1,10 @@
 "use client";
 
-import { Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AddTransactionButton } from "@/components/transactions/add-transaction-provider";
 import { cn } from "@/lib/utils";
 import {
-  ADD_TRANSACTION_HREF,
   isCurrent,
   MOBILE_TABS_LEFT,
   MOBILE_TABS_RIGHT,
@@ -27,14 +26,9 @@ export function BottomBar() {
           <Tab key={item.href} item={item} current={isCurrent(pathname, item)} />
         ))}
         <li className="flex justify-center">
-          {/* The bar's one sticker element. Raised so its top half sits above the bar. */}
-          <Link
-            href={ADD_TRANSACTION_HREF}
-            aria-label="Add transaction"
-            className="-mt-[31px] flex size-[62px] items-center justify-center rounded-full border-[3px] border-sticker bg-green-500 text-white shadow-sticker-sm outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            <Plus aria-hidden size={26} strokeWidth={2.5} />
-          </Link>
+          {/* The bar's one sticker element. Raised so its top half sits above
+              the bar. Opens the Add expense sheet over the current page. */}
+          <AddTransactionButton variant="fab" />
         </li>
         {MOBILE_TABS_RIGHT.map((item) => (
           <Tab key={item.href} item={item} current={isCurrent(pathname, item)} />

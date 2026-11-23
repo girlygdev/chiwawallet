@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   cashOnHand,
+  type CategoryChoice,
   groupByDay,
+  moneyOutImpact,
   periodTotals,
   signedAmount,
+  topCategories,
   type TransactionRow,
 } from "@/lib/transactions";
 
@@ -108,5 +111,69 @@ describe("cashOnHand", () => {
 
   it("skips deleted rows", () => {
     expect(cashOnHand(500_000, [deleted])).toBe(500_000);
+  });
+});
+
+describe("moneyOutImpact", () => {
+  it("adds the new expense to this period's money out", () => {
+    expect(moneyOutImpact([lunch, loan, deleted], 25_000)).toEqual({ before: 418_000, after: 443_000 });
+  });
+
+  it("starts from ₱0 in an empty period", () => {
+    expect(moneyOutImpact([], 18_000)).toEqual({ before: 0, after: 18_000 });
+  });
+});
+
+describe("topCategories", () => {
+  const cat = (id: string, name: string, budget_group: string | null, extra: Partial<CategoryChoice> = {}) => ({
+    id,
+    name,
+    kind: "expense",
+    budget_group,
+    system_key: null,
+    ...extra,
+  });
+  // The defaults, out of order on purpose.
+  const categories: CategoryChoice[] = [
+    cat("travel", "Travel", "wants"),
+    cat("food", "Food", "needs"),
+    cat("fun", "Fun", "wants"),
+    cat("transport", "Transport", "needs"),
+    cat("bills", "Bills", "needs"),
+    cat("load", "Load & data", "needs"),
+    cat("health", "Health", "needs"),
+    cat("padala", "Padala", "needs"),
+    cat("rent", "Rent", "needs"),
+    cat("dining", "Dining out", "wants"),
+    cat("income", "Income", null, { kind: "income", system_key: "income" }),
+    cat("pot", "Savings pot", "savings_debt", { system_key: "savings_pot" }),
+    cat("extra", "Extra debt payment", "savings_debt", { system_key: "extra_debt" }),
+  ];
+  const ids = (list: CategoryChoice[]) => list.map((c) => c.id);
+
+  it("gives a new user Needs first, then A to Z", () => {
+    expect(ids(topCategories(categories, [], 5))).toEqual(["bills", "food", "health", "load", "padala"]);
+  });
+
+  it("puts the most-used first, then breaks ties the same way", () => {
+    const recent = ["dining", "transport", "dining", "fun", "transport", "dining"];
+    expect(ids(topCategories(categories, recent, 5))).toEqual(["dining", "transport", "fun", "bills", "food"]);
+  });
+
+  it("never offers income or system categories, even if they were used", () => {
+    const shown = ids(topCategories(categories, ["pot", "pot", "extra", "income"], 99));
+    expect(shown).not.toContain("pot");
+    expect(shown).not.toContain("extra");
+    expect(shown).not.toContain("income");
+    expect(shown).toHaveLength(10);
+  });
+
+  it("ignores usage of categories that no longer exist", () => {
+    expect(ids(topCategories(categories, ["gone", "gone"], 2))).toEqual(["bills", "food"]);
+  });
+
+  it("puts a custom Savings & debt category after Needs and Wants", () => {
+    const withCustom = [...categories, cat("emergency", "Emergency fund", "savings_debt")];
+    expect(ids(topCategories(withCustom, [], 99)).at(-1)).toBe("emergency");
   });
 });

@@ -47,10 +47,6 @@ export const SIDEBAR_LINKS: NavItem[] = [
 ];
 export const SETTINGS_LINK: NavItem = { href: "/settings", label: "Settings", icon: Settings };
 
-// Until the Add transaction sheet exists (Week 3), the + button and the
-// desktop Add transaction button link to Activity (decided Nov 19).
-export const ADD_TRANSACTION_HREF = "/activity";
-
 function matches(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }

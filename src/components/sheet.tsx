@@ -8,6 +8,8 @@ type SheetProps = {
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
+  /** The field to focus on open, e.g. Add expense's amount. Default: the first focusable element. */
+  initialFocus?: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
 };
 
@@ -18,13 +20,16 @@ type SheetProps = {
 // Base UI's Dialog does the accessibility work: it traps focus inside, closes
 // on Esc or a click outside, returns focus to what opened it, and hides the
 // rest of the page from screen readers while open.
-export function Sheet({ open, onOpenChange, title, description, children }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, description, initialFocus, children }: SheetProps) {
   return (
     <Dialog.Root open={open} onOpenChange={(next) => onOpenChange(next)}>
       <Dialog.Portal>
         {/* Dims the screen behind at 50%. */}
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-sticker/50 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-        <Dialog.Popup className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-sheet bg-surface pb-[env(safe-area-inset-bottom)] text-ink shadow-xl outline-none transition-transform duration-200 data-ending-style:translate-y-full data-starting-style:translate-y-full md:inset-x-auto md:top-1/2 md:bottom-auto md:left-1/2 md:w-[calc(100%-32px)] md:max-w-[440px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border-2 md:border-sticker md:pb-0 md:shadow-sticker-lg md:transition-opacity md:data-ending-style:translate-y-[-50%] md:data-ending-style:opacity-0 md:data-starting-style:translate-y-[-50%] md:data-starting-style:opacity-0">
+        <Dialog.Popup
+          // `true` is Base UI's default behaviour, used when no field is given.
+          initialFocus={initialFocus ?? true}
+          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] flex-col rounded-t-sheet bg-surface pb-[env(safe-area-inset-bottom)] text-ink shadow-xl outline-none transition-transform duration-200 data-ending-style:translate-y-full data-starting-style:translate-y-full md:inset-x-auto md:top-1/2 md:bottom-auto md:left-1/2 md:w-[calc(100%-32px)] md:max-w-[440px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border-2 md:border-sticker md:pb-0 md:shadow-sticker-lg md:transition-opacity md:data-ending-style:translate-y-[-50%] md:data-ending-style:opacity-0 md:data-starting-style:translate-y-[-50%] md:data-starting-style:opacity-0">
           {/* Grab handle: a visual cue on phones only. */}
           <div aria-hidden className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-line md:hidden" />
 

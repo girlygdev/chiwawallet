@@ -82,3 +82,49 @@ export function groupByDay<T extends TransactionRow>(rows: T[]): DayGroup<T>[] {
 export function cashOnHand(openingBalance: number | null, rows: Row[]): number {
   return live(rows).reduce((cash, t) => cash + signedAmount(t), openingBalance ?? 0);
 }
+
+/**
+ * The Add expense impact line (week-3-tasks.md 3c): "Money out this period:
+ * ₱X → ₱Y". `rows` are the period's transactions; `amount` is the new expense.
+ */
+export function moneyOutImpact(rows: Row[], amount: number): { before: number; after: number } {
+  const before = periodTotals(rows).moneyOut;
+  return { before, after: before + amount };
+}
+
+/** The category fields the Add expense grid needs. */
+export type CategoryChoice = {
+  id: string;
+  name: string;
+  kind: string;
+  budget_group: string | null;
+  system_key: string | null;
+};
+
+const GROUP_ORDER = ["needs", "wants", "savings_debt"];
+
+/**
+ * The categories offered in the Add expense grid, best first: the most used
+ * among `recentCategoryIds` (the user's latest expenses), then Needs before
+ * Wants before Savings & debt, then A to Z (owner, Nov 23). Income and system
+ * categories are never offered: pots and extra debt payments have their own
+ * flows (activity.md fix #4). Pass `limit` = Infinity for the full list.
+ */
+export function topCategories<T extends CategoryChoice>(categories: T[], recentCategoryIds: string[], limit: number): T[] {
+  const uses = new Map<string, number>();
+  for (const id of recentCategoryIds) uses.set(id, (uses.get(id) ?? 0) + 1);
+  const groupRank = (c: T) => {
+    const i = GROUP_ORDER.indexOf(c.budget_group ?? "");
+    return i === -1 ? GROUP_ORDER.length : i;
+  };
+
+  return categories
+    .filter((c) => c.kind === "expense" && c.system_key == null)
+    .toSorted(
+      (a, b) =>
+        (uses.get(b.id) ?? 0) - (uses.get(a.id) ?? 0) ||
+        groupRank(a) - groupRank(b) ||
+        a.name.localeCompare(b.name, "en", { sensitivity: "base" }),
+    )
+    .slice(0, limit);
+}
