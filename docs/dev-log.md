@@ -16,7 +16,7 @@ Newest entry first.
   - **Schema:** `transactionSchemaFor({ today, firstPeriodStart })` covers expense and income only. Savings and debt payments join in Weeks 4–5. Dates can't be in the future or before the first period, and a date that doesn't exist (Feb 30) gets one message. Notes can be up to 100 characters, and an empty note becomes null. Only income can have a source.
 - **Tests:** 211 unit tests pass (24 new), and lint and typecheck pass.
 - **AI notes:** The first run showed that a date that doesn't exist also got the "before your first period" message. Fixed with `abort: true` on the real-date check.
-- **Open:** The `transactions` migration (3a-2) is still on local only; push it to live on the owner's go.
+- **Also:** Pushed the `transactions` migration (3a-2) to live on the owner's go and regenerated `src/lib/supabase/types.ts`; 3a ticked.
 - **Next:** 3c, the Add expense sheet.
 
 ## 2026-11-23 · Week 3 · 3a-2: `transactions` migration
@@ -35,7 +35,7 @@ Newest entry first.
   - **Permissions:** there's no hard delete through the API. Delete and Undo both edit `deleted_at`. ids, `user_id` and the timestamps can't be changed.
 - **Tests:** Lint, typecheck and 187 unit tests pass; `npm run test:db` passes (138 tests, including the new transactions suite). On local, deleting a user with transactions in a rolled-back transaction left no orphan rows.
 - **AI notes:** At first the category trigger would have raised its own error for someone else's category, before the foreign key could. It now leaves that case to the foreign key, so the error is the same "not yours" one as for periods and sources.
-- **Open:** Apply to live after the owner's go, then regenerate `src/lib/supabase/types.ts`.
+- **Live:** Applied Nov 23 with 3b (see above).
 - **Next:** 3b, transaction math (tests first).
 
 ## 2026-11-23 · Week 3 (extra) · Home page goes to Log in

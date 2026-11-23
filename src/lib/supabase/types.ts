@@ -289,6 +289,73 @@ export type Database = {
         }
         Relationships: []
       }
+      transactions: {
+        Row: {
+          amount: number
+          category_id: string
+          created_at: string
+          date: string
+          deleted_at: string | null
+          id: string
+          income_source_id: string | null
+          note: string | null
+          period_id: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category_id: string
+          created_at?: string
+          date: string
+          deleted_at?: string | null
+          id?: string
+          income_source_id?: string | null
+          note?: string | null
+          period_id: string
+          type: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          amount?: number
+          category_id?: string
+          created_at?: string
+          date?: string
+          deleted_at?: string | null
+          id?: string
+          income_source_id?: string | null
+          note?: string | null
+          period_id?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_category_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "transactions_income_source_fkey"
+            columns: ["income_source_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "income_sources"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "transactions_period_fkey"
+            columns: ["period_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "budget_periods"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

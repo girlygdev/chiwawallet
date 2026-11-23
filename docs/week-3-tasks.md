@@ -8,7 +8,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
 
 ## Tasks
 
-- [ ] **3a. Migrations: `categories` and `transactions`.** Likely two sessions, one per table.
+- [x] **3a. Migrations: `categories` and `transactions`.** Done Nov 23 (local and live). Likely two sessions, one per table.
   - **`categories`:** done Nov 23 (`20261123105712_categories.sql`, on local and live; types regenerated).
     - Columns: name, kind, budget_group, icon, color, default_budget and `system_key`.
     - Checks: expense needs a group, income has none. Names are unique per user ignoring case, and each `system_key` once per user.
@@ -19,7 +19,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
     - Wants: Personal, Shopping, Dining out, Fun, Gifts, Travel.
     - Plus the system categories Income, Savings pot and Extra debt payment.
     - The migration also adds them for existing accounts.
-  - **`transactions`:** done Nov 23 (`20261123141644_transactions.sql`, on local; live waits for the owner's go).
+  - **`transactions`:** done Nov 23 (`20261123141644_transactions.sql`, on local and live; types regenerated).
     - Columns from the brief.
     - `amount > 0`, except `savings`, which can't be 0 (a negative amount is a withdrawal).
     - `deleted_at`, and the period link tied to the user (same pattern as `income_sources`).
