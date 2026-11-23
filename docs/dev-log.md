@@ -2,6 +2,48 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 · 3e-1 Activity list
+- **What:** `/activity` is now the real list:
+  - Period bar with previous and next arrows.
+  - Totals: Money in and Money out on mobile; Money in, Spending and To savings on desktop.
+  - Chips: All, Spending, Income, Savings.
+  - Search, opened from a header button on mobile and always shown on desktop.
+  - Day groups with each day's net. On desktop: a table and a category select.
+  - The empty state, with **Log an expense**, **I got paid ₱25,000** and the starting-balance note.
+- **Files:**
+  - New: `src/lib/activity.ts`, `tests/lib/activity.test.ts`, `src/components/activity/` (`activity-list.tsx`, `activity-empty.tsx`, `period-bar.tsx`, `search-context.tsx`)
+  - Edited: `src/app/(app)/activity/page.tsx`, `src/lib/income.ts` (+ tests), `add-transaction-provider.tsx`, `income-form.tsx`, `category-grid.tsx`, `src/components/shell/page-header.tsx`
+  - Docs: `docs/V1.1.md`, `docs/designs/activity.md`
+- **Decisions:**
+  - **URL:** `/activity?period=<any day>` instead of `/activity/[periodId]` (owner). Browsing past periods only reads, and the current period is created like the Dashboard does. Out-of-range or broken dates fall back to the current period, or the first one. `activity.md` is updated.
+  - **The whole period loads at once** (up to 500 rows), and filtering happens in the browser (owner). 50-at-a-time loading and the desktop side panel moved to `V1.1.md` (owner).
+  - **Row names:**
+    - An expense is named by its note, else its category ("Food · Expense").
+    - Pay from a source is named by the source.
+    - One-time income is named by its note, with "Income · One-time".
+    - Pay whose source was deleted is "Income".
+  - **Chips** are the four desktop types on both widths (fix #2). Spending covers expenses and debt payments. The category select is desktop only, as the spec says.
+  - **Day headings** are "Today, Nov 23", "Nov 22", with the year added for other years. The net is inside the `<h3>` (with a hidden "Net" for screen readers), so it's read with the day.
+  - **Period bar:** previous stops at the first period and next at the current one. At either end the arrow stays in place but disabled, so the dates don't shift.
+  - **Empty state:**
+    - **I got paid** uses `duePay`: the first source paying this period that isn't received. It opens Income with that source and its amount filled in, through the new `openAddSheet({ amount })`.
+    - Its buttons show only for the current period. The starting-balance note shows only in the first period.
+    - Habit 3 uses the "edit and delete buttons" wording (no swipe). Those buttons come in 3e-2.
+  - **Mobile search:** the button sits in the page header and shares state with the list through `ActivitySearchProvider`. `PageHeader`'s "title" style now takes an action.
+- **Tests:**
+  - New unit tests for `rowLabels`, `typeLabel`, `filterRows`, `dayHeading`, `resolvePeriod`, `periodNav` and `duePay`. 268 unit tests pass, plus lint, typecheck and the build.
+  - Throwaway browser check (local, Edge, 390px and 1280px) on seeded rows in two periods:
+    - Totals, day headings and nets, and row names are right.
+    - Chips and search filter correctly, including the no-match state and "Clear filters".
+    - Previous and next periods work, including the first period and a URL past today.
+    - The desktop table works, including the category select.
+    - Empty state: **I got paid** opens Income with Main job and ₱25,000 filled in, and saving it replaces the empty state.
+- **AI notes:** Three of Claude's test steps were wrong, not the app:
+  - Seeding inserted a period the Dashboard had already created.
+  - A totals check didn't allow for the hidden desktop label "Spending" in the text.
+  - A bash heredoc broke on quoting, so the spec was written with the editor instead.
+- **Next:** 3e-2 edit and delete: Edit and Delete on every row, "Edit transaction" in the sheet, the level 1 delete dialog and Undo. Then delete the owner's duplicate "Bonus".
+
 ## 2026-11-23 · Week 3 · 3d-2 Income screen: Received, Recently received, Log one-time income
 - **What:** The Income screen now shows what actually came in:
   - **Status lines** on each source card ("15th: Received Nov 23", "30th: Expected Nov 30").

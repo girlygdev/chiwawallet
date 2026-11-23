@@ -52,7 +52,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
   - **Save income**.
   - Income screen leftovers from Week 2: Received and Expected status lines, and Recently received.
   - Done when: logging pay marks the source Received on the Income screen and in the sheet.
-- [ ] **3e. Activity list.** Likely split in two: the list, then edit and delete.
+- [ ] **3e. Activity list.** Split in two: **3e-1 (the list) done Nov 23;** 3e-2 (edit and delete) next. The desktop side panel and 50-at-a-time loading moved to `V1.1.md`.
   - **Mobile:**
     - Period bar ("Nov 15 – 29").
     - Money in and Money out totals.

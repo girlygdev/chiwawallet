@@ -52,8 +52,9 @@ function MobileHeader({ title, mobile, action }: { title: string; mobile: Mobile
 
   if (mobile === "title") {
     return (
-      <header className="md:hidden">
+      <header className="flex min-h-11 items-center justify-between gap-3 md:hidden">
         <h1 className="font-display text-[28px] leading-[1.15] font-semibold text-ink">{title}</h1>
+        {action}
       </header>
     );
   }

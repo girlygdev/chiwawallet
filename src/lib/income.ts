@@ -265,3 +265,18 @@ export function incomeResult(amount: number, expected: number): { text: string; 
     ? { text: `${difference} less than expected`, tone: "warn" }
     : { text: `${difference} more than expected`, tone: "positive" };
 }
+
+/**
+ * The pay the Activity empty state offers to log ("I got paid ₱25,000",
+ * activity.md §5): the first source paying this period that isn't received.
+ * The period's payday is its first day, so it's always on or before today.
+ */
+export function duePay<T extends DatedSource & { id: string }>(
+  sources: T[],
+  receivedIds: Set<string>,
+  schedule: PaySchedule,
+  today: string,
+): T | null {
+  const [current] = nextPeriods(today, schedule, 1);
+  return sources.find((s) => !receivedIds.has(s.id) && paysIn(s, schedule, current)) ?? null;
+}

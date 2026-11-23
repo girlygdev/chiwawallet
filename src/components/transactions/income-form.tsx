@@ -87,7 +87,10 @@ export function IncomeForm({
 
   // The text the last source pick put in the amount. A pick may replace that
   // (or an empty amount), but not something the user typed.
-  const [autoFilled, setAutoFilled] = useState<string | null>(null);
+  // An amount that arrived with a source ("I got paid") counts as filled in.
+  const [autoFilled, setAutoFilled] = useState<string | null>(
+    defaultSource && defaultSource !== ONE_TIME && defaultAmount ? defaultAmount : null,
+  );
   const pickSource = (value: string) => {
     setValue("source", value, { shouldValidate: errors.source != null });
     const picked = data?.sources.find((s) => s.id === value);

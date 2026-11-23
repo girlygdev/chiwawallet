@@ -8,6 +8,7 @@ import {
   incomeResult,
   isActiveOn,
   monthlyAmount,
+  duePay,
   receivedOn,
   receivedSourceIds,
   removalImpact,
@@ -357,5 +358,24 @@ describe("incomeResult: the Recently received result line", () => {
     expect(incomeResult(2_500_000, 2_500_000)).toEqual({ text: "Received as expected", tone: "positive" });
     expect(incomeResult(2_450_000, 2_500_000)).toEqual({ text: "₱500 less than expected", tone: "warn" });
     expect(incomeResult(2_550_050, 2_500_000)).toEqual({ text: "₱500.50 more than expected", tone: "positive" });
+  });
+});
+
+describe("duePay: the empty state's I got paid button", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const sources = [
+    { id: "freelance", name: "Freelance", amount: 800_000, pay_slot: "payday_2", start_date: "2026-11-01", end_date: null },
+    { id: "main", name: "Main job", amount: 2_500_000, pay_slot: "every", start_date: "2026-11-01", end_date: null },
+    { id: "allowance", name: "Allowance", amount: 300_000, pay_slot: "payday_1", start_date: "2026-11-01", end_date: null },
+  ];
+
+  it("is the first source paying this period that isn't logged yet", () => {
+    expect(duePay(sources, new Set(), semi, "2026-11-20")?.id).toBe("main");
+    expect(duePay(sources, new Set(["main"]), semi, "2026-11-20")?.id).toBe("allowance");
+  });
+
+  it("is null when everything due is logged, or nothing pays this period", () => {
+    expect(duePay(sources, new Set(["main", "allowance"]), semi, "2026-11-20")).toBeNull();
+    expect(duePay([sources[0]], new Set(), semi, "2026-11-20")).toBeNull();
   });
 });

@@ -79,6 +79,25 @@ const COLORS: Record<string, string> = {
   green: "bg-cat-green-bg text-cat-green-fg",
 };
 
+/**
+ * A category's icon on its soft colour: 36px in the grid and picker, 40px in
+ * the Activity list (activity.md §1). Decorative: the name sits beside it.
+ */
+export function CategoryIconTile({ icon, color, size = "sm" }: { icon: string; color: string; size?: "sm" | "md" }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-[10px]",
+        size === "md" ? "size-10" : "size-9",
+        COLORS[color] ?? "bg-track text-text-2",
+      )}
+    >
+      <CategoryIcon icon={icon} size={size === "md" ? 22 : 20} />
+    </span>
+  );
+}
+
 export type TileCategory = { id: string; name: string; icon: string; color: string };
 
 /**
@@ -107,14 +126,7 @@ export function CategoryTile({
         className,
       )}
     >
-      <span
-        className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-[10px]",
-          COLORS[category.color] ?? "bg-track text-text-2",
-        )}
-      >
-        <CategoryIcon icon={category.icon} size={20} />
-      </span>
+      <CategoryIconTile icon={category.icon} color={category.color} />
       <span className="line-clamp-2 text-center leading-tight">{category.name}</span>
     </button>
   );

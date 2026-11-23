@@ -12,7 +12,7 @@ import {
 } from "@/app/(app)/activity/actions";
 import { Sheet } from "@/components/sheet";
 import { Toast, type ToastMessage } from "@/components/toast";
-import { formatPeso } from "@/lib/money";
+import { formatPeso, formatPesoInput } from "@/lib/money";
 import { ONE_TIME } from "@/lib/validation/transaction";
 import { ExpenseForm } from "./expense-form";
 import { IncomeForm } from "./income-form";
@@ -23,6 +23,8 @@ type OpenOptions = {
   tab?: SheetTab;
   /** The Income tab's starting choice: a source id or ONE_TIME. */
   incomeSource?: string;
+  /** A starting amount in centavos, e.g. the source's expected pay ("I got paid"). */
+  amount?: number;
 };
 
 type AddTransaction = { openAddSheet: (options?: OpenOptions) => void };
@@ -65,8 +67,9 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
     setTab(options.tab ?? "expense");
     setIncomeSource(options.incomeSource ?? "");
     setPicking(false);
-    amountText.current = "";
-    setCarriedAmount("");
+    const startAmount = options.amount != null ? formatPesoInput(options.amount) : "";
+    amountText.current = startAmount;
+    setCarriedAmount(startAmount);
     setOpenCount((n) => n + 1);
     setOpen(true);
     // Loads while the user types the amount; fresh each time, so totals,
@@ -201,6 +204,27 @@ export function LogOneTimeIncomeButton() {
       className="flex h-12 w-full items-center justify-center rounded-md border-[1.5px] border-line bg-surface px-6 text-[15px] font-extrabold text-ink outline-link hover:border-line-dash focus-visible:outline-2 focus-visible:outline-offset-2 md:w-auto md:self-start"
     >
       Log one-time income
+    </button>
+  );
+}
+
+/**
+ * A button that opens the add sheet a certain way, for pages that are server
+ * components (e.g. Activity's empty state: "Log an expense", "I got paid").
+ */
+export function OpenAddSheetButton({
+  options,
+  className,
+  children,
+}: {
+  options?: OpenOptions;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const { openAddSheet } = useAddTransaction();
+  return (
+    <button type="button" onClick={() => openAddSheet(options)} className={className}>
+      {children}
     </button>
   );
 }

@@ -15,7 +15,7 @@ The list of every peso in and out this period, and the sheet for logging one. Mo
 
 Deleting is in [`delete-pattern.md`](delete-pattern.md), categories in [`more-and-categories.md`](more-and-categories.md), and the frame in [`app-shell.md`](app-shell.md).
 
-Routes: `/activity` (or `/transactions`) and `/activity/[periodId]`. The add sheet opens over any page from the + button.
+Routes: `/activity` for the current period and `/activity?period=YYYY-MM-DD` for the period containing that day (decided Nov 23: a date instead of a period id, so browsing never creates a period). The add sheet opens over any page from the + button.
 
 ## 1. Mobile list
 
