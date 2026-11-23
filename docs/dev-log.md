@@ -2,6 +2,21 @@
 
 Newest entry first.
 
+## 2026-11-20 · Week 3 · Week 3 plan review
+- **What:** Settled the Week 3 data-model questions and wrote `docs/week-3-tasks.md` (3a–3h). Started `docs/V1.1.md`.
+- **Files:** `docs/mvp-brief.md` (data model, delete rules, Week 3–4 boxes), `docs/plan-review-2026-11-19.md`, `docs/week-3-tasks.md` (new), `docs/V1.1.md` (new).
+- **Decisions:**
+  - 3.4: `categories.system_key` (`income`, `savings_pot`, `extra_debt`). Defaults are copied per user at sign-up and are editable; custom categories are per user (option A).
+  - 3.5: pot withdrawals are negative `savings` amounts.
+  - 3.6: `set null` for pots, bills, debts and income sources; `restrict` for categories.
+  - 3.14 changed: no income transaction from "pay already arrived", because the opening balance already has it.
+  - Scope: the Savings tab moves to Week 4; the budget-left line and "Give this money a job" to Week 5; Export CSV to Week 8. Search all periods, the N shortcut and swipe go to `V1.1.md`. No mobile Bills chip.
+  - Our own toast, and the browser's native date picker (also on desktop). No new dependencies.
+  - The dark-mode mint overlay behind sheets and dialogs stays (owner, Nov 20).
+- **Tests:** Docs only.
+- **AI notes:** Claude caught that turning `first_pay_received` into an income transaction would double-count the opening balance.
+- **Next:** 3a, the `categories` migration.
+
 ## 2026-11-20 · Week 2 (extra) · Loading skeletons for onboarding and Income
 - **What:**
   - Onboarding steps and the Income screen now show grey skeleton blocks while their data loads, instead of a blank screen (onboarding) or a "Loading…" line (Income).

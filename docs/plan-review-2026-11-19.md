@@ -30,16 +30,16 @@ Changes to the brief's data model need the owner's OK (CLAUDE.md).
 | 3.1 | 2 | `budgets` | Onboarding resumes at step 3 when there's "no opening balance", but ₱0 is a valid answer; negative amounts are allowed too | `opening_balance` nullable, no `>= 0` check | **Decided Nov 19:** nullable (empty = step 3 not done); ₱0 and negatives are valid |
 | 3.2 | 2 | `income_sources` | A job that stops has no end date (`income.md` fix #3) | Optional `end_date` | **Decided Nov 19:** add it |
 | 3.3 | 2 | `income_sources` | Onboarding doesn't ask for `start_date` | Default to the first period's start date | **Decided Nov 19:** as suggested |
-| 3.4 | 3 | `categories` | "Savings pot" and "Extra debt payment" are system categories: assigned automatically, hidden from the expense picker, can't be deleted | A `system_key` column | open |
-| 3.5 | 3 | `transactions` | Pot withdrawals: negative amount or a `direction` field (`activity.md` §3) | Negative `savings` amount; a check that only savings rows can be negative | open |
-| 3.6 | 3–4 | links to pots, bills, debts, income sources | Level 2 deletes are hard deletes, but past history stays (`delete-pattern.md`) | Foreign keys `on delete set null`; history rows fall back to the category name | open |
+| 3.4 | 3 | `categories` | "Savings pot" and "Extra debt payment" are system categories: assigned automatically, hidden from the expense picker, can't be deleted | A `system_key` column | **Decided Nov 20:** `system_key` with three keys: `income`, `savings_pot`, `extra_debt`. The `income` category gives income rows a category too. Defaults are copied per user at sign-up (option A; existing accounts get them in the migration); custom categories are per user. Names are unique per user, ignoring case |
+| 3.5 | 3 | `transactions` | Pot withdrawals: negative amount or a `direction` field (`activity.md` §3) | Negative `savings` amount; a check that only savings rows can be negative | **Decided Nov 20:** as suggested; every other amount is above zero |
+| 3.6 | 3–4 | links to pots, bills, debts, income sources | Level 2 deletes are hard deletes, but past history stays (`delete-pattern.md`) | Foreign keys `on delete set null`; history rows fall back to the category name | **Decided Nov 20:** as suggested. Category links are `on delete restrict` instead: a category delete moves its rows first |
 | 3.7 | 4 | `recurring_bills` | Quarterly and yearly bills need a first due month (`bills.md` §4) | `first_due_month` | open |
 | 3.8 | 4 | `savings_pots` | `pay_slot = split` for pots | Drop split for pots (`savings.md` fix #5) | open |
 | 3.9 | 5 | `plan_items` | Starter plan items (Needs, Wants, Savings & debt) have no category | A `group` column on `plan_items` | open |
 | 3.10 | 5 | `plan_items` | Origin for copies of `categories.default_budget` | `recurring` (`plan.md` fix #3) | open |
 | 3.11 | 2 or 7 | — | Dismissing the dashboard's Get started checklist | Browser storage; no column | **Decided Nov 19:** as suggested |
 | 3.13 | 2 | `budgets` / `profiles` | Week start appears twice: onboarding saves `profiles.week_start`, and weekly budgets need a payday | Weekly periods use `budgets.pay_weekday`; `profiles.week_start` only sets how calendars display | **Decided Nov 19** |
-| 3.14 | 2 | `budget_periods` | Signing up mid-period: "Has your Nov 15 pay already arrived?" must be saved before `transactions` exists (`onboarding.md` fix #1) | `first_pay_received` (boolean, default false); Week 3 turns it into a received income transaction | **Decided Nov 19** |
+| 3.14 | 2 | `budget_periods` | Signing up mid-period: "Has your Nov 15 pay already arrived?" must be saved before `transactions` exists (`onboarding.md` fix #1) | `first_pay_received` (boolean, default false); Week 3 turns it into a received income transaction | **Decided Nov 19. Changed Nov 20:** no income transaction, because the opening balance already includes that pay and it would count twice. The first period just shows the source as "Received" |
 | 3.12 | 8 | — | Storing "Why are you leaving?" after account deletion (`settings.md` fix #1) | Drop the field | open |
 
 ## 4. Architecture decisions
@@ -67,13 +67,22 @@ The specs cover about 25 screens in mobile and desktop versions, plus empty stat
 
 | # | Feature | Source | Status |
 | --- | --- | --- | --- |
-| 5.1 | "Search all periods" and the "N" keyboard shortcut | `activity.md` | open |
-| 5.2 | Swipe gestures on transaction rows (Edit and Delete buttons stay) | `activity.md` | open |
+| 5.1 | "Search all periods" and the "N" keyboard shortcut | `activity.md` | **Decided Nov 20:** moved to `V1.1.md` |
+| 5.2 | Swipe gestures on transaction rows (Edit and Delete buttons stay) | `activity.md` | **Decided Nov 20:** moved to `V1.1.md` |
 | 5.3 | Copy last period's plan | `plan.md` fix #5 | open |
 | 5.4 | "Wins" on the rollover screen (show the plain numbers) | `payday-rollover.md` | open |
 | 5.5 | Desktop-only live previews (onboarding, New debt schedule) | `onboarding.md`, `debts.md` | **Decided Nov 19:** keep all three onboarding previews (owner); New debt schedule still open |
 | 5.6 | Rebuilding future periods when paydays change (see 4.8) | `settings.md` | open |
 | 5.7 | "Why are you leaving?" (see 3.12) | `settings.md` | open |
+
+**Week 3 scope (decided Nov 20):**
+- The add sheet's Savings tab moves to Week 4 with pots.
+- The "budget left" impact line waits for Plan (Week 5); until then the sheet shows "Money out this period: ₱X → ₱Y".
+- "Help me give this money a job" waits for Week 5.
+- Category list, New category and edit are an optional 3h task, otherwise Week 4.
+- Export CSV moves to Week 8.
+- No mobile Bills chip: both sizes filter All, Spending, Income, Savings (`activity.md` fix #2).
+- Our own toast; the browser's native date picker on phone and desktop (no new dependencies).
 
 **Week 1 app shell:** build only the frame (bottom bar, sidebar, header, More link). The greeting needs profiles part 2, the sidebar's budget name and the period switcher need Week 2, and the bell needs Week 7, so leave placeholders for those.
 

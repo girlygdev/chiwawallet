@@ -186,12 +186,12 @@ Every table has `user_id` and an RLS policy. Amounts are `bigint` centavos.
 | budgets | name, frequency (weekly / semi_monthly / monthly), pay_day_1, pay_day_2, pay_weekday, opening_balance (empty until onboarding step 3; ₱0 and negatives allowed), carry_over (on), ask_on_payday (on), budget_model (50_30_20), needs_pct (50), wants_pct (30), savings_debt_pct (20) | periods, income sources, bills |
 | income_sources | budget_id, name, amount, amount_varies (false), pay_slot (payday_1 / payday_2 / every), start_date (defaults to the first period's start), end_date (optional, for a job that stops) | plan items, transactions |
 | budget_periods | budget_id, start_date, end_date, pay_slot, carried_in, leftover_choice (carry / pot / debt / split), first_pay_received (false; set in onboarding when today's pay already arrived), closed_at | plan items, transactions |
-| categories | name, kind (income / expense), group (needs / wants / savings_debt), icon, color, default_budget (optional, copied into each period's plan) | plan items, transactions |
+| categories | name (unique per user, ignoring case), kind (income / expense), group (needs / wants / savings_debt; empty for income), icon, color, default_budget (optional, copied into each period's plan), system_key (optional: income / savings_pot / extra_debt; one each per user, can't be renamed or deleted, hidden from the expense picker) | plan items, transactions |
 | recurring_bills | budget_id, name, amount, amount_varies (false), category_id, frequency (monthly / quarterly / yearly), due_day, pay_slot (payday_1 / payday_2 / split), remind (on) | plan items, transactions |
 | savings_pots | name, icon, color, target_amount (optional), target_date (optional), starting_balance, planned_contribution, pay_slot, is_locked | plan items, transactions |
 | debts | name, lender (optional), total_amount, payment_type (installments / one_time), num_payments, payment_amount, first_due_date, interest_rate (optional, display only), paid_off_at | plan items, transactions |
 | plan_items | period_id, name, category_id, planned_amount, origin (recurring / one_off / starter / assigned), needed_by (optional), income_source_id, bill_id, pot_id, debt_id, paid_at, deleted_at | period, transactions |
-| transactions | period_id, category_id, type (income / expense / savings / debt_payment), amount, date, note, income_source_id, plan_item_id, pot_id, debt_id, deleted_at | period, plan item |
+| transactions | period_id, category_id, type (income / expense / savings / debt_payment), amount (above zero; only savings can be negative, meaning a pot withdrawal), date, note, income_source_id, plan_item_id, pot_id, debt_id, deleted_at | period, plan item |
 
 Opening a period, current or future, generates its plan items from income sources, bills (split ones become two halves) and pot contributions for that payday. You then add one-off items and debt payments. Pot and debt balances are calculated from transactions, not stored, so they can't drift out of sync. The three target percentages live on each budget and must add up to 100 (enforce with a database check). The MVP hides them and always uses 50/30/20; in v1.1, picking a model just fills in those numbers.
 
@@ -202,6 +202,9 @@ Opening a period, current or future, generates its plan items from income source
 - Choice fields (frequency, pay_slot, group, origin, type and so on) are Postgres enums or `text` with a check constraint, never free text.
 - **Soft delete** (level 1 of the delete pattern): `transactions` and `plan_items` set `deleted_at`, all queries filter `deleted_at is null`, and a daily job purges rows older than 30 days.
 - **Hard delete with a choice** (level 2): pots, debts, bills, income sources and categories. Past transactions keep their history; only future plan items are removed.
+  - Links from transactions and plan items to pots, debts, bills and income sources are `on delete set null`; those rows then show their category name.
+  - Links to categories are `on delete restrict`: deleting a category first moves its transactions and plan items to another one.
+- **Categories:** every user gets their own copy of the default categories at sign-up, which they can edit. Three system categories are locked: Income, Savings pot and Extra debt payment. Custom categories are per user too.
 - **Account deletion** (level 3): deleting the auth user cascades to every table.
 - **Starter plan:** creates three `plan_items` with origin `starter`, using the budget's three percentages. **Assign leftover** creates items with origin `assigned`.
 
@@ -256,8 +259,8 @@ Each task fits in one session and ends with something you can check. Deploy from
 **Done when:** you log a real expense on your phone in under 10 seconds.
 
 - [ ] `categories` table with group (Needs, Wants, Savings & debt payoff) and default Filipino-friendly categories (Food, Transport, Load/Internet, Bills, Rent, Padala, etc.)
-- [ ] `transactions` table + RLS; amounts in centavos; PHP formatting helper
-- [ ] Add transaction bottom sheet with Zod validation
+- [ ] `transactions` table + RLS; amounts in centavos; PHP formatting helper (`formatPeso()` already exists)
+- [ ] Add transaction bottom sheet with Zod validation (Expense and Income; the Savings tab moves to Week 4 with pots)
 - [ ] Transaction list for the current period; edit and delete
 - [ ] Dashboard: expected vs actual income, spent and available
 
@@ -266,7 +269,7 @@ Each task fits in one session and ends with something you can check. Deploy from
 **Done when:** you can enter all your current bills, pots and debts and they list correctly.
 
 - [ ] `recurring_bills` table; Bills screen with due day and paid from payday 1, 2 or split
-- [ ] `savings_pots` table; Savings screen with target, starting balance, planned contribution, pay slot, locked flag
+- [ ] `savings_pots` table; Savings screen with target, starting balance, planned contribution, pay slot, locked flag; the add sheet's Savings tab (add to or withdraw from a pot)
 - [ ] `debts` table; Debts screen with amount, due date and optional interest rate
 - [ ] Zod schemas and RLS for all three tables
 
