@@ -2,6 +2,18 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 (extra) · Fix the `Date.now()` prerender error
+- **What:** Dev showed "Next.js encountered the unstable value `Date.now()` while prerendering" on Dashboard, Income and More. It's gone.
+- **Files:** `src/lib/supabase/server.ts`.
+- **Decisions:**
+  - **Cause:** Supabase's auth code reads the clock to check the session's expiry before each query. The sidebar's profile chip (on every app page) and the greeting query Supabase, and Cache Components refuses clock reads that aren't clearly per-request.
+  - **Fix:** `createClient()` now calls `await connection()` right after `cookies()`, so every server-side Supabase user is request-time. These pages already were (they read cookies), so nothing changes for users.
+- **Tests:**
+  - Lint, typecheck, build and 218 unit tests pass.
+  - **Browser check (local, Edge):** log in, add an expense, then visit Income, More, Activity and Dashboard. There were no console errors. With the line commented out, the error came back on Dashboard, Income and More.
+- **AI notes:** At first this looked like a Dashboard problem, but the stack trace pointed at the sidebar. The error shows on whichever app page is opened.
+- **Next:** 3c-2, the category picker and category colour tokens.
+
 ## 2026-11-23 · Week 3 · 3c-1: Add expense sheet and saving
 - **What:** The mobile + and the desktop "+ Add transaction" now open an Add expense sheet over any app page. You type an amount, tap a category and Save, and a toast says "Expense saved · −₱180" with Undo.
 - **Files:**
