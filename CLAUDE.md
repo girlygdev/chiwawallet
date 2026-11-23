@@ -65,7 +65,7 @@ tests/                 # Vitest unit tests mirror src/lib
 - Never expose the `service_role` key, never put it in a `NEXT_PUBLIC_` variable, and avoid using it at all unless asked.
 - Never commit secrets. `.env*` is gitignored; update `.env.example` with empty values when adding a variable.
 - Validate every input with Zod on the server, even when the client also validates.
-- Choice fields (frequency, pay_slot, group, origin, type) are enums or check-constrained text.
+- Choice fields (frequency, pay_slot, budget_group, origin, type) are enums or check-constrained text.
 - Soft delete only `transactions` and `plan_items` (`deleted_at`); every query filters `deleted_at is null`.
 - Schema changes go in a new migration file. **Ask before changing the data model** in the brief.
 - Collect only what the brief lists. No IDs, bank or card numbers, location or contacts (Data Privacy Act).

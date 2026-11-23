@@ -186,7 +186,7 @@ Every table has `user_id` and an RLS policy. Amounts are `bigint` centavos.
 | budgets | name, frequency (weekly / semi_monthly / monthly), pay_day_1, pay_day_2, pay_weekday, opening_balance (empty until onboarding step 3; ₱0 and negatives allowed), carry_over (on), ask_on_payday (on), budget_model (50_30_20), needs_pct (50), wants_pct (30), savings_debt_pct (20) | periods, income sources, bills |
 | income_sources | budget_id, name, amount, amount_varies (false), pay_slot (payday_1 / payday_2 / every), start_date (defaults to the first period's start), end_date (optional, for a job that stops) | plan items, transactions |
 | budget_periods | budget_id, start_date, end_date, pay_slot, carried_in, leftover_choice (carry / pot / debt / split), first_pay_received (false; set in onboarding when today's pay already arrived), closed_at | plan items, transactions |
-| categories | name (unique per user, ignoring case), kind (income / expense), group (needs / wants / savings_debt; empty for income), icon, color, default_budget (optional, copied into each period's plan), system_key (optional: income / savings_pot / extra_debt; one each per user, can't be renamed or deleted, hidden from the expense picker) | plan items, transactions |
+| categories | name (unique per user, ignoring case), kind (income / expense), budget_group (needs / wants / savings_debt; empty for income; named `budget_group` because `group` is reserved in SQL), icon, color, default_budget (optional, copied into each period's plan), system_key (optional: income / savings_pot / extra_debt; one each per user, can't be renamed or deleted, hidden from the expense picker) | plan items, transactions |
 | recurring_bills | budget_id, name, amount, amount_varies (false), category_id, frequency (monthly / quarterly / yearly), due_day, pay_slot (payday_1 / payday_2 / split), remind (on) | plan items, transactions |
 | savings_pots | name, icon, color, target_amount (optional), target_date (optional), starting_balance, planned_contribution, pay_slot, is_locked | plan items, transactions |
 | debts | name, lender (optional), total_amount, payment_type (installments / one_time), num_payments, payment_amount, first_due_date, interest_rate (optional, display only), paid_off_at | plan items, transactions |
@@ -199,7 +199,7 @@ Opening a period, current or future, generates its plan items from income source
 
 - Every table also has `id` (uuid), `user_id`, `created_at` and `updated_at`, with an RLS policy of `user_id = auth.uid()`.
 - Amounts are `bigint` centavos; dates are `date` values in Asia/Manila time.
-- Choice fields (frequency, pay_slot, group, origin, type and so on) are Postgres enums or `text` with a check constraint, never free text.
+- Choice fields (frequency, pay_slot, budget_group, origin, type and so on) are Postgres enums or `text` with a check constraint, never free text.
 - **Soft delete** (level 1 of the delete pattern): `transactions` and `plan_items` set `deleted_at`, all queries filter `deleted_at is null`, and a daily job purges rows older than 30 days.
 - **Hard delete with a choice** (level 2): pots, debts, bills, income sources and categories. Past transactions keep their history; only future plan items are removed.
   - Links from transactions and plan items to pots, debts, bills and income sources are `on delete set null`; those rows then show their category name.

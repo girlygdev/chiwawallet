@@ -9,11 +9,11 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
 ## Tasks
 
 - [ ] **3a. Migrations: `categories` and `transactions`.** Likely two sessions, one per table.
-  - **`categories`:**
-    - Columns: name, kind, group, icon, color, default_budget and `system_key`.
+  - **`categories`:** done Nov 23 (`20261123105712_categories.sql`, on local and live; types regenerated).
+    - Columns: name, kind, budget_group, icon, color, default_budget and `system_key`.
     - Checks: expense needs a group, income has none. Names are unique per user ignoring case, and each `system_key` once per user.
     - System categories can't be renamed or deleted.
-  - **Default categories:**
+  - **Default categories:** done Nov 23 (icons and colours in the migration).
     - Copied per user by `handle_new_user()` at sign-up.
     - Needs: Food, Transport, Bills, Rent, Load & data, Health, Padala.
     - Wants: Personal, Shopping, Dining out, Fun, Gifts, Travel.

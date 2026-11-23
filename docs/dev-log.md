@@ -2,6 +2,26 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 · 3a-1: `categories` migration and default categories
+- **What:** Added the `categories` table. Every new sign-up gets 16 default categories: 7 Needs, 6 Wants, and the locked Income, Savings pot and Extra debt payment. Existing accounts got them too. Applied on local, then on live (owner's go, Nov 23).
+- **Files:** `supabase/migrations/20261123105712_categories.sql` (new), `tests/db/categories.test.ts` (new), `src/lib/supabase/types.ts` (regenerated from live; most of the diff is the CLI's formatting), `CLAUDE.md`, `docs/mvp-brief.md`, `docs/designs/more-and-categories.md`, `docs/week-3-tasks.md`.
+- **Decisions:**
+  - The brief's `group` is named `budget_group`, because `group` is reserved in SQL (owner, Nov 23). The brief, the category spec and CLAUDE.md's "Choice fields" line now say `budget_group`.
+  - Default icons are Lucide names. Colours are the six from `more-and-categories.md` §2, and the owner approved both on Nov 23. The system categories use icons outside the 20-icon grid (`wallet`, `piggy-bank`, `credit-card`), which is fine because the picker hides them.
+  - **Locking system rows:**
+    - Renaming one or changing its group is blocked by a trigger.
+    - Deleting one is blocked by the RLS delete policy, so deleting the account still cascades.
+    - Their icon, colour and default budget can still change.
+  - **Column permissions:**
+    - `system_key` and `user_id` can't be sent on insert.
+    - `kind` can't change after a category is created.
+  - Names are unique per user, ignoring case and outer spaces. They can be 1–30 characters. `default_budget` is empty or above ₱0.
+  - `unique (id, user_id)` is ready for the same-owner links from transactions and plan items.
+  - `handle_new_user()` calls a new `add_default_categories()`. If that fails, the sign-up fails, so no account is left without categories.
+- **Tests:** `npm run test:db` passes (102 tests, including the new categories suite). On local, every account has its 16 defaults, and deleting a user in a rolled-back transaction left no orphan categories.
+- **AI notes:** At first Claude didn't have the earlier icon and colour list in its session, so it re-proposed the list for approval rather than guessing.
+- **Next:** 3a-2, the `transactions` migration.
+
 ## 2026-11-20 · Week 3 · Week 3 plan review
 - **What:** Settled the Week 3 data-model questions and wrote `docs/week-3-tasks.md` (3a–3h). Started `docs/V1.1.md`.
 - **Files:** `docs/mvp-brief.md` (data model, delete rules, Week 3–4 boxes), `docs/plan-review-2026-11-19.md`, `docs/week-3-tasks.md` (new), `docs/V1.1.md` (new).

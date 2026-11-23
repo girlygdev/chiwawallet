@@ -69,7 +69,7 @@ A full-height sheet with a back arrow, titled "New category" (Fredoka 22px). It'
   Swatches show the soft colour with a dot of the icon colour. Selected: 3px ink border. Each has an `aria-label` and `aria-pressed`.
 - **Budget per payday:** saved as `categories.default_budget`. From the next period on, `generatePlan()` copies it into each period's plan. Say so under the field: "Added to every payday's plan from Nov 30." (Ask whether to add it to the current period too.)
 - **Button:** **Save category** (hero). Then return to where it was opened from, with the new category selected.
-- **Saves:** `categories` with `name`, `kind = expense`, `group` (`needs` / `wants` / `savings_debt`), `icon`, `color` and `default_budget`.
+- **Saves:** `categories` with `name`, `kind = expense`, `budget_group` (`needs` / `wants` / `savings_debt`), `icon`, `color` and `default_budget`.
 - **Validation:** the name is required, 1–30 characters, and must be unique among the user's categories (case-insensitive): "You already have a category called Food."
 
 ## 3. Category list (not on the canvas)
