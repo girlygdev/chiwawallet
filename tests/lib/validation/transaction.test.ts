@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { transactionSchemaFor } from "@/lib/validation/transaction";
+import { incomeSchemaFor, transactionSchemaFor } from "@/lib/validation/transaction";
 
 const FOOD = "3f1c2a4e-8b7d-4c6a-9e5f-1a2b3c4d5e6f";
 const SALARY = "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
@@ -70,5 +70,51 @@ describe("transactionSchemaFor", () => {
 
   it("refuses an income source on an expense", () => {
     expect(errorsFor({ incomeSourceId: SALARY }).incomeSourceId).toBe("Only income can come from a source.");
+  });
+});
+
+describe("incomeSchemaFor", () => {
+  const income = incomeSchemaFor({ today: "2026-11-20", firstPeriodStart: "2026-11-15" });
+  const base = { amount: "25,000", source: SALARY, name: "", date: "2026-11-15" };
+  const errors = (input: Record<string, unknown>) => {
+    const result = income.safeParse({ ...base, ...input });
+    if (result.success) return {};
+    return Object.fromEntries(result.error.issues.map((i) => [i.path[0], i.message]));
+  };
+
+  it("saves a source's pay with the source and no note", () => {
+    expect(income.parse({ ...base, name: "ignored" })).toEqual({
+      amount: 2_500_000,
+      incomeSourceId: SALARY,
+      note: null,
+      date: "2026-11-15",
+    });
+  });
+
+  it("saves one-time income with no source and its name as the note", () => {
+    expect(income.parse({ ...base, source: "one-time", name: "  13th month pay " })).toEqual({
+      amount: 2_500_000,
+      incomeSourceId: null,
+      note: "13th month pay",
+      date: "2026-11-15",
+    });
+  });
+
+  it("needs a source or One-time income", () => {
+    expect(errors({ source: "" }).source).toBe("Pick where it's from.");
+    expect(errors({ source: "salary" }).source).toBe("Pick where it's from.");
+  });
+
+  it("needs a name for one-time income, up to 100 characters", () => {
+    expect(errors({ source: "one-time", name: "  " }).name).toBe("Name it, like 13th month pay.");
+    expect(errors({ source: "one-time", name: "x".repeat(101) }).name).toBe(
+      "Keep the name to 100 characters or fewer.",
+    );
+  });
+
+  it("checks the amount and date the same way as expenses", () => {
+    expect(errors({ amount: "0" }).amount).toBe("Enter an amount above ₱0.");
+    expect(errors({ date: "2026-11-21" }).date).toBe("Pick today or an earlier day.");
+    expect(errors({ date: "2026-11-14" }).date).toBe("Pick Nov 15 or later, when your first period starts.");
   });
 });

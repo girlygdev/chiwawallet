@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { type Resolver, useForm, useWatch } from "react-hook-form";
-import type { AddExpenseData, SaveExpenseResult } from "@/app/(app)/activity/actions";
+import type { AddSheetData, SaveExpenseResult } from "@/app/(app)/activity/actions";
 import { FormError } from "@/components/auth/form-error";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { TextField } from "@/components/auth/text-field";
@@ -15,6 +15,7 @@ import {
   type TransactionValues,
   transactionSchemaFor,
 } from "@/lib/validation/transaction";
+import { AmountField } from "./amount-field";
 import { CategoryGrid } from "./category-grid";
 import { CategoryPicker } from "./category-picker";
 import { DateButton } from "./date-button";
@@ -31,13 +32,18 @@ const FIELD_ORDER = ["amount", "categoryId", "date", "note"] as const;
 export function ExpenseForm({
   data,
   amountRef,
+  defaultAmount,
+  onAmountChange,
   onSave,
   onSaved,
   picking,
   onPickingChange,
 }: {
-  data: AddExpenseData | null;
+  data: AddSheetData | null;
   amountRef: React.RefObject<HTMLInputElement | null>;
+  /** What was typed on the other tab, kept when switching. */
+  defaultAmount: string;
+  onAmountChange: (text: string) => void;
   onSave: (input: TransactionFormInput) => Promise<SaveExpenseResult>;
   onSaved: (saved: { id: string; amount: number }) => void;
   picking: boolean;
@@ -69,10 +75,11 @@ export function ExpenseForm({
   } = useForm<TransactionFormInput, unknown, TransactionValues>({
     resolver,
     mode: "onSubmit",
-    defaultValues: { type: "expense", amount: "", categoryId: "", date: today, note: "" },
+    defaultValues: { type: "expense", amount: defaultAmount, categoryId: "", date: today, note: "" },
   });
 
   const amountText = useWatch({ control, name: "amount" }) ?? "";
+  useEffect(() => onAmountChange(amountText), [amountText, onAmountChange]);
   const categoryId = useWatch({ control, name: "categoryId" });
   const date = useWatch({ control, name: "date" }) ?? today;
   const centavos = parsePesoInput(amountText);
@@ -146,36 +153,7 @@ export function ExpenseForm({
         />
       )}
       <form onSubmit={handleSubmit(onSubmit)} noValidate hidden={picking} className="flex flex-col gap-5">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="expense-amount" className="text-sm font-bold text-ink">
-            Amount
-          </label>
-          <div className="flex items-baseline gap-1.5">
-            <span aria-hidden className="font-display text-4xl font-semibold text-text-3">
-              ₱
-            </span>
-            <input
-              {...amountField}
-              ref={(el) => {
-                amountField.ref(el);
-                amountRef.current = el;
-              }}
-              id="expense-amount"
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              placeholder="0"
-              aria-invalid={errors.amount ? true : undefined}
-              aria-describedby={errors.amount ? "expense-amount-error" : undefined}
-              className="w-full min-w-0 bg-transparent font-display text-[56px] leading-[1.1] font-semibold text-ink outline-none placeholder:text-placeholder"
-            />
-          </div>
-          {errors.amount && (
-            <p id="expense-amount-error" className="text-[13px] font-bold text-bad-fg">
-              {errors.amount.message}
-            </p>
-          )}
-        </div>
+        <AmountField id="expense-amount" field={amountField} amountRef={amountRef} error={errors.amount?.message} />
 
         <CategoryGrid
           categories={data?.categories ?? null}

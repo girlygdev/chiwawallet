@@ -2,6 +2,38 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 · 3d-1 Income tab in the add sheet
+- **What:** The add sheet has Expense and Income tabs. Income has the amount, "Where is it from?" (source cards plus One-time income), Date received, a "Money in this period" impact line and **Save income**. After saving, the toast reads "Income saved · +₱25,000" with Undo.
+- **Files:**
+  - New: `src/components/transactions/income-form.tsx`, `type-tabs.tsx`, `amount-field.tsx`
+  - Edited: `add-transaction-provider.tsx`, `expense-form.tsx`, `date-button.tsx`, `src/app/(app)/activity/actions.ts`, `src/lib/income.ts`, `src/lib/transactions.ts`, `src/lib/validation/transaction.ts`, plus the tests for the last three
+- **Decisions:**
+  - **Split:** 3d is now two parts; 3d-2 covers the Income screen (owner).
+  - **Always opens on Expense,** not the last tab used as the spec says, so logging spending stays fast after a payday (owner).
+  - **Picking a source fills its amount** only if the amount is empty or was filled by an earlier pick. It never overwrites what you typed (owner).
+  - **Amount carries over** when switching tabs.
+  - **One-time income needs a Name,** saved as the note. This was my recommendation; the owner didn't answer this one, so it's flagged in the reply.
+  - **Category:** income always uses the locked Income category, set on the server. The source must belong to this budget and not have ended before the date.
+  - **Source cards:** sources active today. "₱25,000 expected · Nov 15" when the source pays this period, "· next on Nov 30" when it doesn't (`sourcePayday`).
+  - **Received tag:** live income from that source this period, or every source paying in the first period when onboarding's `first_pay_received` is true (3.14 as changed, `receivedSourceIds`).
+  - **Tabs** follow the WAI-ARIA tabs pattern: arrow keys switch, and only the selected tab is in the Tab order.
+  - **Refactors:** `getAddExpenseData` is now `getAddSheetData` (both tabs). The amount and date rules are shared between the expense and income schemas, and the big amount input is a shared `AmountField`.
+  - **Left for later:** "Safe to spend goes from…" and "Help me give this money a job" (both Week 5).
+- **Tests:**
+  - New unit tests for `incomeSchemaFor`, `moneyInImpact`, `sourcePayday` (including weekly, monthly and mid-period starts) and `receivedSourceIds`. 244 unit tests pass, plus lint, typecheck and the build.
+  - Throwaway browser check (local, Edge, 390px):
+    - **Tabs:** they switch with a click and with the arrow keys, and the typed amount is kept.
+    - **Source cards:** the lines read right.
+    - **Fill rule:** a pick doesn't overwrite a typed "500", but it does replace an auto-filled "8,000".
+    - **Saving pay:** the row has the source and the Income category. On reopen the sheet starts on Expense and Main job shows Received.
+    - **One-time income:** with no name it shows the error and focuses Name. Saved with a name, the note is "13th month pay". Undo soft-deletes it.
+    - **Expense flow:** still passes.
+    - **Dark mode:** checked.
+- **AI notes:**
+  - Lint caught two places reading a ref during render, the carried amount and the auto-fill memory. Both are now state set in event handlers.
+  - Two of Claude's test checks were wrong, not the app: a monthly fixture whose source started after the payday, and a "Received" match that also hit "Date received".
+- **Next:** 3d-2 Income screen: Received and Expected status lines, Recently received, and **Log one-time income**, which opens the sheet on Income with One-time selected.
+
 ## 2026-11-23 · Week 3 · 3c-2 Category picker and category colours
 - **What:** More in the Add expense sheet now opens "Choose a category". It has a search field, a RECENT row (your last 4) and one section per group with the budget's target ("NEEDS · 50% target"). Category icons now show their colour, in light and dark.
 - **Files:**

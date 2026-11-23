@@ -7,7 +7,9 @@ import {
   incomeImpact,
   isActiveOn,
   monthlyAmount,
+  receivedSourceIds,
   removalImpact,
+  sourcePayday,
   sourceScheduleLine,
   upcomingPaydays,
 } from "@/lib/income";
@@ -193,5 +195,67 @@ describe("incomeImpact: the before → after lines in the income form", () => {
   it("weekly labels the month as an estimate", () => {
     const lines = incomeImpact([], { amount: 500_000, pay_slot: "every" }, weekly);
     expect(lines.at(-1)).toEqual({ label: "About each month", before: 0, after: 2_166_667 });
+  });
+});
+
+describe("sourcePayday: the date on a source card in the add sheet", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const main = { amount: 2_500_000, pay_slot: "every", start_date: "2026-11-01", end_date: null };
+  const freelance = { amount: 800_000, pay_slot: "payday_2", start_date: "2026-11-01", end_date: null };
+
+  it("gives this period's payday when the source pays in it", () => {
+    expect(sourcePayday(main, semi, "2026-11-20")).toEqual({ date: "2026-11-15", thisPeriod: true });
+  });
+
+  it("gives the next payday when it doesn't", () => {
+    expect(sourcePayday(freelance, semi, "2026-11-20")).toEqual({ date: "2026-11-30", thisPeriod: false });
+  });
+
+  it("waits for a source that starts later, even mid-period", () => {
+    const newJob = { ...main, start_date: "2026-11-20" };
+    expect(sourcePayday(newJob, semi, "2026-11-20")).toEqual({ date: "2026-11-30", thisPeriod: false });
+  });
+
+  it("is null for a source that has ended", () => {
+    expect(sourcePayday({ ...main, end_date: "2026-11-10" }, semi, "2026-11-20")).toBeNull();
+  });
+
+  it("works for weekly and monthly budgets, where every source lands on the one payday", () => {
+    const weekly: PaySchedule = { frequency: "weekly", payWeekday: 5 }; // Fridays
+    // Fri Nov 20, 2026 is a payday.
+    expect(sourcePayday(main, weekly, "2026-11-22")).toEqual({ date: "2026-11-20", thisPeriod: true });
+    const monthly: PaySchedule = { frequency: "monthly", payDay1: 30 };
+    expect(sourcePayday({ ...main, start_date: "2026-10-01" }, monthly, "2026-11-20")).toEqual({
+      date: "2026-10-30",
+      thisPeriod: true,
+    });
+    // Starting Nov 1 misses the Oct 30 payday, so it waits for Nov 30.
+    expect(sourcePayday(main, monthly, "2026-11-20")).toEqual({ date: "2026-11-30", thisPeriod: false });
+  });
+});
+
+describe("receivedSourceIds: the Received tag", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const sources = [
+    { id: "main", amount: 2_500_000, pay_slot: "every", start_date: "2026-11-01", end_date: null },
+    { id: "freelance", amount: 800_000, pay_slot: "payday_2", start_date: "2026-11-01", end_date: null },
+    { id: "allowance", amount: 300_000, pay_slot: "payday_1", start_date: "2026-11-01", end_date: null },
+  ];
+  const period = { start: "2026-11-15", paySlot: "payday_1" as const, first_pay_received: false };
+  const income = (income_source_id: string | null, deleted_at: string | null = null) => ({
+    type: "income",
+    income_source_id,
+    deleted_at,
+  });
+
+  it("marks sources with income logged this period, skipping deleted and one-time rows", () => {
+    const rows = [income("allowance"), income("main", "2026-11-16T00:00:00Z"), income(null), { ...income("main"), type: "expense" }];
+    expect(receivedSourceIds(rows, period, sources, semi)).toEqual(new Set(["allowance"]));
+  });
+
+  it("in the first period, counts the pay that onboarding said had arrived (3.14)", () => {
+    const first = { ...period, first_pay_received: true };
+    // Main and Allowance pay on the 15th; Freelance doesn't.
+    expect(receivedSourceIds([], first, sources, semi)).toEqual(new Set(["main", "allowance"]));
   });
 });

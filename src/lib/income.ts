@@ -140,3 +140,51 @@ export function removalImpact(others: Source[], removed: Source, schedule: PaySc
     after: line.before,
   }));
 }
+
+/** Whether a source pays in the period that starts on `period.start`. */
+function paysIn(source: DatedSource, schedule: PaySchedule, period: { start: string; paySlot: PaySlot }): boolean {
+  // Weekly and monthly budgets have one payday, so every source lands on it.
+  const slotMatches =
+    schedule.frequency !== "semi_monthly" || source.pay_slot === "every" || source.pay_slot === period.paySlot;
+  return slotMatches && isActiveOn(source, period.start);
+}
+
+/** How far ahead sourcePayday looks: a year of twice-a-month paydays. */
+const LOOKAHEAD_PERIODS = 24;
+
+/**
+ * The payday on a source card in the add sheet: this period's ("expected ·
+ * Nov 15") or the next one it pays on ("next on Nov 30"). Null once the
+ * source has ended (or starts more than LOOKAHEAD_PERIODS away).
+ */
+export function sourcePayday(
+  source: DatedSource,
+  schedule: PaySchedule,
+  today: string,
+): { date: string; thisPeriod: boolean } | null {
+  const periods = nextPeriods(today, schedule, LOOKAHEAD_PERIODS);
+  const i = periods.findIndex((p) => paysIn(source, schedule, p));
+  return i === -1 ? null : { date: periods[i].start, thisPeriod: i === 0 };
+}
+
+/**
+ * The sources with a "Received" tag this period: those with live income
+ * logged in it, plus, when onboarding said the first pay had already arrived
+ * (`first_pay_received`, plan review 3.14 as changed Nov 20), every source
+ * that pays in that period. `rows` are the period's transactions.
+ */
+export function receivedSourceIds(
+  rows: { type: string; income_source_id: string | null; deleted_at: string | null }[],
+  period: { start: string; paySlot: PaySlot; first_pay_received: boolean },
+  sources: (DatedSource & { id: string })[],
+  schedule: PaySchedule,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    if (row.type === "income" && row.deleted_at == null && row.income_source_id) ids.add(row.income_source_id);
+  }
+  if (period.first_pay_received) {
+    for (const source of sources) if (paysIn(source, schedule, period)) ids.add(source.id);
+  }
+  return ids;
+}

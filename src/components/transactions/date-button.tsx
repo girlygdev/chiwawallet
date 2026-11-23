@@ -18,6 +18,7 @@ export function dateButtonLabel(date: string, today: string): string {
 // Browsers without showPicker() (older iPhones) get the input focused instead.
 export function DateButton({
   id,
+  label = "Date",
   value,
   onChange,
   today,
@@ -25,6 +26,8 @@ export function DateButton({
   error,
 }: {
   id: string;
+  /** "Date" (Expense) or "Date received" (Income). */
+  label?: string;
   value: string;
   onChange: (date: string) => void;
   today: string;
@@ -47,7 +50,7 @@ export function DateButton({
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-bold text-ink">
-        Date
+        {label}
       </label>
       <input
         ref={inputRef}
@@ -68,7 +71,7 @@ export function DateButton({
         type="button"
         onClick={open}
         // The input is the labelled field; this button only opens its picker.
-        aria-label={`Date: ${dateButtonLabel(value, today)}. Change date`}
+        aria-label={`${label}: ${dateButtonLabel(value, today)}. Change date`}
         className="flex h-[46px] items-center gap-2 rounded-md border-[1.5px] border-line bg-surface px-4 text-base font-bold text-ink outline-link focus-visible:outline-2"
       >
         <CalendarDays aria-hidden size={20} className="text-text-2" />

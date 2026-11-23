@@ -92,6 +92,12 @@ export function moneyOutImpact(rows: Row[], amount: number): { before: number; a
   return { before, after: before + amount };
 }
 
+/** The Income tab's impact line: "Money in this period: ₱X → ₱Y". */
+export function moneyInImpact(rows: Row[], amount: number): { before: number; after: number } {
+  const before = periodTotals(rows).moneyIn;
+  return { before, after: before + amount };
+}
+
 /** The category fields the Add expense grid needs. */
 export type CategoryChoice = {
   id: string;

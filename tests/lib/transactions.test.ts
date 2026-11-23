@@ -3,6 +3,7 @@ import {
   cashOnHand,
   type CategoryChoice,
   groupByDay,
+  moneyInImpact,
   moneyOutImpact,
   periodTotals,
   signedAmount,
@@ -290,5 +291,16 @@ describe("gridCategories", () => {
 
   it("handles fewer categories than tiles", () => {
     expect(ids(gridCategories(list.slice(0, 2), 5, "b"))).toEqual(["a", "b"]);
+  });
+});
+
+describe("moneyInImpact", () => {
+  it("adds the new income to this period's money in, ignoring deleted rows", () => {
+    const deletedPay = tx({ type: "income", amount: 999_900, deleted_at: "2026-11-20T01:00:00Z" });
+    expect(moneyInImpact([pay, lunch, deletedPay], 800_000)).toEqual({ before: 2_500_000, after: 3_300_000 });
+  });
+
+  it("starts from ₱0 in an empty period", () => {
+    expect(moneyInImpact([], 50_000)).toEqual({ before: 0, after: 50_000 });
   });
 });
