@@ -28,7 +28,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
   - **RLS:** on both tables, with user A can't read or write user B's rows tests in `tests/db/`.
   - **Live:** applied to live only after a dry run and the owner's go. Types are regenerated.
   - Done when: `npm run test:db` passes and a new sign-up gets the 16 categories.
-- [ ] **3b. Transaction math, tests first.** Pure functions in `src/lib/transactions.ts`:
+- [x] **3b. Transaction math, tests first.** Done Nov 23. Pure functions in `src/lib/transactions.ts`:
   - Signed amounts.
   - Period totals: money in, money out (spending plus debt payments), to savings.
   - Day groups with their net.

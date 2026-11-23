@@ -2,6 +2,23 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 · 3b: transaction math and schema
+- **What:** Pure functions for signed amounts, period totals, day groups and cash on hand, plus the Zod schema for the add and edit sheet. Tests written first.
+- **Files:** `src/lib/transactions.ts`, `src/lib/validation/transaction.ts`, `tests/lib/transactions.test.ts`, `tests/lib/validation/transaction.test.ts` (all new), `docs/week-3-tasks.md`.
+- **Decisions (owner, Nov 23):**
+  - `signedAmount` is the effect on cash. Savings flips its sign: a ₱3,000 deposit is −₱3,000 cash, and a withdrawal is +₱1,000.
+  - **Totals:**
+    - `periodTotals`: money in is income, and money out is spending plus debt payments.
+    - "To savings" is deposits minus withdrawals and can be negative. A withdrawal isn't money in.
+    - Day nets include pot moves.
+  - `cashOnHand(openingBalance, rows)` covers every transaction from the first period through today. An empty opening balance counts as ₱0, and `carried_in` waits for Week 6.
+  - Every function skips soft-deleted rows itself.
+  - **Schema:** `transactionSchemaFor({ today, firstPeriodStart })` covers expense and income only. Savings and debt payments join in Weeks 4–5. Dates can't be in the future or before the first period, and a date that doesn't exist (Feb 30) gets one message. Notes can be up to 100 characters, and an empty note becomes null. Only income can have a source.
+- **Tests:** 211 unit tests pass (24 new), and lint and typecheck pass.
+- **AI notes:** The first run showed that a date that doesn't exist also got the "before your first period" message. Fixed with `abort: true` on the real-date check.
+- **Open:** The `transactions` migration (3a-2) is still on local only; push it to live on the owner's go.
+- **Next:** 3c, the Add expense sheet.
+
 ## 2026-11-23 · Week 3 · 3a-2: `transactions` migration
 - **What:** Added the `transactions` table (income, expense, savings, debt payment) with soft delete. Applied on local only.
 - **Files:** `supabase/migrations/20261123141644_transactions.sql` (new), `tests/db/transactions.test.ts` (new), `docs/week-3-tasks.md`.
