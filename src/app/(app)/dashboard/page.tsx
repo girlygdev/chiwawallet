@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { CashCard } from "@/components/dashboard/cash-card";
+import { IncomeCard } from "@/components/dashboard/income-card";
+import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
+import { Skeleton, SkeletonRegion } from "@/components/skeleton";
+import type { ActivityRow } from "@/lib/activity";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
-import { expectedForPeriod, isActiveOn } from "@/lib/income";
-import { formatPeso } from "@/lib/money";
+import { duePay, expectedForPeriod, isActiveOn, receivedSourceIds } from "@/lib/income";
+import { dashboardNumbers } from "@/lib/money";
 import {
   formatPeriodRange,
-  type Period,
   type PaySlot,
+  type Period,
   paydayLabel,
   periodStatusLine,
   scheduleFromBudget,
@@ -19,9 +24,14 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Dashboard · Chiwawallet" };
 
-// Week 2 (task 2f): this period's dates, days left and expected income, which
-// is Week 2's "done when". Safe to spend, Due this period and the rest of
-// dashboard.md need transactions and plan items (Weeks 3–5).
+/** Recent activity shows the last four (dashboard.md §2.7). */
+const RECENT_ROWS = 4;
+
+// The Dashboard (dashboard.md, week-3-tasks.md 3f): this period's dates, Cash
+// now with the spend bar and the pay prompt, income expected vs received, and
+// Recent activity. Its money in and money out match Activity's totals.
+// Due this period, Spending, Savings pots, 50/30/20 and Safe to spend need
+// plan items, pots and debts (Weeks 4-5).
 export default function DashboardPage() {
   return (
     <PageShell>
@@ -44,20 +54,51 @@ async function DashboardBody() {
   const row = await getOrCreatePeriod(supabase, budget, today);
   const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
 
-  const { data: sources, error } = await supabase
-    .from("income_sources")
-    .select("id, name, amount, pay_slot, start_date, end_date")
-    .eq("budget_id", budget.id)
-    .order("created_at", { ascending: true });
-  if (error) throw new Error(`Couldn't load income sources: ${error.message}`, { cause: error });
+  const [sources, periodRows, earlierRows, recent] = await Promise.all([
+    supabase
+      .from("income_sources")
+      .select("id, name, amount, pay_slot, start_date, end_date")
+      .eq("budget_id", budget.id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("transactions")
+      .select("type, amount, deleted_at, income_source_id")
+      .eq("period_id", row.id)
+      .is("deleted_at", null),
+    // Every earlier transaction, for carry-in (type and amount only).
+    supabase.from("transactions").select("type, amount, deleted_at").lt("date", period.start).is("deleted_at", null),
+    supabase
+      .from("transactions")
+      .select(
+        "id, type, amount, date, note, created_at, deleted_at, category:categories(id, name, icon, color), source:income_sources(name)",
+      )
+      .is("deleted_at", null)
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(RECENT_ROWS),
+  ]);
+  for (const result of [sources, periodRows, earlierRows, recent]) {
+    if (result.error) throw new Error(`Couldn't load the dashboard: ${result.error.message}`, { cause: result.error });
+  }
 
-  const expected = expectedForPeriod(sources, schedule, period);
-  // The sources that land on this period's payday, for the breakdown.
-  const landing = sources.filter(
+  // The generated types say `string` for type; its check constraint allows
+  // only the four transaction types.
+  type Rows = Parameters<typeof dashboardNumbers>[1];
+  const numbers = dashboardNumbers(budget.opening_balance, earlierRows.data as Rows, periodRows.data as Rows);
+
+  // Income expected vs received, and the pay prompt.
+  const received = receivedSourceIds(
+    periodRows.data!,
+    { start: period.start, paySlot: period.paySlot, first_pay_received: row.first_pay_received },
+    sources.data!,
+    schedule,
+  );
+  const landing = sources.data!.filter(
     (s) =>
       isActiveOn(s, period.start) &&
       (schedule.frequency !== "semi_monthly" || s.pay_slot === "every" || s.pay_slot === period.paySlot),
   );
+  const due = duePay(sources.data!, received, schedule, today);
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
@@ -70,45 +111,24 @@ async function DashboardBody() {
         <p className="text-[13px] font-bold text-text-3">{periodStatusLine(period, schedule, today)}</p>
       </section>
 
-      {/* The dashboard's one hero card (style-guide.md: one sticker per area). */}
-      <section
-        aria-labelledby="expected-title"
-        className="flex max-w-xl flex-col gap-3 rounded-xl border-2 border-sticker bg-green-700 p-5 text-white shadow-sticker"
-      >
-        <h2 id="expected-title" className="text-sm font-bold opacity-90">
-          Expected income this period
-        </h2>
-        <p className="font-display text-[44px] leading-none font-semibold">{formatPeso(expected)}</p>
-
-        {row.first_pay_received && (
-          // Onboarding's "Has your pay already arrived?" was yes: it's already
-          // inside the starting balance (plan review 3.14).
-          // White, not text-mint: mint turns dark green in dark mode, and the
-          // Forest pill stays dark in both themes.
-          <p className="w-fit rounded-full bg-green-800 px-3 py-1 text-[13px] font-extrabold text-white">
-            Already in your starting balance
-          </p>
-        )}
-
-        {landing.length > 0 ? (
-          <ul className="flex flex-col gap-1 border-t border-white/20 pt-3 text-sm">
-            {landing.map((s) => (
-              <li key={s.id} className="flex justify-between gap-3">
-                <span className="opacity-90">{s.name}</span>
-                <span className="font-extrabold">{formatPeso(s.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm opacity-90">
-            No income lands on your {paydayLabel(schedule, period.paySlot)} payday.
-          </p>
-        )}
-      </section>
-
-      <p className="text-[15px] text-text-3">
-        Your bills, spending and Safe to spend will show up here once you start logging money.
-      </p>
+      <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+        <div className="flex flex-col gap-4 md:gap-6">
+          <CashCard
+            numbers={numbers}
+            due={due && { id: due.id, name: due.name, amount: due.amount, payday: period.start }}
+            today={today}
+          />
+          <IncomeCard
+            received={numbers.income}
+            expected={expectedForPeriod(sources.data!, schedule, period)}
+            sources={landing.map((s) => ({ id: s.id, name: s.name, amount: s.amount, received: received.has(s.id) }))}
+            paydayLabel={paydayLabel(schedule, period.paySlot)}
+            firstPayCounted={row.first_pay_received}
+          />
+        </div>
+        {/* Each row has exactly one category; see the Activity page. */}
+        <RecentActivity rows={recent.data as unknown as ActivityRow[]} today={today} />
+      </div>
     </div>
   );
 }
@@ -116,12 +136,18 @@ async function DashboardBody() {
 // Skeleton blocks the size of the real content (app-shell.md §5 "Loading").
 function DashboardSkeleton() {
   return (
-    <div aria-hidden className="flex flex-col gap-4 md:gap-6">
+    <SkeletonRegion className="flex flex-col gap-4 md:gap-6">
       <div className="flex flex-col gap-1.5">
-        <span className="h-7 w-40 rounded bg-track" />
-        <span className="h-4 w-48 rounded bg-track" />
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-4 w-48" />
       </div>
-      <span className="h-[180px] max-w-xl rounded-xl bg-track" />
-    </div>
+      <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="flex flex-col gap-4 md:gap-6">
+          <Skeleton className="h-[260px] rounded-xl" />
+          <Skeleton className="h-[140px] rounded-xl" />
+        </div>
+        <Skeleton className="h-[300px] rounded-2xl" />
+      </div>
+    </SkeletonRegion>
   );
 }

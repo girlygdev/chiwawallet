@@ -64,7 +64,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
   - **Edit:** reuses the sheet ("Edit transaction", **Save changes**, a Delete link).
   - **Delete:** level 1 (`delete-pattern.md` §3) with Edit and Delete buttons on every row, then an Undo toast for 5 seconds.
   - Done when: add, edit, delete and undo all update the list and totals.
-- [ ] **3f. Dashboard.** Expected vs actual income, spent, and available (`cashOnHand`) for this period.
+- [x] **3f. Dashboard.** Done Nov 23. Expected vs actual income, spent, and available (`cashOnHand`) for this period. The hero says Cash now until Safe to spend exists (Week 5).
   - Done when: it matches the Activity totals.
 - [ ] **3g. Live check.** Push, then log a real expense on your phone in under 10 seconds.
 - [ ] **3h. Categories (optional, else Week 4).** The category list from More › Categories, New category, Edit category, and a level 2 delete that moves rows first. Also add the picker's last tile, **New category**, which returns to the picker with the new category selected (activity.md §4).

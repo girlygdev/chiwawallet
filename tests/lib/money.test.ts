@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatPeso, formatPesoInput, parsePesoInput } from "@/lib/money";
+import { dashboardNumbers, formatPeso, formatPesoInput, parsePesoInput } from "@/lib/money";
+import { cashOnHand, periodTotals } from "@/lib/transactions";
 
 describe("formatPesoInput: centavos → what an input shows", () => {
   it.each([
@@ -70,5 +71,63 @@ describe("formatPeso: centavos → display", () => {
 
   it("rejects non-integer centavos", () => {
     expect(() => formatPeso(1.5)).toThrow(RangeError);
+  });
+});
+
+type Row = { type: "income" | "expense" | "savings" | "debt_payment"; amount: number; deleted_at: string | null };
+const row = (type: Row["type"], amount: number, deleted_at: string | null = null): Row => ({ type, amount, deleted_at });
+
+// The first period: ₱5,000 opening balance, ₱25,000 pay, ₱3,000 spent.
+const earlier = [row("income", 2_500_000), row("expense", 300_000), row("expense", 99_900, "2026-11-01T00:00:00Z")];
+// This period so far.
+const current = [row("income", 2_500_000), row("expense", 18_000), row("debt_payment", 400_000), row("expense", 5_000)];
+
+describe("dashboardNumbers (dashboard.md §1)", () => {
+  it("carries in the opening balance plus every earlier period's net, skipping deleted rows", () => {
+    // 5,000 + 25,000 − 3,000 = 27,000
+    expect(dashboardNumbers(500_000, earlier, current).carryIn).toBe(2_700_000);
+  });
+
+  it("adds this period's income and takes away its money out", () => {
+    expect(dashboardNumbers(500_000, earlier, current)).toEqual({
+      carryIn: 2_700_000,
+      income: 2_500_000,
+      moneyOut: 423_000,
+      toSavings: 0,
+      periodMoney: 5_200_000,
+      cashNow: 4_777_000,
+      spentShare: 423_000 / 5_200_000,
+    });
+  });
+
+  it("matches Activity's totals and cashOnHand over every row", () => {
+    const numbers = dashboardNumbers(500_000, earlier, current);
+    const totals = periodTotals(current);
+    expect(numbers.income).toBe(totals.moneyIn);
+    expect(numbers.moneyOut).toBe(totals.moneyOut);
+    expect(numbers.cashNow).toBe(cashOnHand(500_000, [...earlier, ...current]));
+  });
+
+  it("counts savings and withdrawals in cash now, not in money out (owner, Nov 23: until Week 4)", () => {
+    const withPot = [...current, row("savings", 300_000), row("savings", -100_000)];
+    const numbers = dashboardNumbers(500_000, earlier, withPot);
+    expect(numbers.toSavings).toBe(200_000);
+    expect(numbers.moneyOut).toBe(423_000);
+    expect(numbers.cashNow).toBe(4_577_000);
+  });
+
+  it("starts the first period from the opening balance alone, and treats a missing one as ₱0", () => {
+    expect(dashboardNumbers(500_000, [], []).cashNow).toBe(500_000);
+    expect(dashboardNumbers(null, [], []).cashNow).toBe(0);
+  });
+
+  it("keeps the spend bar between 0 and 1", () => {
+    expect(dashboardNumbers(null, [], []).spentShare).toBe(0);
+    // Spent more than came in: a full bar, and cash now below ₱0.
+    const over = dashboardNumbers(10_000, [], [row("expense", 50_000)]);
+    expect(over.spentShare).toBe(1);
+    expect(over.cashNow).toBe(-40_000);
+    // Nothing to spend from but something spent.
+    expect(dashboardNumbers(null, [], [row("expense", 100)]).spentShare).toBe(1);
   });
 });

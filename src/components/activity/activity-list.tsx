@@ -206,6 +206,24 @@ function Amount({ row, className }: { row: ActivityRow; className?: string }) {
   );
 }
 
+/**
+ * A row's look (activity.md §1 "Transaction row"): the 40px category tile, the
+ * name and detail line, and the amount. Shared with the Dashboard's Recent
+ * activity, so both lists look the same.
+ */
+export function RowSummary({ row, name, detail }: { row: ActivityRow; name: string; detail: string }) {
+  return (
+    <>
+      <CategoryIconTile icon={row.category.icon} color={row.category.color} size="md" />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-[15px] font-extrabold text-ink">{name}</span>
+        <span className="truncate text-[13px] text-text-3">{detail}</span>
+      </span>
+      <Amount row={row} className="text-base" />
+    </>
+  );
+}
+
 // Mobile (activity.md §1.6): an h3 per day with its net, then a card of rows.
 function MobileDays({ days, today, actions }: { days: Days; today: string; actions: RowActions }) {
   return (
@@ -232,12 +250,7 @@ function MobileDays({ days, today, actions }: { days: Days; today: string; actio
                     aria-label={`Edit ${name}, ${formatPeso(signedAmount(row), { signed: true })}`}
                     className="flex min-w-0 flex-1 items-center gap-3 rounded-[14px] py-3 pl-3.5 text-left outline-link focus-visible:outline-2 focus-visible:-outline-offset-2"
                   >
-                    <CategoryIconTile icon={row.category.icon} color={row.category.color} size="md" />
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-[15px] font-extrabold text-ink">{name}</span>
-                      <span className="truncate text-[13px] text-text-3">{detail}</span>
-                    </span>
-                    <Amount row={row} className="text-base" />
+                    <RowSummary row={row} name={name} detail={detail} />
                   </button>
                   <DeleteButton row={row} actions={actions} />
                 </li>

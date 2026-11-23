@@ -2,6 +2,37 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 · 3f Dashboard with real numbers
+- **What:** The Dashboard shows real money:
+  - **Cash now (the hero):** the pay prompt with **I got paid**, the spend bar ("₱230 out so far" "of ₱30,760"), and Carry-in · Income · Money out.
+  - **Income this period:** received of expected, then each source with Received or Expected.
+  - **Recent activity:** the last 4 transactions with See all, or an empty state with **Log an expense**.
+  - **Desktop:** two columns.
+- **Files:**
+  - New: `src/components/dashboard/cash-card.tsx`, `income-card.tsx`, `recent-activity.tsx`
+  - Edited: `src/app/(app)/dashboard/page.tsx`, `src/lib/money.ts` (`dashboardNumbers`), `tests/lib/money.test.ts`, `src/components/activity/activity-list.tsx` (shared `RowSummary`)
+- **Decisions:**
+  - **The hero says "Cash now",** with no per-day pill (owner). Safe to spend is cash now minus what's still due, and nothing can be planned as due before Week 5, so the card never claims the bills are covered.
+  - **Carry-in** = the opening balance + every earlier period's net, until Week 6's carry-over (owner).
+  - **Money out** = spending + debt payments, the same as Activity. **From Week 4 the Dashboard counts transfers to pots in money out, as the spec says (owner).** Activity keeps showing them separately as To savings.
+  - **Where the numbers live:** `dashboardNumbers()` is in `lib/money.ts` (dashboard.md, decided Nov 19). It's built on `cashOnHand` and `periodTotals`, and a test checks that it equals Activity's totals and `cashOnHand` over every row.
+  - **The third small stat** is Money out instead of the spec's Cash now, which is already the big number.
+  - **Pay prompt:** "₱25,000 from Main job is due today." on the payday, else "was due Nov 15." It uses `duePay`, the same as Activity's empty state.
+  - **Income card:** "received" includes one-time income (Activity's Money in), so it can be more than expected. Onboarding's counted pay adds "Your 15th pay is already in your starting balance."
+  - **Recent rows** reuse Activity's row look (`RowSummary`) with the day added. They aren't buttons; editing lives in Activity.
+  - **Left for later:** Due this period, Spending, Savings pots and 50/30/20 (Weeks 4-5).
+- **Tests:**
+  - New unit tests for `dashboardNumbers` (carry-in, deleted rows, savings and withdrawals, no opening balance, the spend bar's limits, and equality with Activity and `cashOnHand`). 278 unit tests pass, plus lint, typecheck and the build.
+  - Throwaway browser check (local, Edge, 390px and 1280px, light and dark):
+    - **Seeded numbers:** carry-in ₱28,760, Cash now ₱30,530, ₱230 out of ₱30,760.
+    - **I got paid:** saving it gives Cash now ₱55,530, removes the prompt and marks Main job Received.
+    - **Done when:** Activity shows the same Money in (₱27,000) and Money out (₱230).
+    - **New account:** Cash now is the ₱5,000 opening balance, Recent activity is empty, and **Log an expense** works.
+    - **All 8 browser checks** pass together.
+- **AI notes / open items:**
+  - **Hydration warning:** the dev overlay showed "A tree hydrated but some attributes… didn't match" from the sidebar's ThemeToggle (a radio's `checked`), during one navigation in the Dashboard check. That component is from Week 2 and wasn't changed here. Look into it separately.
+- **Next:** 3g live check. The Week 3 migrations are already live; push the code so Vercel deploys it, then log a real expense on a phone in under 10 seconds.
+
 ## 2026-11-23 · Week 3 · 3e-2 Edit and delete transactions
 - **What:** Every Activity row can be edited and deleted.
   - **Mobile:** tap the row to edit it, plus a Delete button.
