@@ -19,7 +19,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
     - Wants: Personal, Shopping, Dining out, Fun, Gifts, Travel.
     - Plus the system categories Income, Savings pot and Extra debt payment.
     - The migration also adds them for existing accounts.
-  - **`transactions`:**
+  - **`transactions`:** done Nov 23 (`20261123141644_transactions.sql`, on local; live waits for the owner's go).
     - Columns from the brief.
     - `amount > 0`, except `savings`, which can't be 0 (a negative amount is a withdrawal).
     - `deleted_at`, and the period link tied to the user (same pattern as `income_sources`).

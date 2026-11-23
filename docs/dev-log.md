@@ -2,6 +2,25 @@
 
 Newest entry first.
 
+## 2026-11-23 · Week 3 · 3a-2: `transactions` migration
+- **What:** Added the `transactions` table (income, expense, savings, debt payment) with soft delete. Applied on local only.
+- **Files:** `supabase/migrations/20261123141644_transactions.sql` (new), `tests/db/transactions.test.ts` (new), `docs/week-3-tasks.md`.
+- **Decisions (owner, Nov 23):**
+  - Amounts are above ₱0, except `savings`, which can be anything but 0 (negative = pot withdrawal, 3.5).
+  - `note` is optional, 1–100 characters.
+  - **Links:** period, category and income source are each linked together with `user_id`, so they must be your own. `budget_periods` and `income_sources` got `unique (id, user_id)` for this.
+  - **Delete rules:**
+    - Budget → periods → transactions cascade.
+    - Income source: `set null (income_source_id)`, so the transaction stays.
+    - Category: `no action` instead of `restrict`. Deleting a category that's in use is refused the same way, but the check runs at the end of the statement, so account deletion still works.
+  - **Two triggers back up Zod:** the date must be inside its period, and the type must match the category (income ↔ income kind, the rest ↔ expense kind).
+  - Savings and debt-payment category rules are left to Weeks 4–5.
+  - **Permissions:** there's no hard delete through the API. Delete and Undo both edit `deleted_at`. ids, `user_id` and the timestamps can't be changed.
+- **Tests:** Lint, typecheck and 187 unit tests pass; `npm run test:db` passes (138 tests, including the new transactions suite). On local, deleting a user with transactions in a rolled-back transaction left no orphan rows.
+- **AI notes:** At first the category trigger would have raised its own error for someone else's category, before the foreign key could. It now leaves that case to the foreign key, so the error is the same "not yours" one as for periods and sources.
+- **Open:** Apply to live after the owner's go, then regenerate `src/lib/supabase/types.ts`.
+- **Next:** 3b, transaction math (tests first).
+
 ## 2026-11-23 · Week 3 (extra) · Home page goes to Log in
 - **What:** `/` no longer shows the temporary theme-check page. Logged-out visitors go to Log in; logged-in users go straight to Dashboard.
 - **Files:** `src/proxy.ts`, `src/app/page.tsx`.
