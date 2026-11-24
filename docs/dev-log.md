@@ -2,11 +2,19 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 3 (extra) · Loading skeleton for New and Edit category
+- **What:** New and Edit category showed an empty area while the form loaded. They now show a grey skeleton the shape of the form: preview card, name, three group rows, the icon grid, colours and Save, plus the Delete link on Edit.
+- **Files:** new `src/components/categories/category-form-skeleton.tsx`; edited `src/app/(app)/settings/categories/edit/page.tsx` and `new/page.tsx`
+- **Decisions:** The icon and colour blocks come from `CATEGORY_ICONS` and `CATEGORY_COLORS`, so the skeleton keeps matching if the sets change. It uses the shared `SkeletonRegion`, so screen readers hear "Loading…" once. New category got it too (owner asked for Edit; it had the same gap).
+- **Tests:** lint, typecheck, 289 unit tests and the build pass. Not browser-checked.
+- **Also:** after the region fix, the owner says the live app feels faster.
+
 ## 2026-11-24 · Week 3 · 3g Live check, Week 3 done
 - **What:** On the phone, categories work end to end (owner). 3g and the brief's five Week 3 boxes are ticked.
 - **Still slow on live, fast locally.** Measured from the server code's `x-vercel-id` (`/auth/callback`, 3 tries): `sfo1::iad1::…`. Functions still run in **US East (`iad1`)**, not Tokyo, so every database call crosses the Pacific, several times per page. The dashboard change to `hnd1` didn't apply to this deployment.
 - **Files:** `docs/week-3-tasks.md`, `docs/mvp-brief.md`
-- **Next:** pin the region in the repo (`vercel.json` with `"regions": ["hnd1"]`), redeploy, and check `x-vercel-id` shows `hnd1`.
+- **Fix:** pinned the region in the repo (`vercel.json`, `"regions": ["hnd1"]`, commit `f3700b7`). About 50 seconds after the push, `x-vercel-id` showed `sfo1::hnd1::…` on every request. Functions now run in Tokyo, next to Supabase.
+- **Next:** the owner checks on the phone whether pages and saving feel faster. If not, use `getClaims()` instead of `getUser()` in `requireAppUser`, and run page queries in parallel.
 
 ## 2026-11-24 · Week 3 (extra) · Live: new default categories, Vercel functions in Tokyo
 - **What:**

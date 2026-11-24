@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CategoryPageForm } from "@/components/categories/category-form";
+import { CategoryFormSkeleton } from "@/components/categories/category-form-skeleton";
 import { BackToCategories } from "@/components/categories/category-list";
 import { PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
@@ -22,7 +23,7 @@ export default function NewCategoryPage() {
         desktopAction={<BackToCategories />}
       />
       {/* Cache Components: the group targets come from the budget (cookies). */}
-      <Suspense>
+      <Suspense fallback={<CategoryFormSkeleton />}>
         <NewCategoryForm />
       </Suspense>
     </PageShell>

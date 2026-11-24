@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { z } from "zod";
 import { CategoryPageForm } from "@/components/categories/category-form";
+import { CategoryFormSkeleton } from "@/components/categories/category-form-skeleton";
 import { BackToCategories } from "@/components/categories/category-list";
 import { PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
@@ -29,7 +30,7 @@ export default function EditCategoryPage({ searchParams }: { searchParams: Promi
         desktopAction={<BackToCategories />}
       />
       {/* Cache Components: the query string and the login are both request data. */}
-      <Suspense>
+      <Suspense fallback={<CategoryFormSkeleton withDelete />}>
         <EditCategoryForm searchParams={searchParams} />
       </Suspense>
     </PageShell>
