@@ -2,6 +2,12 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · `delete_pot` on live, Bills and Savings pushed
+- **What:** Applied `20261124160000_delete_pot.sql` to live (`db push --linked`, after a dry run that listed only it; owner's go). A second dry run says "Remote database is up to date." Then pushed `main` so Vercel deploys Week 4 so far (4a–4d: Bills and Savings).
+- **Files:** none changed. `types.ts` regenerated from live (`--linked`) matched the hand-written `delete_pot` entry exactly.
+- **Tests:** the dry run, the push, and the types diff. Not yet tried on the live app.
+- **Next:** try Bills and Savings on the phone; then 4e, the add sheet's Savings tab.
+
 ## 2026-11-24 · Week 4 · 4d-3 Pot details and Delete pot
 - **What:**
   - **Pot details** (`/savings/details?id=…`, opened from a pot card):
