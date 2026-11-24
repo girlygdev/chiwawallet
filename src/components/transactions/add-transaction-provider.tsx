@@ -11,9 +11,11 @@ import {
   restoreTransaction,
   saveExpense,
   saveIncome,
+  saveSavings,
   undoTransaction,
   updateExpense,
   updateIncome,
+  updateSavings,
 } from "@/app/(app)/activity/actions";
 import { Sheet } from "@/components/sheet";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
@@ -23,6 +25,7 @@ import { ONE_TIME } from "@/lib/validation/transaction";
 import { type DeleteTarget, DeleteTransactionDialog } from "./delete-transaction-dialog";
 import { ExpenseForm, type ExpenseView } from "./expense-form";
 import { IncomeForm } from "./income-form";
+import { SavingsForm } from "./savings-form";
 import { type SheetTab, TAB_PANEL_ID, tabId, TypeTabs } from "./type-tabs";
 
 /** Where the sheet opens. Default: Expense (owner, Nov 23). */
@@ -32,6 +35,9 @@ type OpenOptions = {
   incomeSource?: string;
   /** A starting amount in centavos, e.g. the source's expected pay ("I got paid"). */
   amount?: number;
+  /** The Savings tab's starting pot and direction, e.g. a pot's Add money or Withdraw (4e). */
+  potId?: string;
+  direction?: "add" | "withdraw";
 };
 
 type AddTransaction = {
@@ -44,7 +50,15 @@ type AddTransaction = {
 
 const AddTransactionContext = createContext<AddTransaction | null>(null);
 
-const TITLES: Record<SheetTab, string> = { expense: "Add expense", income: "Add income" };
+/**
+ * A toast, optionally with one action. Outside the component: the time-based
+ * id is read when the toast is made, never while rendering.
+ */
+function toastWithAction(text: string, label?: string, onClick?: () => void): ToastMessage {
+  return { id: Date.now(), text, ...(label && onClick ? { action: { label, onClick } } : {}) };
+}
+
+const TITLES: Record<SheetTab, string> ={ expense: "Add expense", income: "Add income", savings: "Savings" };
 
 // Lets the + button (mobile) and "+ Add transaction" (desktop) open the add
 // sheet over any app page (week-3-tasks.md 3c, 3d). It always opens on
@@ -61,6 +75,8 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   const [openCount, setOpenCount] = useState(0);
   const [tab, setTab] = useState<SheetTab>("expense");
   const [incomeSource, setIncomeSource] = useState<string>("");
+  const [potId, setPotId] = useState<string>("");
+  const [direction, setDirection] = useState<"add" | "withdraw">("add");
   const [data, setData] = useState<AddSheetData | null>(null);
   // Edit mode: the row once it has loaded, and what its Delete link confirms.
   const [mode, setMode] = useState<"add" | "edit">("add");
@@ -90,6 +106,8 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
     setData(null);
     setTab(options.tab ?? "expense");
     setIncomeSource(options.incomeSource ?? "");
+    setPotId(options.potId ?? "");
+    setDirection(options.direction ?? "add");
     setView("form");
     const startAmount = options.amount != null ? formatPesoInput(options.amount) : "";
     amountText.current = startAmount;
@@ -167,24 +185,38 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
 
   const dismissToast = useCallback(() => setToast(null), []);
 
-  // "Expense saved · −₱180" or "Income saved · +₱25,000", with Undo.
-  const savedToast = (kind: "Expense" | "Income", signed: number) => (saved: { id: string; amount: number }) => {
+  // After saving: close, refresh, and a toast with Undo. `text` is the toast
+  // ("Expense saved · −₱180"); `removed` is what Undo says ("Expense removed").
+  const showSaved = (saved: { id: string }, text: string, removed: string) => {
     setOpen(false);
     // Re-reads the page's server data so lists and totals update.
     router.refresh();
-    setToast({
-      id: Date.now(),
-      text: `${kind} saved · ${formatPeso(signed * saved.amount, { signed: true })}`,
-      action: {
-        label: "Undo",
-        onClick: async () => {
-          setToast(null);
-          const result = await undoTransaction(saved.id);
-          router.refresh();
-          setToast({ id: Date.now(), text: result.ok ? `${kind} removed` : (result.formError ?? "Couldn't undo.") });
-        },
-      },
-    });
+    setToast(
+      toastWithAction(text, "Undo", async () => {
+        setToast(null);
+        const result = await undoTransaction(saved.id);
+        router.refresh();
+        setToast(toastWithAction(result.ok ? removed : (result.formError ?? "Couldn't undo.")));
+      }),
+    );
+  };
+  // "Expense saved · −₱180" or "Income saved · +₱25,000".
+  const savedToast = (kind: "Expense" | "Income", signed: number) => (saved: { id: string; amount: number }) =>
+    showSaved(saved, `${kind} saved · ${formatPeso(signed * saved.amount, { signed: true })}`, `${kind} removed`);
+  // "Added ₱2,000 to Travel" or "Withdrew ₱1,000 from Travel" (the amount is signed).
+  const savingsToast = (saved: { id: string; amount: number }, potName: string) =>
+    showSaved(
+      saved,
+      saved.amount < 0
+        ? `Withdrew ${formatPeso(-saved.amount)} from ${potName}`
+        : `Added ${formatPeso(saved.amount)} to ${potName}`,
+      "Savings entry removed",
+    );
+
+  // The Savings tab's "+ New pot": New pot lives on the Savings page.
+  const goToNewPot = () => {
+    setOpen(false);
+    router.push("/savings?add=1");
   };
 
   const formProps = { data, amountRef, defaultAmount: carriedAmount, onAmountChange };
@@ -221,13 +253,25 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
         editing={editing}
         onDelete={deleteFromEdit}
       />
-    ) : (
+    ) : tab === "income" ? (
       <IncomeForm
         key={`${openCount}-income`}
         {...formProps}
         defaultSource={incomeSource}
         onSave={editing ? (input) => updateIncome(editing.id, input) : saveIncome}
         onSaved={editing ? onEdited : savedToast("Income", 1)}
+        editing={editing}
+        onDelete={deleteFromEdit}
+      />
+    ) : (
+      <SavingsForm
+        key={`${openCount}-savings`}
+        {...formProps}
+        defaultPotId={potId}
+        defaultDirection={direction}
+        onSave={editing ? (input) => updateSavings(editing.id, input) : saveSavings}
+        onSaved={editing ? onEdited : savingsToast}
+        onNewPot={goToNewPot}
         editing={editing}
         onDelete={deleteFromEdit}
       />

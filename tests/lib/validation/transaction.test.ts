@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { incomeSchemaFor, transactionSchemaFor } from "@/lib/validation/transaction";
+import { incomeSchemaFor, savingsSchemaFor, transactionSchemaFor } from "@/lib/validation/transaction";
 
 const FOOD = "3f1c2a4e-8b7d-4c6a-9e5f-1a2b3c4d5e6f";
 const SALARY = "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
@@ -116,5 +116,28 @@ describe("incomeSchemaFor", () => {
     expect(errors({ amount: "0" }).amount).toBe("Enter an amount above ₱0.");
     expect(errors({ date: "2026-11-21" }).date).toBe("Pick today or an earlier day.");
     expect(errors({ date: "2026-11-14" }).date).toBe("Pick Nov 15 or later, when your first period starts.");
+  });
+});
+
+describe("savingsSchemaFor", () => {
+  const POT = "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b";
+  const schema = savingsSchemaFor({ today: "2026-11-20", firstPeriodStart: "2026-11-15" });
+  const valid = { direction: "add", amount: "2,000", potId: POT, date: "2026-11-20" };
+
+  it("adds are positive and withdrawals negative (plan review 3.5)", () => {
+    expect(schema.parse(valid)).toEqual({ direction: "add", amount: 200_000, potId: POT, date: "2026-11-20" });
+    expect(schema.parse({ ...valid, direction: "withdraw" }).amount).toBe(-200_000);
+  });
+
+  it("needs an amount above ₱0, a pot and a direction", () => {
+    const errors = (input: Record<string, unknown>) => {
+      const result = schema.safeParse({ ...valid, ...input });
+      return result.success ? {} : Object.fromEntries(result.error.issues.map((i) => [i.path[0], i.message]));
+    };
+    expect(errors({ amount: "0" }).amount).toBe("Enter an amount above ₱0.");
+    expect(errors({ amount: "-500" }).amount).toBe("Enter an amount above ₱0.");
+    expect(errors({ potId: "" }).potId).toBe("Pick a pot.");
+    expect(errors({ direction: "spend" }).direction).toBe("Pick Add to pot or Withdraw.");
+    expect(errors({ date: "2026-11-21" }).date).toBe("Pick today or an earlier day.");
   });
 });

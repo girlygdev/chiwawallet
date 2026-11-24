@@ -3,18 +3,19 @@
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
 
-export type SheetTab = "expense" | "income";
+export type SheetTab = "expense" | "income" | "savings";
 
 const TABS: { value: SheetTab; label: string }[] = [
   { value: "expense", label: "Expense" },
   { value: "income", label: "Income" },
+  { value: "savings", label: "Savings" },
 ];
 
 export const TAB_PANEL_ID = "add-sheet-panel";
 export const tabId = (tab: SheetTab) => `add-sheet-tab-${tab}`;
 
 // The add sheet's type tabs (activity.md §3): a `track` segmented control with
-// 40px options. Savings joins in Week 4. Follows the WAI-ARIA tabs pattern:
+// 40px options: Expense, Income and Savings (4e). Follows the WAI-ARIA tabs pattern:
 // only the selected tab is in the Tab order; Left and Right arrows move
 // between tabs and switch at once.
 export function TypeTabs({ value, onChange }: { value: SheetTab; onChange: (tab: SheetTab) => void }) {
@@ -30,7 +31,7 @@ export function TypeTabs({ value, onChange }: { value: SheetTab; onChange: (tab:
   };
 
   return (
-    <div role="tablist" aria-label="Type" className="grid grid-cols-2 gap-1 rounded-[14px] bg-track p-1">
+    <div role="tablist" aria-label="Type" className="grid grid-cols-3 gap-1 rounded-[14px] bg-track p-1">
       {TABS.map((tab) => {
         const selected = tab.value === value;
         return (

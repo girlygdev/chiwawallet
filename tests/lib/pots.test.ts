@@ -5,6 +5,7 @@ import {
   contributionNeeded,
   monthlySavingPlan,
   potBalance,
+  potBalanceAfter,
   potGoalDate,
   potProgress,
   potProjection,
@@ -222,5 +223,16 @@ describe("potProjection", () => {
 describe("balanceAfterMove", () => {
   it("is the other pot's balance plus what moves in (delete-pattern.md §4: Emergency becomes ₱19,000)", () => {
     expect(balanceAfterMove(1_300_000, 600_000)).toBe(1_900_000);
+  });
+});
+
+describe("potBalanceAfter", () => {
+  it("adds a deposit or a (negative) withdrawal to the balance", () => {
+    expect(potBalanceAfter(600_000, 200_000)).toBe(800_000);
+    expect(potBalanceAfter(600_000, -100_000)).toBe(500_000);
+  });
+
+  it("editing: takes out the row's old amount first", () => {
+    expect(potBalanceAfter(800_000, 300_000, 200_000)).toBe(900_000);
   });
 });

@@ -1,4 +1,4 @@
-import { Pencil } from "lucide-react";
+import { Minus, Pencil, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,12 +9,14 @@ import { PotStatusTag } from "@/components/savings/pot-status-tag";
 import { PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
+import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import { formatPeso } from "@/lib/money";
 import { formatMonthYear, formatShortDate, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { potBalance, potGoalDate, potProgress, potScheduleLine, potStatus, potToGo } from "@/lib/pots";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Savings pot · Chiwawallet" };
 
@@ -25,7 +27,7 @@ type SearchParams = Promise<{ id?: string | string[] }>;
 // Delete pot, and its history. One page on every screen size. The id is a
 // query string (/savings/details?id=…), not a [id] segment: the app shell
 // reads the path, which a dynamic segment would stop the build from
-// prerendering. Add money and Withdraw come with the Savings tab (4e).
+// prerendering. Add money and Withdraw open the add sheet's Savings tab (4e).
 export default function PotDetailsPage({ searchParams }: { searchParams: SearchParams }) {
   return (
     <PageShell>
@@ -140,6 +142,30 @@ async function PotDetails({ searchParams }: { searchParams: SearchParams }) {
               <dd className="font-extrabold text-ink">{goal ? formatMonthYear(goal) : "—"}</dd>
             </div>
           </dl>
+
+          {/* Add money (primary) and Withdraw (secondary, hidden for locked
+              pots): the add sheet's Savings tab with this pot chosen (4e). */}
+          <div className="grid grid-cols-2 gap-2">
+            <OpenAddSheetButton
+              options={{ tab: "savings", potId: pot.id, direction: "add" }}
+              className={cn(
+                "flex h-12 items-center justify-center gap-2 rounded-md bg-primary px-4 font-extrabold text-primary-foreground outline-link focus-visible:outline-2 focus-visible:outline-offset-2",
+                pot.is_locked && "col-span-2",
+              )}
+            >
+              <Plus aria-hidden size={18} strokeWidth={2.5} />
+              Add money
+            </OpenAddSheetButton>
+            {!pot.is_locked && (
+              <OpenAddSheetButton
+                options={{ tab: "savings", potId: pot.id, direction: "withdraw" }}
+                className="flex h-12 items-center justify-center gap-2 rounded-md border-[1.5px] border-line bg-surface px-4 font-extrabold text-ink outline-link hover:border-line-dash focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                <Minus aria-hidden size={18} strokeWidth={2.5} />
+                Withdraw
+              </OpenAddSheetButton>
+            )}
+          </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <Link

@@ -42,7 +42,7 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
   - Pot details at `/savings/details?id=…` (not `[id]`: a dynamic segment breaks the build). Mobile stacks the desktop panel (fix #4).
   - Delete: level 2. "Move it to [pot]" or "Count it as withdrawn" (`delete-pattern.md` §4). Locked pots only offer "Count it as withdrawn" after a confirm.
   - Done when: your real pots list with the right balances.
-- [ ] **4e. The add sheet's Savings tab** (`activity.md`).
+- [x] **4e. The add sheet's Savings tab** (`activity.md`). Done Nov 24. Also Add money / Withdraw on pot details, Add money to a pot on Savings, and editing savings rows from Activity.
   - Add to or withdraw from a pot. A withdrawal is a negative `savings` amount (3.5), using the system Savings pot category.
   - Withdraw is disabled for locked pots ("₱48,500 · locked, deposits only").
   - Activity's Savings filter and the "To savings" total include it.

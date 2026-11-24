@@ -220,3 +220,13 @@ export function potProjection(
 export function balanceAfterMove(destinationBalance: number, moved: number): number {
   return destinationBalance + moved;
 }
+
+/**
+ * The Savings tab's impact line (activity.md §3 Savings): "Travel will be at
+ * ₱8,000 of ₱20,000". `change` is signed (a withdrawal is negative). When
+ * editing a row, `replacing` is its saved amount, which the balance already
+ * includes.
+ */
+export function potBalanceAfter(balance: number, change: number, replacing = 0): number {
+  return balance - replacing + change;
+}

@@ -3,7 +3,9 @@
 import { z } from "zod";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { isActiveOn, receivedSourceIds, sourcePayday } from "@/lib/income";
+import { formatPeso } from "@/lib/money";
 import { type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { potBalance, potBalanceAfter } from "@/lib/pots";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -17,12 +19,14 @@ import { SOMETHING_WRONG, toFieldErrors } from "@/lib/validation/field-errors";
 import {
   type IncomeFormInput,
   incomeSchemaFor,
+  type SavingsFormInput,
+  savingsSchemaFor,
   type TransactionFormInput,
   transactionSchemaFor,
 } from "@/lib/validation/transaction";
 
-// The add sheet's Expense and Income tabs (activity.md §3, week-3-tasks.md 3c
-// and 3d). RLS limits every query to the user's own rows; the checks here are
+// The add sheet's Expense, Income and Savings tabs (activity.md §3, week-3-tasks.md 3c,
+// 3d; week-4-tasks.md 4e). RLS limits every query to the user's own rows; the checks here are
 // for clear messages and for rules the database can't know (system categories
 // aren't offered, and income always uses the Income one).
 
@@ -65,6 +69,20 @@ export type AddSheetData = {
   recentIds: string[];
   /** The budget's 50/30/20 percentages, for the picker's section headings. */
   targets: Record<BudgetGroup, number>;
+  /** The Savings tab's pot cards (4e), oldest first. */
+  pots: SheetPot[];
+};
+
+/** A pot card on the Savings tab (activity.md §3 Savings). */
+export type SheetPot = {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  /** Worked out from transactions, never stored (potBalance). */
+  balance: number;
+  target_amount: number | null;
+  is_locked: boolean;
 };
 
 /** Everything the sheet needs, for both tabs; called when it opens. */
@@ -74,7 +92,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
   const today = todayInManila(new Date());
   const period = await getOrCreatePeriod(supabase, budget, today);
 
-  const [categories, recent, rows, sources, first] = await Promise.all([
+  const [categories, recent, rows, sources, first, pots] = await Promise.all([
     supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color"),
     supabase
       .from("transactions")
@@ -94,6 +112,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
       .eq("budget_id", budget.id)
       .order("created_at", { ascending: true }),
     firstPeriodStart(budget.id),
+    loadSheetPots(),
   ]);
   for (const result of [categories, recent, rows, sources]) {
     if (result.error) throw new Error(`Couldn't load the add sheet: ${result.error.message}`, { cause: result.error });
@@ -131,7 +150,36 @@ export async function getAddSheetData(): Promise<AddSheetData> {
     topCount: TOP_TILES,
     recentIds: recentCategories(categories.data!, latestIds, RECENT_TILES).map((c) => c.id),
     targets: { needs: budget.needs_pct, wants: budget.wants_pct, savings_debt: budget.savings_debt_pct },
+    pots,
   };
+}
+
+/** The user's pots with their balances, for the Savings tab and its checks. */
+async function loadSheetPots(): Promise<SheetPot[]> {
+  const supabase = await createClient();
+  const [pots, rows] = await Promise.all([
+    supabase
+      .from("savings_pots")
+      .select("id, name, icon, color, starting_balance, target_amount, is_locked")
+      .order("created_at")
+      .order("name"),
+    supabase
+      .from("transactions")
+      .select("pot_id, amount, deleted_at")
+      .eq("type", "savings")
+      .not("pot_id", "is", null)
+      .is("deleted_at", null),
+  ]);
+  for (const result of [pots, rows]) {
+    if (result.error) throw new Error(`Couldn't load pots: ${result.error.message}`, { cause: result.error });
+  }
+  return pots.data!.map(({ starting_balance, ...pot }) => ({
+    ...pot,
+    balance: potBalance(
+      { starting_balance },
+      rows.data!.filter((r) => r.pot_id === pot.id),
+    ),
+  }));
 }
 
 export type SaveExpenseResult = {
@@ -276,6 +324,91 @@ async function writeIncome(input: IncomeFormInput, id: string | null): Promise<S
   }
 }
 
+export type SaveSavingsResult = {
+  ok?: true;
+  /** The new row; `amount` is signed (a withdrawal is negative). */
+  saved?: { id: string; amount: number };
+  formError?: string;
+  fieldErrors?: Partial<Record<keyof SavingsFormInput, string>>;
+};
+
+export async function saveSavings(input: SavingsFormInput): Promise<SaveSavingsResult> {
+  return writeSavings(input, null);
+}
+
+export async function updateSavings(id: string, input: SavingsFormInput): Promise<SaveSavingsResult> {
+  return writeSavings(input, id);
+}
+
+/**
+ * Adds to or withdraws from a pot (the Savings tab, 4e), or changes savings
+ * row `id`. Checked here, for clear messages: the pot is the user's, a
+ * locked pot takes deposits only (the database refuses it too), and a
+ * withdrawal can't take out more than the pot holds.
+ */
+async function writeSavings(input: SavingsFormInput, id: string | null): Promise<SaveSavingsResult> {
+  const { budget } = await requireAppUser();
+  const supabase = await createClient();
+  const today = todayInManila(new Date());
+  const first = (await firstPeriodStart(budget.id)) ?? today;
+
+  const parsed = savingsSchemaFor({ today, firstPeriodStart: first }).safeParse(input);
+  if (!parsed.success) return { fieldErrors: toFieldErrors<SavingsFormInput>(parsed.error.issues) };
+  const values = parsed.data;
+  const notEditable = await checkEditable(id, "savings");
+  if (notEditable) return notEditable;
+
+  const pot = (await loadSheetPots()).find((p) => p.id === values.potId);
+  if (!pot) return { fieldErrors: { potId: "Pick a pot." } };
+  if (values.amount < 0) {
+    if (pot.is_locked) return { fieldErrors: { potId: `${pot.name} is locked: deposits only.` } };
+    // Editing a row already counted in the balance: take its old amount out first.
+    const old = id ? await savingsAmount(id, pot.id) : 0;
+    if (potBalanceAfter(pot.balance, values.amount, old) < 0) {
+      return {
+        fieldErrors: { amount: `${pot.name} only has ${formatPeso(potBalanceAfter(pot.balance, 0, old))}.` },
+      };
+    }
+  }
+
+  // Savings always go in the locked Savings pot category (activity.md fix #4).
+  const { data: category, error: categoryError } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("system_key", "savings_pot")
+    .maybeSingle();
+  if (categoryError) return fail("load the Savings pot category", categoryError);
+  if (!category) return fail("find the Savings pot category", { message: "missing system category" });
+
+  try {
+    const period = await getOrCreatePeriod(supabase, budget, values.date);
+    const fields = {
+      period_id: period.id,
+      category_id: category.id,
+      amount: values.amount,
+      date: values.date,
+      pot_id: values.potId,
+    };
+    const { data, error } = await (id
+      ? supabase.from("transactions").update(fields).eq("id", id).is("deleted_at", null)
+      : supabase.from("transactions").insert({ ...fields, type: "savings" })
+    )
+      .select("id, amount")
+      .single();
+    if (error) return fail(id ? "update savings" : "save savings", error);
+    return { ok: true, saved: data };
+  } catch (error) {
+    return fail("find period", error as Error);
+  }
+}
+
+/** A savings row's saved amount, if it belongs to `potId` (else 0). */
+async function savingsAmount(id: string, potId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("transactions").select("amount, pot_id").eq("id", id).maybeSingle();
+  return data && data.pot_id === potId ? data.amount : 0;
+}
+
 /**
  * Soft-deletes a row: Undo after adding, and Delete transaction
  * (delete-pattern.md level 1). Only `deleted_at` changes, so restoring is exact.
@@ -319,12 +452,15 @@ export async function restoreTransaction(id: string): Promise<{ ok?: true; formE
 /** A row in Edit transaction, with its period for the impact line. */
 export type EditingTransaction = {
   id: string;
-  type: "expense" | "income";
+  type: "expense" | "income" | "savings";
+  /** Signed for savings: a withdrawal is negative. */
   amount: number;
   date: string;
   note: string | null;
   categoryId: string;
   incomeSourceId: string | null;
+  /** Savings rows only: the pot. */
+  potId: string | null;
   /** The source's name and amount, in case it no longer pays (no card in the list). */
   source: { name: string; amount: number } | null;
   period: { start: string; end: string };
@@ -340,14 +476,17 @@ export async function getEditTransaction(id: string): Promise<EditingTransaction
   const { data: row, error } = await supabase
     .from("transactions")
     .select(
-      "id, type, amount, date, note, category_id, income_source_id, period_id, source:income_sources(name, amount), period:budget_periods(start_date, end_date)",
+      "id, type, amount, date, note, category_id, income_source_id, pot_id, period_id, source:income_sources(name, amount), period:budget_periods(start_date, end_date)",
     )
     .eq("id", id)
     .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error(`Couldn't load the transaction: ${error.message}`, { cause: error });
-  // Savings and debt payments get their own sheets in Weeks 4-5.
-  if (!row || (row.type !== "expense" && row.type !== "income")) return null;
+  if (!row) return null;
+  // Debt payments get their sheet in Week 5. A savings row whose pot was
+  // deleted has nothing to move between, so it stays as it is.
+  const editable = row.type === "expense" || row.type === "income" || (row.type === "savings" && row.pot_id != null);
+  if (!editable) return null;
 
   const { data: rows, error: rowsError } = await supabase
     .from("transactions")
@@ -361,12 +500,13 @@ export async function getEditTransaction(id: string): Promise<EditingTransaction
   const source = row.source as unknown as { name: string; amount: number } | null;
   return {
     id: row.id,
-    type: row.type,
+    type: row.type as EditingTransaction["type"],
     amount: row.amount,
     date: row.date,
     note: row.note,
     categoryId: row.category_id,
     incomeSourceId: row.income_source_id,
+    potId: row.pot_id,
     source,
     period: { start: period.start_date, end: period.end_date },
     periodRows: rows as EditingTransaction["periodRows"],
@@ -378,7 +518,10 @@ export async function getEditTransaction(id: string): Promise<EditingTransaction
  * type being saved (the sheet can't change a row's type). Returns an error
  * result to send back, or null when it's fine (or `id` is null: adding).
  */
-async function checkEditable(id: string | null, type: "expense" | "income"): Promise<{ formError: string } | null> {
+async function checkEditable(
+  id: string | null,
+  type: "expense" | "income" | "savings",
+): Promise<{ formError: string } | null> {
   if (id == null) return null;
   if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
   const supabase = await createClient();

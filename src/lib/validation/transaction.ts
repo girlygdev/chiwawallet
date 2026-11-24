@@ -4,8 +4,8 @@ import { parsePesoInput } from "@/lib/money";
 
 // The add and edit transaction sheet (activity.md §3) and its Server Actions.
 // The amount arrives as typed text and leaves as integer centavos.
-// Expense and income only for now: savings (Add or Withdraw, with a pot) and
-// debt payments join in Weeks 4-5 with their links.
+// Expense, income and savings (Add or Withdraw, with a pot; 4e). Debt
+// payments join in Week 5 with plan items.
 
 export const SHEET_TYPES = ["expense", "income"] as const;
 
@@ -115,3 +115,26 @@ export function incomeSchemaFor(limits: DateLimits) {
 
 export type IncomeFormInput = z.input<ReturnType<typeof incomeSchemaFor>>;
 export type IncomeValues = z.output<ReturnType<typeof incomeSchemaFor>>;
+
+export const SAVINGS_DIRECTIONS = ["add", "withdraw"] as const;
+
+/**
+ * The Savings tab (activity.md §3 Savings, week-4-tasks.md 4e): add to or
+ * withdraw from a pot. The amount is typed above zero and saved signed: a
+ * withdrawal is a negative savings amount (plan review 3.5). The category
+ * isn't here: savings always use the locked Savings pot category, set on the
+ * server. Locked pots and the pot's balance are checked on the server.
+ */
+export function savingsSchemaFor(limits: DateLimits) {
+  return z
+    .object({
+      direction: z.enum(SAVINGS_DIRECTIONS, { error: "Pick Add to pot or Withdraw." }),
+      amount: amountField(),
+      potId: z.uuid("Pick a pot."),
+      date: dateField(limits),
+    })
+    .transform((v) => ({ ...v, amount: v.direction === "withdraw" ? -v.amount : v.amount }));
+}
+
+export type SavingsFormInput = z.input<ReturnType<typeof savingsSchemaFor>>;
+export type SavingsValues = z.output<ReturnType<typeof savingsSchemaFor>>;

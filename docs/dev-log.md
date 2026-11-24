@@ -2,6 +2,39 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4e Savings tab
+- **What:** The add sheet's third tab, **Savings**:
+  - **Add to pot / Withdraw**, the amount, and **Which pot?** cards ("₱6,000 of ₱20,000"). Locked pots say "· locked, deposits only" and are disabled for Withdraw.
+  - **+ New pot** (closes the sheet and opens New pot on the Savings page), and the date.
+  - **Impact line:** "Travel will be at ₱8,000 of ₱20,000 (40%)."
+  - **The button says what happens:** **Add ₱2,000 to Travel** / **Withdraw ₱1,000 from Travel**.
+  - **After saving:** the toast "Added ₱2,000 to Travel" with Undo.
+  - **Ways in:**
+    - Pot details: **Add money** (primary) and **Withdraw** (secondary, hidden for locked pots), with the pot already chosen.
+    - Savings page: **Add money to a pot**.
+  - **Activity:** savings rows open in Edit transaction (no type tabs), with **Save changes** and Delete.
+- **Files:**
+  - New: `src/components/transactions/savings-form.tsx`
+  - Edited:
+    - `src/app/(app)/activity/actions.ts`: `SheetPot` in the sheet's data, `saveSavings` / `updateSavings`, savings in Edit transaction.
+    - `src/components/transactions/add-transaction-provider.tsx`: the tab, the pot and direction options, and the toast.
+    - `type-tabs.tsx` (Savings), `src/lib/validation/transaction.ts` (`savingsSchemaFor`), `src/lib/pots.ts` (`potBalanceAfter`) and their tests.
+    - `src/app/(app)/savings/page.tsx`, `details/page.tsx`, `docs/week-4-tasks.md`
+- **Decisions:**
+  - **Signed amounts:** typed above zero and saved signed. A withdrawal is a negative `savings` amount (plan review 3.5), in the locked Savings pot category.
+  - **Server checks:**
+    - The pot is the user's.
+    - A locked pot is deposits only ("MP2 is locked: deposits only."; the database refuses it too).
+    - **A withdrawal can't take out more than the pot holds** ("Travel only has ₱6,000."); the impact line warns before saving.
+    - Editing takes the row's old amount out of the balance first.
+  - **Not editable:** savings rows whose pot was deleted (their link is empty). Debt payments wait for Week 5.
+  - **Toast ids:** `toastWithAction()` moved out of the component: the React Compiler lint flagged `Date.now()` in a function defined while rendering.
+  - **Not yet:**
+    - The "Planned ₱2,000" tag and "This also ticks off…" (plan items, Week 5).
+    - "Savings · From Travel" detail lines in Activity rows: they still show the Savings pot category.
+- **Tests:** 4 new unit tests (380 pass), lint, typecheck and the build. Not browser-checked.
+- **Next:** 4f, the Debts screen.
+
 ## 2026-11-24 · Week 4 · `delete_pot` on live, Bills and Savings pushed
 - **What:** Applied `20261124160000_delete_pot.sql` to live (`db push --linked`, after a dry run that listed only it; owner's go). A second dry run says "Remote database is up to date." Then pushed `main` so Vercel deploys Week 4 so far (4a–4d: Bills and Savings).
 - **Files:** none changed. `types.ts` regenerated from live (`--linked`) matched the hand-written `delete_pot` entry exactly.

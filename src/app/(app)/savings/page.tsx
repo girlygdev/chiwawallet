@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
+import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import { formatPeso } from "@/lib/money";
 import { getPeriod, type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
@@ -30,7 +31,7 @@ const ADD_HREF = "/savings?add=1";
 // The Savings screen (savings.md, week-4-tasks.md 4d-1): total saved, then a
 // card per pot with its balance, progress and status. New and Edit pot open
 // in a sheet (`?add=1`; 4d-2); a card opens the pot's details (4d-3). "Add
-// money to a pot" comes with the add sheet's Savings tab (4e).
+// money to a pot" opens the add sheet's Savings tab (4e).
 export default function SavingsPage() {
   return (
     <PageShell>
@@ -157,6 +158,14 @@ async function SavingsContent() {
                 </li>
               ))}
             </ul>
+            {/* savings.md §2: opens the add sheet on the Savings tab (4e). */}
+            <OpenAddSheetButton
+              options={{ tab: "savings" }}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary px-5 font-extrabold text-primary-foreground outline-link focus-visible:outline-2 focus-visible:outline-offset-2 md:w-auto md:self-start"
+            >
+              <Plus aria-hidden size={20} strokeWidth={2.5} />
+              Add money to a pot
+            </OpenAddSheetButton>
           </section>
         </>
       )}
