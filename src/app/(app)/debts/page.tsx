@@ -22,6 +22,7 @@ import { potProgress } from "@/lib/pots";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { DebtSheet } from "./debt-sheet";
 
 export const metadata: Metadata = { title: "Debts · Chiwawallet" };
 
@@ -34,7 +35,7 @@ const PAID_OFF_ROWS = 3;
 // schedule, then the paid-off ones. Plain and encouraging: no jokes here.
 // Each card holds its schedule on every screen size (fix #4), so there's no
 // separate details page. New and Edit debt open in a sheet (`?add=1`,
-// `?edit=…`; 4f-2). Mark paid and Pay extra come with plan items (Week 5).
+// `?edit=…`, `?delete=…`; 4f-2). Mark paid and Pay extra come with plan items (Week 5).
 export default function DebtsPage() {
   return (
     <PageShell>
@@ -183,6 +184,11 @@ async function DebtsContent() {
           {paidOff.length > 0 && <PaidOff debts={paidOff} />}
         </>
       )}
+
+      <DebtSheet
+        debts={debts.map(({ paid, ...debt }) => ({ ...debt, left: debtProgress(debt, paid, today, period).left }))}
+        schedule={schedule}
+      />
     </>
   );
 }

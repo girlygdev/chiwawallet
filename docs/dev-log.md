@@ -2,6 +2,24 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4f-2 New and Edit debt, Mark paid off, Delete
+- **What:**
+  - **New debt** (`/debts?add=1`):
+    - Name, lender, total, "How will you pay it?" (In installments / One payment), number of payments (2–60), first due date (a plain date input, since future dates are the point), each payment, and interest %.
+    - **The schedule preview** (live, `aria-live`): "1 · Dec 5 · Paid from Nov 30 payday · ₱5,000", "…" past six rows, "Debt-free by Feb 5.", and the yellow check line when the payments don't add up. Then the group note and **Add debt**.
+  - **Edit debt** (`?edit=…`): the same form with **Save changes**, **Mark as paid off** / **Move back to active**, and **Delete debt**.
+  - **Delete debt** (`?delete=…`): "It still has ₱8,000 left. It disappears from your debts.", "Past payments stay in Activity…", and "Paid it off outside the app? **Mark it paid off** instead".
+- **Files:**
+  - New: `src/components/debts/debt-form.tsx`, `src/app/(app)/debts/actions.ts`, `debt-sheet.tsx`
+  - Edited: `src/app/(app)/debts/page.tsx`, `docs/week-4-tasks.md`
+- **Decisions:**
+  - **Each payment** fills in total ÷ number (rounded up to the peso) until it's typed by hand. One payment hides the count and Each payment, and the date label becomes "Due date".
+  - **The spec's two delete choices are split** ("Mark it paid off" vs "Delete it"). Marking paid off isn't destructive, so it's a normal link in Edit and in the delete dialog; the red button only deletes (CLAUDE.md: red is only for destructive actions). It's reversible ("Move back to active").
+  - **Delete** is a hard delete; payments keep their history with `debt_id` emptied (3.6). No migration needed.
+  - **Interest hint:** "For your records. It doesn't change the payments." (display only, debts.md §1).
+- **Tests:** no new pure logic (the preview uses `debtSchedule`, `paydayFor` and `lastPaymentNote`, all tested). 388 unit tests, lint, typecheck and the build pass. Not browser-checked.
+- **Next:** 4g wire-up (More › Money detail lines; the Dashboard counting transfers to pots in Money out), then 4h live check.
+
 ## 2026-11-24 · Week 4 · 4f-1 Debts page
 - **What:** `/debts` replaces its placeholder:
   - **Hero:** "Total owed", "Debt-free by Dec 25 if you keep the plan", and a "₱4,000 of ₱12,000 paid" bar.
