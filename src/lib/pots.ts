@@ -1,0 +1,91 @@
+import { addDays, format, parseISO } from "date-fns";
+import { dateInMonth, getPeriod, type PaySchedule, type PaySlot } from "@/lib/periods";
+
+// Savings pot math (savings.md §1, week-4-tasks.md 4b): pure functions, no
+// React. Balances are worked out from transactions, never stored
+// (mvp-brief.md): a withdrawal is a negative savings amount (plan review 3.5).
+
+/** The starting balance plus deposits minus withdrawals, skipping deleted rows. */
+export function potBalance(pot: { starting_balance: number }, rows: { amount: number; deleted_at: string | null }[]): number {
+  return rows.reduce((sum, r) => (r.deleted_at == null ? sum + r.amount : sum), pot.starting_balance);
+}
+
+/** How far along the target is, 0 to 1 (for the progress bar); null without a target. */
+export function potProgress(balance: number, target: number | null): number | null {
+  if (target == null) return null;
+  return Math.min(Math.max(balance / target, 0), 1);
+}
+
+type Contributes = { pay_slot: PaySlot };
+
+// Does this payday pay into the pot? Pots on "every" save every payday. On a
+// weekly or monthly budget every period is "every", so any pot saves then.
+const savesOn = (pot: Contributes, paySlot: PaySlot) =>
+  pot.pay_slot === "every" || paySlot === "every" || paySlot === pot.pay_slot;
+
+/**
+ * The paydays after `today`, oldest first, as { date, paySlot }. Each
+ * period's start is its payday. Stops after `limit` paydays.
+ */
+function* comingPaydays(schedule: PaySchedule, today: string, limit: number) {
+  let period = getPeriod(today, schedule);
+  for (let i = 0; i < limit; i++) {
+    const nextDay = format(addDays(parseISO(period.end), 1), "yyyy-MM-dd");
+    period = getPeriod(nextDay, schedule);
+    yield { date: period.start, paySlot: period.paySlot };
+  }
+}
+
+// About 50 years of weekly paydays: far enough for any real goal.
+const MAX_PAYDAYS = 2_600;
+
+/**
+ * The goal date (savings.md §1 "On track for…"): step through the coming
+ * paydays, adding the planned contribution on the pot's paydays, until the
+ * balance reaches the target. Returns that payday ("YYYY-MM-DD"; show its
+ * month), or null with no target, no contribution, or the target already
+ * reached.
+ */
+export function potGoalDate(
+  pot: Contributes & { target_amount: number | null; planned_contribution: number },
+  balance: number,
+  schedule: PaySchedule,
+  today: string,
+): string | null {
+  if (pot.target_amount == null || pot.planned_contribution <= 0 || balance >= pot.target_amount) return null;
+  let saved = balance;
+  for (const payday of comingPaydays(schedule, today, MAX_PAYDAYS)) {
+    if (!savesOn(pot, payday.paySlot)) continue;
+    saved += pot.planned_contribution;
+    if (saved >= pot.target_amount) return payday.date;
+  }
+  return null;
+}
+
+/**
+ * New pot's second projection line (savings.md §4): "Save ₱2,900 each payday
+ * to make it by June." What's left, split over the pot's paydays from after
+ * today to the end of the target month, rounded up to the nearest ₱100.
+ * Null without a target or date, when it's reached, or with no payday left.
+ */
+export function contributionNeeded(
+  pot: Contributes & { target_amount: number | null; target_date: string | null },
+  balance: number,
+  schedule: PaySchedule,
+  today: string,
+): number | null {
+  if (pot.target_amount == null || pot.target_date == null || balance >= pot.target_amount) return null;
+  // target_date is the 1st of the month; the goal is the end of that month.
+  const monthEnd = dateInMonth(Number(pot.target_date.slice(0, 4)), Number(pot.target_date.slice(5, 7)), 31);
+
+  let paydays = 0;
+  for (const payday of comingPaydays(schedule, today, MAX_PAYDAYS)) {
+    if (payday.date > monthEnd) break;
+    if (savesOn(pot, payday.paySlot)) paydays += 1;
+  }
+  if (paydays === 0) return null;
+
+  // Whole ₱100 steps (10,000 centavos), rounded up so the goal is met.
+  const STEP = 10_000;
+  return Math.ceil((pot.target_amount - balance) / (paydays * STEP)) * STEP;
+}

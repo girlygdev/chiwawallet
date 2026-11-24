@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  dateInMonth,
   daysLeft,
   describeSchedule,
   periodStatusLine,
@@ -409,5 +410,19 @@ describe("todayInManila", () => {
     // 16:30 UTC is 00:30 the next day in Manila (UTC+8).
     expect(todayInManila(new Date("2026-11-19T16:30:00Z"))).toBe("2026-11-20");
     expect(todayInManila(new Date("2026-11-19T15:59:00Z"))).toBe("2026-11-19");
+  });
+});
+
+describe("dateInMonth", () => {
+  it("moves a day the month doesn't have to its last day", () => {
+    expect(dateInMonth(2026, 11, 31)).toBe("2026-11-30");
+    expect(dateInMonth(2027, 2, 30)).toBe("2027-02-28");
+    expect(dateInMonth(2028, 2, 29)).toBe("2028-02-29");
+    expect(dateInMonth(2026, 12, 15)).toBe("2026-12-15");
+  });
+
+  it("rolls months past 12 into the next year", () => {
+    expect(dateInMonth(2026, 13, 31)).toBe("2027-01-31");
+    expect(dateInMonth(2026, 14, 31)).toBe("2027-02-28");
   });
 });

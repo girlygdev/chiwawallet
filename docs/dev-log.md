@@ -2,6 +2,42 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4b Bill, debt and pot math, and their Zod schemas
+- **What:** Pure functions and form schemas for Week 4's screens, tests first.
+  - **`lib/bills.ts`:**
+    - `billMonths()`: quarterly wraps around the year from `first_due_month`.
+    - `billDueDates(bill, from, to)`: also answers which period a date falls in.
+    - `nextBillDue()`.
+    - `billsPerMonth()`: monthly + quarterly ÷ 3 + yearly ÷ 12.
+  - **`lib/debts.ts`:**
+    - `debtSchedule()`: monthly from the first due date. The last payment is the remainder.
+    - `debtPaid()`.
+    - `debtProgress()`: paid, left, payments made, debt-free date, and each payment's status (Paid, Due, Planned, or Late with days).
+  - **`lib/pots.ts`:**
+    - `potBalance()` and `potProgress()`.
+    - `potGoalDate()`: steps through the coming paydays.
+    - `contributionNeeded()`: "Save ₱X each payday to make it by June", rounded up to ₱100.
+  - **`validation/bill.ts`, `pot.ts`, `debt.ts`:** the New/Edit forms' schemas. Money is typed text in and centavos out, like income.
+  - **`dateInMonth()`** in `lib/periods.ts`: the paydays' "day the month doesn't have → its last day" rule, shared by bills and debts.
+- **Files:**
+  - New: `src/lib/bills.ts`, `debts.ts`, `pots.ts`, `src/lib/validation/bill.ts`, `pot.ts`, `debt.ts`, and their tests in `tests/lib/`
+  - Edited: `src/lib/periods.ts`, `tests/lib/periods.test.ts`, `docs/week-4-tasks.md`
+- **Decisions:**
+  - **Bills × 12 ÷ 12:** "Bills each month" adds up a yearly total and rounds once, so rounding errors don't add up.
+  - **Bill pay slots:** payday 1, payday 2 or split on twice-a-month budgets (`every` would pay the bill twice); only `every` on weekly and monthly budgets.
+  - **Pot pay slots:** payday 1, payday 2 or every; only every on one-payday budgets.
+  - **Debts:**
+    - Payments count in order: a part-payment doesn't mark the next one paid.
+    - Late beats Due: an unpaid payment past its date is Late even inside the current period.
+    - The payments must cover the total with something left for the last one; the errors say how ("3 payments of ₱3,000 only cover ₱9,000 of ₱12,000.").
+    - `suggestedPayment()` rounds total ÷ payments up to the peso.
+  - **Pots:**
+    - The goal date and the contribution needed count only paydays **after today** that pay the pot. "By June" means by the end of June.
+    - ₱0 is a valid contribution (the default pots start at ₱0).
+    - The pot icons are the spec's 6 plus `calendar-clock` ("Planned costs") for Sinking Funds.
+- **Tests:** 57 new unit tests (347 pass), including Feb 28/29, the 31st in short months, a yearly bill almost a year away, the spec's Travel goal (Feb 2027) and its ₱5,200 bills total. Typecheck and lint pass.
+- **Next:** 4c, the Bills screen.
+
 ## 2026-11-24 · Week 4 · 4a on live
 - **What:** Applied `20261124140000_recurring_bills.sql` and `20261124150000_savings_pots_and_debts.sql` to live (`db push --linked`, after a dry run that listed only these two; owner's go). A second dry run says "Remote database is up to date."
 - **Files:** `src/lib/supabase/types.ts`, regenerated from live (`gen types --linked`): `savings_pots`, `debts`, `pot_id` / `debt_id` on transactions, and `add_default_pots`. Nothing was removed, so the hand-written `recurring_bills` entry from 4a-1 matched live exactly.

@@ -199,6 +199,17 @@ export function todayInManila(now: Date): string {
   return manilaDate.format(now);
 }
 
+/**
+ * Day `day` of a month as "YYYY-MM-DD", moved to the month's last day when the
+ * month is too short: the same rule as paydays, for bill and debt due dates.
+ * `month` is 1–12 and may run past 12 (13 = January of the next year).
+ */
+export function dateInMonth(year: number, month: number, day: number): string {
+  // The Date constructor rolls month 13 over into the next year.
+  const first = new Date(year, month - 1, 1);
+  return format(paydayIn(first, day), ISO_DATE);
+}
+
 // The payday in the month of `month`, moved to the month's last day when the
 // month is too short (payday 31 in November → Nov 30; payday 30 in Feb → Feb 28).
 function paydayIn(month: Date, payDay: number): Date {

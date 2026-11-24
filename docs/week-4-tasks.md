@@ -18,7 +18,7 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
   - **RLS** on all three, with user A can't read or write user B's rows tests in `tests/db/`.
   - **Live:** dry run, then the owner's go. Regenerate types.
   - Done when: `npm run test:db` passes and a new sign-up gets the two default pots.
-- [ ] **4b. Pure functions and Zod schemas, tests first.**
+- [x] **4b. Pure functions and Zod schemas, tests first.** Done Nov 24: `lib/bills.ts`, `lib/debts.ts`, `lib/pots.ts`, `validation/bill.ts`, `pot.ts`, `debt.ts`, and `dateInMonth()` in `lib/periods.ts`.
   - Bill due dates: monthly, quarterly and yearly (from `first_due_month`), and which period each falls in.
   - Debt schedule: installment due dates, amount paid and remaining, on time or late.
   - Pot balance: starting balance + contributions − withdrawals; progress and the goal date (`savings.md` §1).
