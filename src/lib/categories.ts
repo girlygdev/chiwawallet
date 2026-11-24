@@ -20,18 +20,21 @@ export type CategoryUsage = {
   total: number;
   /** Soft-deleted ones, which Undo can bring back. */
   deletedCount: number;
-  /** Any row at all (live or deleted) means picking where they move to. */
+  /** Recurring bills using the category (4a-1); they move too. */
+  billCount: number;
+  /** Any row at all (live or deleted transactions, or bills) means picking where they move to. */
   needsMove: boolean;
 };
 
 /** `rows`: every transaction with this category, deleted ones included. */
-export function categoryUsage(rows: { amount: number; deleted_at: string | null }[]): CategoryUsage {
+export function categoryUsage(rows: { amount: number; deleted_at: string | null }[], billCount = 0): CategoryUsage {
   const live = rows.filter((r) => r.deleted_at == null);
   return {
     count: live.length,
     total: live.reduce((sum, r) => sum + r.amount, 0),
     deletedCount: rows.length - live.length,
-    needsMove: rows.length > 0,
+    billCount,
+    needsMove: rows.length > 0 || billCount > 0,
   };
 }
 

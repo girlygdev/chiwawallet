@@ -2,6 +2,34 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4a-1 `recurring_bills` migration
+- **What:** The `recurring_bills` table with RLS. `delete_category()` now moves a category's bills along with its transactions, and the Delete category dialog counts bills ("2 bills and 12 transactions (₱3,400) use Fun.").
+- **Files:**
+  - New: `supabase/migrations/20261124140000_recurring_bills.sql`, `tests/db/recurring-bills.test.ts`
+  - Edited: `tests/db/delete-category.test.ts`, `src/lib/supabase/types.ts` (the table, added by hand like `delete_category`), `src/lib/categories.ts` (`categoryUsage` counts bills) and its test, `src/app/(app)/settings/categories/edit/page.tsx`, `src/components/categories/delete-category-dialog.tsx`, `docs/week-4-tasks.md`
+- **Decisions:**
+  - **Pay slot `every`** for one-payday budgets (owner), like income sources. Whether a slot fits the budget's frequency is checked in Zod (4b), not the database, the same as income.
+  - **`first_due_month`:** required for quarterly and yearly bills, empty for monthly (a check).
+  - **Due days:** 1–31. A day a month doesn't have becomes the month's last day in 4b's date math.
+  - **Category:** your own non-system expense category. A trigger checks the kind and system key; a same-owner foreign key checks the owner. A category with bills can't be deleted directly (`no action`), so `delete_category()` moves them first.
+  - **Permissions:** update only the New bill form's fields (never the owner, budget or timestamps). Bills are hard-deleted (level 2); `(id, user_id)` is unique for Week 5's plan items.
+  - **Delete dialog grammar fix:** "1 transaction uses Fun", not "use".
+- **Tests:** 29 new database tests (175 pass), including user A vs user B (read, change, delete, create as B, B's budget, B's category). Plus 1 new unit test (290 pass), lint, typecheck and the build.
+- **Live:** local only. It needs a dry run and the owner's go.
+- **Next:** 4a-2, `savings_pots`, `debts`, and the transaction links.
+
+## 2026-11-24 · Week 4 · Week 4 plan
+- **What:** Wrote `docs/week-4-tasks.md` (4a–4h) and settled the Week 4 decisions.
+- **Files:** `docs/week-4-tasks.md` (new), `docs/plan-review-2026-11-19.md` (3.7, 3.8 decided), `docs/mvp-brief.md` (data model: `first_due_month` on bills; pots' `pay_slot` without split)
+- **Decisions (owner, Nov 24, Claude's recommendations):**
+  - **Bills:** quarterly and yearly bills get `first_due_month`. The "Remind me" hint says "Shows on your dashboard 2 days before".
+  - **Pots:** no split pay slot. Emergency Fund and Sinking Funds are default pots, made at sign-up and added to existing accounts.
+  - **Details pages** use `?id=…` instead of `[id]`.
+  - **Debts:** the mobile summary card is white.
+  - **Ownership:** pots and debts stay per user; bills stay per budget.
+- **Open:** a bill's pay slot on one-payday budgets (suggest `every`, like income sources). Settle in 4a.
+- **Next:** 4a, the `recurring_bills`, `savings_pots` and `debts` migrations.
+
 ## 2026-11-24 · Week 3 (extra) · Edit from the Dashboard's Recent activity
 - **What:** Tapping a Recent activity row on the Dashboard opens Edit transaction, the same sheet as Activity, with **Save changes** and the **Delete transaction** link. After a save or delete, the page refreshes, so Cash now, Income and the list update.
 - **Files:** `src/components/dashboard/recent-activity.tsx` (now a client component; rows are buttons), `src/app/(app)/dashboard/page.tsx`, `src/components/activity/activity-list.tsx` (`deleteTargetFor`, shared by both)

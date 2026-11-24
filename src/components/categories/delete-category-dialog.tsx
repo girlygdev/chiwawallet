@@ -67,10 +67,16 @@ export function DeleteCategory({
     });
   };
 
-  // What uses it, in words (delete-pattern.md §2: say what's linked).
+  // What uses it, in words (delete-pattern.md §2: say what's linked):
+  // "2 bills and 12 transactions (₱3,400) use Fun."
+  const inUse = [
+    usage.billCount > 0 && plural(usage.billCount, "bill"),
+    usage.count > 0 && `${plural(usage.count, "transaction")} (${formatPeso(usage.total)})`,
+  ].filter(Boolean);
   const linked =
-    usage.count > 0
-      ? `${plural(usage.count, "transaction")} (${formatPeso(usage.total)}) use ${category.name}.`
+    inUse.length > 0
+      ? // "1 bill uses Fun." but "2 bills use Fun." and "1 bill and 1 transaction use Fun."
+        `${inUse.join(" and ")} ${usage.count + usage.billCount === 1 ? "uses" : "use"} ${category.name}.`
       : usage.deletedCount > 0
         ? `No transactions use ${category.name} now, but ${plural(usage.deletedCount, "recently deleted one")} still do.`
         : `Nothing uses ${category.name} yet.`;
@@ -147,7 +153,8 @@ export function DeleteCategory({
                 : "."}
             </li>
           )}
-          {usage.needsMove && <li>Past transactions stay in Activity under the new category.</li>}
+          {usage.billCount > 0 && <li>Its bills move there too.</li>}
+          {usage.count + usage.deletedCount > 0 && <li>Past transactions stay in Activity under the new category.</li>}
         </ul>
       </ConfirmDelete>
     </>

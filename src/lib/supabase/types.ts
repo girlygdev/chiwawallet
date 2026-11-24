@@ -289,6 +289,72 @@ export type Database = {
         }
         Relationships: []
       }
+      recurring_bills: {
+        Row: {
+          amount: number
+          amount_varies: boolean
+          budget_id: string
+          category_id: string
+          created_at: string
+          due_day: number
+          first_due_month: number | null
+          frequency: string
+          id: string
+          name: string
+          pay_slot: string
+          remind: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          amount_varies?: boolean
+          budget_id: string
+          category_id: string
+          created_at?: string
+          due_day: number
+          first_due_month?: number | null
+          frequency: string
+          id?: string
+          name: string
+          pay_slot: string
+          remind?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          amount?: number
+          amount_varies?: boolean
+          budget_id?: string
+          category_id?: string
+          created_at?: string
+          due_day?: number
+          first_due_month?: number | null
+          frequency?: string
+          id?: string
+          name?: string
+          pay_slot?: string
+          remind?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_bills_budget_fkey"
+            columns: ["budget_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "budgets"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recurring_bills_category_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number

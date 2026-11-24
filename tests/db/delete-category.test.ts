@@ -79,6 +79,28 @@ describe("delete_category", () => {
     expect(rows!.every((r) => r.category_id === s.category.Meals)).toBe(true);
   });
 
+  it("moves bills too, and needs a destination for them (4a-1)", async () => {
+    const s = await setUp();
+    const pet = await newCategory(s);
+    const { data: budget } = await s.user.client.from("budgets").select("id").single();
+    const { data: vet } = await s.user.client
+      .from("recurring_bills")
+      .insert({ budget_id: budget!.id, name: "Vet plan", amount: 50_000, category_id: pet, frequency: "monthly", due_day: 5, pay_slot: "payday_1" })
+      .select("id")
+      .single();
+
+    // Only a bill uses it, and still a destination is needed.
+    const missing = await s.user.client.rpc("delete_category", { target_category: pet });
+    expect(missing.error?.code).toBe(INVALID_PARAMETER);
+
+    const { data, error } = await s.user.client.rpc("delete_category", { target_category: pet, move_to: s.category.Meals });
+    expect(error).toBeNull();
+    expect(data).toBe(0); // transactions moved
+    expect(await exists(s, pet)).toBe(false);
+    const { data: moved } = await s.user.client.from("recurring_bills").select("category_id").eq("id", vet!.id).single();
+    expect(moved!.category_id).toBe(s.category.Meals);
+  });
+
   it("needs a destination when transactions use the category, and changes nothing without one", async () => {
     const s = await setUp();
     const pet = await newCategory(s);
