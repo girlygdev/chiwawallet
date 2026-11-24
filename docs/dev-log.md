@@ -2,6 +2,25 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 3 (extra) · More default categories
+- **What:** New sign-ups get 19 categories instead of 16:
+  - **Needs:** Food is renamed **Meals** (utensils icon). **Groceries** (cart) and **Market** (store) are new.
+  - **Wants:** **Subscriptions** (TV) is new.
+  - Existing accounts get the same changes.
+- **Files:**
+  - New: `supabase/migrations/20261124120000_more_default_categories.sql`
+  - Edited: `src/lib/validation/category.ts` and `src/components/transactions/category-grid.tsx` (4 new icons, 24 in all), `tests/db/categories.test.ts`, `transactions.test.ts`, `delete-category.test.ts` (Food → Meals, 16 → 19), `docs/designs/more-and-categories.md` §2 and §4
+- **Decisions (owner, Nov 24):**
+  - **Emergency Fund and Sinking Funds aren't categories.** They hold a balance, so they become default savings pots in Week 4. As expense categories they'd lower Cash now with no balance to show. **Week 4: add them as default pots.**
+  - **Food → Meals,** so Meals, Groceries and Market don't overlap. Existing accounts: renamed only where it's still called "Food" and no Meals exists, and the icon changes only if it's still the basket. Its transactions keep their category.
+  - **Existing accounts get only the 3 new categories,** not a re-run of `add_default_categories()`, which would bring back defaults someone deleted.
+  - **Icons:** Meals, Cart, Store and TV were added to the picker, because every default's icon must be offered or Edit can't save it.
+- **Side effects:**
+  - A brand-new user's first 5 grid tiles (Needs A–Z with no history) are now Bills, Groceries, Health, Load & data, Market. Meals and Transport move behind More until they're used. "Most used" takes over after a few expenses.
+  - Someone who renamed Food to something else keeps that name and doesn't get a Meals.
+- **Tests:** 146 database tests and 289 unit tests pass, plus lint, typecheck and the build. On local, all 473 accounts have the 3 new categories and no "Food" is left (472 Meals; one test account never had Food).
+- **Live:** applied to local only. It needs a dry run and the owner's go for live.
+
 ## 2026-11-24 · Week 3 · `delete_category` migration on live
 - **What:** Applied `20261124093000_delete_category.sql` to the live project with `npx supabase db push --linked`, after a dry run that listed only this migration (owner's go).
 - **Files:** none changed. `types.ts` regenerated from live (`--linked`) matched the hand-added `delete_category` entry exactly.

@@ -25,19 +25,19 @@ async function systemCategory(user: TestUser, key: string) {
 }
 
 describe("categories: defaults at sign-up", () => {
-  it("gives a new user the 16 default categories", async () => {
+  it("gives a new user the 19 default categories", async () => {
     const user = await signUpUser();
     const { data } = await user.client
       .from("categories")
       .select("name, kind, budget_group, system_key, user_id, default_budget");
 
-    expect(data).toHaveLength(16);
+    expect(data).toHaveLength(19);
     expect(data!.every((c) => c.user_id === user.id && c.default_budget === null)).toBe(true);
 
     const names = (group: string | null) =>
       data!.filter((c) => c.budget_group === group && !c.system_key).map((c) => c.name).sort();
-    expect(names("needs")).toEqual(["Bills", "Food", "Health", "Load & data", "Padala", "Rent", "Transport"]);
-    expect(names("wants")).toEqual(["Dining out", "Fun", "Gifts", "Personal", "Shopping", "Travel"]);
+    expect(names("needs")).toEqual(["Bills", "Groceries", "Health", "Load & data", "Market", "Meals", "Padala", "Rent", "Transport"]);
+    expect(names("wants")).toEqual(["Dining out", "Fun", "Gifts", "Personal", "Shopping", "Subscriptions", "Travel"]);
 
     const system = data!.filter((c) => c.system_key).map(({ name, kind, budget_group, system_key }) => ({
       name,
@@ -122,9 +122,9 @@ describe("categories: checks reject bad data", () => {
   });
 
   it.each([
-    ["the same name", "Food"],
-    ["a different case", "fOOD"],
-    ["extra spaces", "  food "],
+    ["the same name", "Meals"],
+    ["a different case", "mEALS"],
+    ["extra spaces", "  meals "],
   ])("rejects a name that clashes with %s", async (_label, name) => {
     const { error } = await user.client.from("categories").insert({ ...custom, name });
     expect(error?.code).toBe(UNIQUE_VIOLATION);

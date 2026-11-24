@@ -24,8 +24,12 @@ import {
   Scissors,
   Shirt,
   ShoppingBasket,
+  ShoppingCart,
   Smartphone,
+  Store,
   Tag,
+  Tv,
+  Utensils,
   Wallet,
   Wifi,
   Zap,
@@ -34,7 +38,7 @@ import { gridCategories } from "@/lib/transactions";
 import { cn } from "@/lib/utils";
 
 // categories.icon holds a Lucide name. Only the icons we offer are imported
-// (the defaults and more-and-categories.md §2's 20), so the bundle stays small.
+// (the defaults and more-and-categories.md §2's 24), so the bundle stays small.
 // Anything else shows a tag.
 const ICONS: Record<string, LucideIcon> = {
   "shopping-basket": ShoppingBasket,
@@ -61,6 +65,11 @@ const ICONS: Record<string, LucideIcon> = {
   fuel: Fuel,
   dumbbell: Dumbbell,
   baby: Baby,
+  // Added with the Nov 24 defaults.
+  utensils: Utensils,
+  "shopping-cart": ShoppingCart,
+  store: Store,
+  tv: Tv,
 };
 
 export function CategoryIcon({ icon, size }: { icon: string; size: number }) {

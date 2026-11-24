@@ -51,7 +51,7 @@ async function setUp(): Promise<Setup> {
 function expense(s: Setup, fields: Record<string, unknown> = {}) {
   return {
     period_id: s.periodId,
-    category_id: s.category.Food,
+    category_id: s.category.Meals,
     type: "expense",
     amount: 18_000,
     date: "2026-11-20",
@@ -200,7 +200,7 @@ describe("transactions: checks reject bad data", () => {
 
   it.each([
     ["an expense in the Income category", { category_id: "Income" }],
-    ["income in an expense category", { type: "income", category_id: "Food" }],
+    ["income in an expense category", { type: "income", category_id: "Meals" }],
     ["savings in the Income category", { type: "savings", category_id: "Income" }],
   ])("rejects %s", async (_label, { category_id, ...fields }) => {
     const { error } = await s.user.client
@@ -298,7 +298,7 @@ describe("RLS: user A can't reach user B's transactions", () => {
   // Functions, because a and b only exist once beforeAll has run.
   it.each<[string, () => Record<string, unknown>]>([
     ["period", () => ({ period_id: b.periodId })],
-    ["category", () => ({ category_id: b.category.Food })],
+    ["category", () => ({ category_id: b.category.Meals })],
     ["income source", () => ({ type: "income", category_id: a.category.Income, income_source_id: b.incomeSourceId })],
   ])("can't use B's %s", async (_label, bFields) => {
     const { error } = await a.user.client.from("transactions").insert(expense(a, bFields()));

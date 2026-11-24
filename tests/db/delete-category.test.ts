@@ -71,12 +71,12 @@ describe("delete_category", () => {
     const deleted = await spend(s, pet);
     await s.user.client.from("transactions").update({ deleted_at: new Date().toISOString() }).eq("id", deleted);
 
-    const { data, error } = await s.user.client.rpc("delete_category", { target_category: pet, move_to: s.category.Food });
+    const { data, error } = await s.user.client.rpc("delete_category", { target_category: pet, move_to: s.category.Meals });
     expect(error).toBeNull();
     expect(data).toBe(2);
     expect(await exists(s, pet)).toBe(false);
     const { data: rows } = await s.user.client.from("transactions").select("id, category_id").in("id", [live, deleted]);
-    expect(rows!.every((r) => r.category_id === s.category.Food)).toBe(true);
+    expect(rows!.every((r) => r.category_id === s.category.Meals)).toBe(true);
   });
 
   it("needs a destination when transactions use the category, and changes nothing without one", async () => {
@@ -97,7 +97,7 @@ describe("delete_category", () => {
     const s = await setUp();
     const { error } = await s.user.client.rpc("delete_category", {
       target_category: s.category["Savings pot"],
-      move_to: s.category.Food,
+      move_to: s.category.Meals,
     });
     expect(error?.code).toBe(PERMISSION_DENIED);
     expect(await exists(s, s.category["Savings pot"])).toBe(true);
@@ -127,7 +127,7 @@ describe("RLS: user A can't use delete_category on user B", () => {
     const b = await setUp();
     const aPet = await newCategory(a);
     await spend(a, aPet);
-    const { error } = await a.user.client.rpc("delete_category", { target_category: aPet, move_to: b.category.Food });
+    const { error } = await a.user.client.rpc("delete_category", { target_category: aPet, move_to: b.category.Meals });
     expect(error?.code).toBe(INVALID_PARAMETER);
     expect(await exists(a, aPet)).toBe(true);
   });

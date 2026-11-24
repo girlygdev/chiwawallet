@@ -47,12 +47,12 @@ A full-height sheet with a back arrow, titled "New category" (Fredoka 22px). It'
 | --- | --- | --- |
 | Name | 50px text input, focused | "New category" placeholder |
 | Which 50/30/20 group? | Three radio rows: **Needs** ("Must-pays like food, bills, rent", 50%), **Wants** ("Nice-to-haves like shopping, fun", 30%), **Savings & debt payoff** ("Saving or paying debt early", 20%) | Needs |
-| Icon | A grid of 20 icon buttons, 52px tall, 14px radius | Paw |
+| Icon | A grid of 24 icon buttons, 52px tall, 14px radius | Paw |
 | Color | 6 swatches, 46px circles | Orange |
 | Budget per payday (optional) | ₱ money input | Empty |
 
 - **Group rows** are `10px 14px` with a 14px radius. Selected: 2px `green-600` border, `mint` fill. The percentage on the right comes from the budget's targets.
-- **Icons**, each with an `aria-label`: Pet, Groceries, Home, Electricity, Water, Internet, Phone, Health, Medicine, School, Gifts, Travel, Car, Gas, Coffee, Clothes, Games, Fitness, Grooming, Kids. Use the matching Lucide icons.
+- **Icons**, each with an `aria-label`: Pet, Groceries, Home, Electricity, Water, Internet, Phone, Health, Medicine, School, Gifts, Travel, Car, Gas, Coffee, Clothes, Games, Fitness, Grooming, Kids, plus Meals, Cart, Store and TV (added Nov 24 with the new defaults). Use the matching Lucide icons.
   - Selected: a 2px border and soft background in the chosen colour.
   - Not selected: 1.5px `line` border, `text-2` icon.
 - **Colours,** soft background / icon colour:
@@ -86,9 +86,11 @@ Created for every new user at sign-up (week 3 of the build plan). From the picke
 
 | Group | Categories |
 | --- | --- |
-| Needs | Food, Transport, Bills, Rent, Load & data, Health, Padala |
-| Wants | Personal, Shopping, Dining out, Fun, Gifts, Travel |
+| Needs | Meals, Groceries, Market, Transport, Bills, Rent, Load & data, Health, Padala |
+| Wants | Personal, Shopping, Dining out, Fun, Gifts, Travel, Subscriptions |
 | Savings & debt payoff | Savings pot, Extra debt payment (system categories; see `activity.md`) |
+
+Changed Nov 24 (owner): Food became Meals; Groceries, Market and Subscriptions were added. Emergency Fund and Sinking Funds become default savings pots in Week 4, not categories, because they hold a balance.
 
 ## 5. Accessibility
 

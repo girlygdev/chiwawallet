@@ -6,7 +6,11 @@ import { z } from "zod";
 
 export const BUDGET_GROUPS = ["needs", "wants", "savings_debt"] as const;
 
-/** The 20 icons offered, in the spec's order: Lucide name and its label. */
+/**
+ * The icons offered: the spec's 20 in its order, then the 4 added with the
+ * Nov 24 defaults (Meals, Groceries, Market, Subscriptions). Lucide name and
+ * its label. Every default category's icon must be here, or Edit can't save it.
+ */
 export const CATEGORY_ICONS = [
   { name: "paw-print", label: "Pet" },
   { name: "shopping-basket", label: "Groceries" },
@@ -28,6 +32,10 @@ export const CATEGORY_ICONS = [
   { name: "dumbbell", label: "Fitness" },
   { name: "scissors", label: "Grooming" },
   { name: "baby", label: "Kids" },
+  { name: "utensils", label: "Meals" },
+  { name: "shopping-cart", label: "Cart" },
+  { name: "store", label: "Store" },
+  { name: "tv", label: "TV" },
 ] as const;
 
 /** The six colours, matching the database check and the cat-* tokens. */
