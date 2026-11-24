@@ -2,6 +2,18 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 3 (extra) · Live: new default categories, Vercel functions in Tokyo
+- **What:**
+  - Applied `20261124120000_more_default_categories.sql` to live (`db push --linked`, after a dry run; owner's go). The live database is up to date.
+  - The owner set Vercel's Function Region to **Tokyo (`hnd1`)** in the dashboard, next to the Supabase project (`ap-northeast-1`).
+- **Why the region:** the phone felt slow. With no region set, Vercel runs functions in US East (`iad1`), so every database call went from the US to Tokyo and back, several times per page. Moving Supabase to Singapore was considered and rejected: a Supabase region can't be changed in place (new project, move data and auth users, redo Google and Resend), and Manila is about as close to Tokyo as to Singapore.
+- **Files:** none. The region is set in the Vercel dashboard, not in a `vercel.json`.
+- **Tests:** the dry run, then the push; a second dry run says "Remote database is up to date." Not yet checked in the live app.
+- **Open:**
+  - Push the code (`main` is ahead of `origin`): until then, the live site shows a tag icon for Meals, Groceries, Market and Subscriptions.
+  - After the deploy, check `x-vercel-id` shows `hnd1` and whether the app feels faster.
+  - Optional speed-up: `requireAppUser` could use `getClaims()` instead of `getUser()`, saving one Supabase Auth call per page.
+
 ## 2026-11-24 · Week 3 (extra) · More default categories
 - **What:** New sign-ups get 19 categories instead of 16:
   - **Needs:** Food is renamed **Meals** (utensils icon). **Groceries** (cart) and **Market** (store) are new.
