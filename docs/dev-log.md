@@ -2,6 +2,13 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4a on live
+- **What:** Applied `20261124140000_recurring_bills.sql` and `20261124150000_savings_pots_and_debts.sql` to live (`db push --linked`, after a dry run that listed only these two; owner's go). A second dry run says "Remote database is up to date."
+- **Files:** `src/lib/supabase/types.ts`, regenerated from live (`gen types --linked`): `savings_pots`, `debts`, `pot_id` / `debt_id` on transactions, and `add_default_pots`. Nothing was removed, so the hand-written `recurring_bills` entry from 4a-1 matched live exactly.
+- **Effect:** no visible change yet (no screen uses these tables before 4c). Every live account now has the Emergency Fund and Sinking Funds pots.
+- **Tests:** typecheck, lint and 290 unit tests pass with the new types.
+- **Next:** 4b, pure functions and Zod schemas for bills, pots and debts, tests first.
+
 ## 2026-11-24 · Week 4 · 4a-2 `savings_pots`, `debts` and transaction links
 - **What:** The `savings_pots` and `debts` tables with RLS, `pot_id` and `debt_id` on `transactions`, and two default pots (Emergency Fund, Sinking Funds) for every account.
 - **Files:**

@@ -191,6 +191,54 @@ export type Database = {
         }
         Relationships: []
       }
+      debts: {
+        Row: {
+          created_at: string
+          first_due_date: string
+          id: string
+          interest_rate: number | null
+          lender: string | null
+          name: string
+          num_payments: number
+          paid_off_at: string | null
+          payment_amount: number
+          payment_type: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          first_due_date: string
+          id?: string
+          interest_rate?: number | null
+          lender?: string | null
+          name: string
+          num_payments: number
+          paid_off_at?: string | null
+          payment_amount: number
+          payment_type: string
+          total_amount: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          first_due_date?: string
+          id?: string
+          interest_rate?: number | null
+          lender?: string | null
+          name?: string
+          num_payments?: number
+          paid_off_at?: string | null
+          payment_amount?: number
+          payment_type?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       income_sources: {
         Row: {
           amount: number
@@ -355,17 +403,67 @@ export type Database = {
           },
         ]
       }
+      savings_pots: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          id: string
+          is_locked: boolean
+          name: string
+          pay_slot: string
+          planned_contribution: number
+          starting_balance: number
+          target_amount: number | null
+          target_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          icon: string
+          id?: string
+          is_locked?: boolean
+          name: string
+          pay_slot?: string
+          planned_contribution?: number
+          starting_balance?: number
+          target_amount?: number | null
+          target_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          is_locked?: boolean
+          name?: string
+          pay_slot?: string
+          planned_contribution?: number
+          starting_balance?: number
+          target_amount?: number | null
+          target_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
           category_id: string
           created_at: string
           date: string
+          debt_id: string | null
           deleted_at: string | null
           id: string
           income_source_id: string | null
           note: string | null
           period_id: string
+          pot_id: string | null
           type: string
           updated_at: string
           user_id: string
@@ -375,11 +473,13 @@ export type Database = {
           category_id: string
           created_at?: string
           date: string
+          debt_id?: string | null
           deleted_at?: string | null
           id?: string
           income_source_id?: string | null
           note?: string | null
           period_id: string
+          pot_id?: string | null
           type: string
           updated_at?: string
           user_id?: string
@@ -389,11 +489,13 @@ export type Database = {
           category_id?: string
           created_at?: string
           date?: string
+          debt_id?: string | null
           deleted_at?: string | null
           id?: string
           income_source_id?: string | null
           note?: string | null
           period_id?: string
+          pot_id?: string | null
           type?: string
           updated_at?: string
           user_id?: string
@@ -404,6 +506,13 @@ export type Database = {
             columns: ["category_id", "user_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "transactions_debt_fkey"
+            columns: ["debt_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "debts"
             referencedColumns: ["id", "user_id"]
           },
           {
@@ -420,6 +529,13 @@ export type Database = {
             referencedRelation: "budget_periods"
             referencedColumns: ["id", "user_id"]
           },
+          {
+            foreignKeyName: "transactions_pot_fkey"
+            columns: ["pot_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "savings_pots"
+            referencedColumns: ["id", "user_id"]
+          },
         ]
       }
     }
@@ -431,6 +547,7 @@ export type Database = {
         Args: { target_user: string }
         Returns: undefined
       }
+      add_default_pots: { Args: { target_user: string }; Returns: undefined }
       delete_category: {
         Args: { move_to?: string; target_category: string }
         Returns: number
