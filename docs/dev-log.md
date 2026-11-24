@@ -2,6 +2,12 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · "When I can" on live
+- **What:** Applied `20261124170000_flexible_debts.sql` to live (`db push --linked`, after a dry run that listed only it; owner's go). Then pushed `main`: the date-field fix and "When I can". Migration first, because the new code reads and writes `target_date`.
+- **Files:** none changed. `types.ts` regenerated from live matched the hand edits exactly.
+- **Tests:** the dry run, the push ("Remote database is up to date."), and the types diff.
+- **Next:** 4h live check on the phone (bills, pots, debts, including a "When I can" debt).
+
 ## 2026-11-24 · Week 4 (extra) · "When I can" debts
 - **What:** A third answer to "How will you pay it?": **Installments · One payment · When I can**, for debts with no schedule (owner: "I can only pay it when I have extra money for it").
   - **New debt:** hides Number of payments, the due date and Each payment, and shows an optional **Aim to pay off by** month, plus "Pay what you can, whenever you have extra. Nothing is ever late." and, with a month, "To be debt-free by Jun 2027, pay about ₱900 a month."
