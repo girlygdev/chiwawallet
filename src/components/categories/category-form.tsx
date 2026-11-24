@@ -37,7 +37,7 @@ const GROUPS: { value: BudgetGroup; label: string; hint: string }[] = [
 
 // Selected icon: a 2px border and soft background in the chosen colour.
 // Written out in full so Tailwind finds the class names.
-const PICKED_ICON: Record<string, string> = {
+export const PICKED_ICON: Record<string, string> = {
   orange: "border-2 border-cat-orange-fg bg-cat-orange-bg text-cat-orange-fg",
   blue: "border-2 border-cat-blue-fg bg-cat-blue-bg text-cat-blue-fg",
   purple: "border-2 border-cat-purple-fg bg-cat-purple-bg text-cat-purple-fg",
@@ -47,7 +47,7 @@ const PICKED_ICON: Record<string, string> = {
 };
 
 // A swatch: the soft colour with a dot of the icon colour.
-const SWATCH: Record<string, [string, string]> = {
+export const SWATCH: Record<string, [string, string]> = {
   orange: ["bg-cat-orange-bg", "bg-cat-orange-fg"],
   blue: ["bg-cat-blue-bg", "bg-cat-blue-fg"],
   purple: ["bg-cat-purple-bg", "bg-cat-purple-fg"],

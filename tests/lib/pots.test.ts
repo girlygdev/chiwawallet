@@ -6,6 +6,7 @@ import {
   potBalance,
   potGoalDate,
   potProgress,
+  potProjection,
   potScheduleLine,
   potStatus,
   potToGo,
@@ -168,5 +169,51 @@ describe("totalSaved", () => {
   it("adds the pots' balances (savings.md §1: ₱67,500)", () => {
     expect(totalSaved([1_300_000, 600_000, 4_850_000])).toBe(6_750_000);
     expect(totalSaved([])).toBe(0);
+  });
+});
+
+describe("potProjection", () => {
+  const laptop = {
+    target_amount: 4_000_000,
+    target_date: null,
+    starting_balance: 0,
+    planned_contribution: 200_000,
+    pay_slot: "every" as const,
+  };
+
+  it("a new pot: per month, the goal date, and nothing needed without a target date (savings.md §4)", () => {
+    // ₱2,000 each payday = ₱4,000 a month; ₱40,000 takes 20 paydays: Nov 30 … Sep 15, 2027.
+    expect(potProjection(laptop, 0, twiceAMonth, today)).toEqual({
+      balance: 0,
+      perMonth: 400_000,
+      perYear: 4_800_000,
+      goalDate: "2027-09-15",
+      needed: null,
+      reached: false,
+    });
+  });
+
+  it("an edited pot counts what was deposited so far on top of the starting balance", () => {
+    expect(potProjection({ ...laptop, starting_balance: 500_000 }, 1_500_000, twiceAMonth, today)).toMatchObject({
+      balance: 2_000_000,
+      // ₱20,000 to go at ₱2,000 a payday: 10 paydays, Nov 30 … Apr 15.
+      goalDate: "2027-04-15",
+    });
+  });
+
+  it("says what each payday needs when the target date can't be met (rounded up to ₱100)", () => {
+    // ₱40,000 by Jun 2027: 15 paydays → ₱2,666.67 → ₱2,700.
+    expect(potProjection({ ...laptop, target_date: "2027-06-01" }, 0, twiceAMonth, today).needed).toBe(270_000);
+    // Enough already: nothing needed.
+    expect(potProjection({ ...laptop, target_date: "2027-12-01" }, 0, twiceAMonth, today).needed).toBeNull();
+  });
+
+  it("reached, and no target", () => {
+    expect(potProjection(laptop, 4_000_000, twiceAMonth, today)).toMatchObject({ reached: true, goalDate: null });
+    expect(potProjection({ ...laptop, target_amount: null }, 0, twiceAMonth, today)).toMatchObject({
+      reached: false,
+      goalDate: null,
+      perYear: 4_800_000,
+    });
   });
 });

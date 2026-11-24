@@ -177,3 +177,41 @@ export function potToGo(balance: number, target: number): number {
 export function totalSaved(balances: number[]): number {
   return balances.reduce((sum, b) => sum + b, 0);
 }
+
+export type PotProjection = {
+  /** Starting balance plus what was deposited so far. */
+  balance: number;
+  perMonth: number;
+  perYear: number;
+  /** The payday the target is reached, or null (no target, no plan, reached). */
+  goalDate: string | null;
+  /** What each payday would need to make the target date, when the plan falls short. */
+  needed: number | null;
+  reached: boolean;
+};
+
+/**
+ * New and Edit pot's projection box (savings.md §4): "At ₱4,000 a month you
+ * reach ₱40,000 by Sep 2027." and, when a target date won't be met, "Save
+ * ₱2,900 each payday to make it by June." `depositsSoFar` is 0 for a new pot;
+ * for an edited one, its balance minus its saved starting balance, so a new
+ * "Already saved" amount still counts what was deposited since.
+ */
+export function potProjection(
+  pot: Planned & { target_amount: number | null; target_date: string | null; starting_balance: number },
+  depositsSoFar: number,
+  schedule: PaySchedule,
+  today: string,
+): PotProjection {
+  const balance = pot.starting_balance + depositsSoFar;
+  const perMonth = monthlySavingPlan([pot], schedule);
+  const needed = contributionNeeded(pot, balance, schedule, today);
+  return {
+    balance,
+    perMonth,
+    perYear: perMonth * 12,
+    goalDate: potGoalDate(pot, balance, schedule, today),
+    needed: needed != null && needed > pot.planned_contribution ? needed : null,
+    reached: pot.target_amount != null && balance >= pot.target_amount,
+  };
+}

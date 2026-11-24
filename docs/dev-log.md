@@ -2,6 +2,39 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4d-2 New and Edit pot
+- **What:** New savings pot (`/savings?add=1`) and Edit pot (`?edit=…`):
+  - **Fields:**
+    - Pot name.
+    - 7 icons: Laptop, Emergency, Travel, Home, Gift, School and Planned costs.
+    - 6 colour swatches.
+    - Target (optional), and Target date (optional, month and year selects, with Clear date).
+    - Already saved and Save each time.
+    - From: Every payday, 15th only or 30th only, with the real pay days; hidden on one-payday budgets.
+    - Locked savings (switch).
+  - **The projection box:**
+    - "At ₱4,000 a month you reach ₱40,000 by Sep 2027."
+    - With no target: "…you'll save ₱48,000 in a year."
+    - A target date that won't be met adds the yellow "Save ₱2,700 each payday to make it by Jun 2027."
+    - Also "You've already reached…" and "Set how much to save each time…".
+  - **Buttons:** **Create pot** / **Save changes**.
+- **Files:**
+  - New: `src/components/savings/pot-form.tsx`, `src/app/(app)/savings/actions.ts`, `pot-sheet.tsx`
+  - Edited:
+    - `src/app/(app)/savings/page.tsx`: passes each pot's deposits so far; mounts the sheet.
+    - `src/lib/pots.ts`: `potProjection`.
+    - `src/components/categories/category-form.tsx`: exports its icon and swatch styles for reuse.
+    - Tests, `docs/week-4-tasks.md`
+- **Decisions:**
+  - **Colour follows the icon** (Emergency → red, Travel → purple…) until a colour is picked by hand. Editing keeps the saved colour.
+  - **Target date:** month and year selects instead of `<input type="month">`, which Safari and Firefox on desktop don't support. Years run from this year to 10 years ahead.
+  - **Editing "Already saved"** keeps the deposits made since: the projection uses the new starting balance plus deposits so far (`depositsSoFar`).
+  - **Duplicate names:** "You already have a pot called Travel." (the database ignores case).
+  - **Not yet:** "Update future paydays only?" when the contribution changes (needs plan items, Week 5), and Delete pot (4d-3).
+- **AI notes:** One expected goal date in the new tests was a payday late (Apr 30 instead of Apr 15 for 10 paydays). The code was right; the test was fixed.
+- **Tests:** 4 new unit tests (375 pass), lint, typecheck and the build. Not browser-checked.
+- **Next:** 4d-3, pot details and Delete pot (needs a `delete_pot()` migration; show the owner first).
+
 ## 2026-11-24 · Week 4 · 4d-1 Savings page
 - **What:** `/savings` replaces its placeholder:
   - **Hero:** "Total saved" with "Across 3 pots · +₱3,000 this period".

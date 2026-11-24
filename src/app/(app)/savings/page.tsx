@@ -21,6 +21,7 @@ import {
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { PotSheet } from "./pot-sheet";
 
 export const metadata: Metadata = { title: "Savings pots · Chiwawallet" };
 
@@ -84,8 +85,14 @@ async function SavingsContent() {
   const today = todayInManila(new Date());
   const period = getPeriod(today, schedule);
   const cards = pots.map((pot) => {
-    const balance = potBalance(pot, rows.filter((r) => r.pot_id === pot.id));
-    return { pot, balance, status: potStatus(pot, balance, schedule, today) };
+    const potRows = rows.filter((r) => r.pot_id === pot.id);
+    return {
+      pot,
+      balance: potBalance(pot, potRows),
+      // Deposits less withdrawals, without the starting balance: Edit pot's
+      // projection adds them to whatever "Already saved" becomes.
+      depositsSoFar: potBalance({ starting_balance: 0 }, potRows),
+    };
   });
   const saved = totalSaved(cards.map((c) => c.balance));
   // Net deposits this period (savings.md §2 "+₱3,000 this period").
@@ -141,13 +148,24 @@ async function SavingsContent() {
             <ul className="grid gap-3 lg:grid-cols-2">
               {cards.map((card) => (
                 <li key={card.pot.id}>
-                  <PotCard {...card} schedule={schedule} />
+                  <PotCard
+                    pot={card.pot}
+                    balance={card.balance}
+                    status={potStatus(card.pot, card.balance, schedule, today)}
+                    schedule={schedule}
+                  />
                 </li>
               ))}
             </ul>
           </section>
         </>
       )}
+
+      <PotSheet
+        pots={cards.map(({ pot, depositsSoFar }) => ({ ...pot, depositsSoFar }))}
+        schedule={schedule}
+        today={today}
+      />
     </>
   );
 }
