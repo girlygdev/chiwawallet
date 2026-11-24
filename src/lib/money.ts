@@ -65,10 +65,12 @@ export type DashboardNumbers = {
   /** Income logged this period (Activity's Money in). */
   income: number;
   /** Spending and debt payments this period (Activity's Money out). */
-  moneyOut: number;
-  /** Net put into pots this period; withdrawals count against it. */
+  spending: number;
+  /** Net put into pots this period; withdrawals count against it (Activity's To savings). */
   toSavings: number;
-  /** Carry-in + income: the spend bar's whole. */
+  /** The Dashboard's Money out: spending plus net transfers to pots (Week 4). */
+  moneyOut: number;
+  /** Carry-in + income, plus net withdrawals from pots: the spend bar's whole. */
   periodMoney: number;
   /** What's in hand now (equals cashOnHand over every row). */
   cashNow: number;
@@ -83,8 +85,11 @@ export type DashboardNumbers = {
  * and Activity can't disagree.
  * - Carry-in is the opening balance plus earlier periods' net until Week 6's
  *   carry-over choices refine it (owner, Nov 23).
- * - Money out leaves out transfers to pots for now; from Week 4 the Dashboard
- *   counts them in money out, as the spec says (owner, Nov 23).
+ * - From Week 4, Money out counts net transfers to pots too, as the spec says
+ *   (owner, Nov 23); Activity keeps showing them apart as To savings. When
+ *   withdrawals are bigger than deposits, the difference is money coming in
+ *   this period (like Delete pot's "Adds ₱6,000 to this period's money"), so
+ *   Money out never drops below spending and cash now = period money − money out.
  * - Safe to spend (cash now − still due) waits for plan items in Week 5.
  */
 export function dashboardNumbers(
@@ -93,16 +98,18 @@ export function dashboardNumbers(
   periodRows: MoneyRow[],
 ): DashboardNumbers {
   const carryIn = cashOnHand(openingBalance, earlierRows);
-  const { moneyIn, moneyOut, toSavings } = periodTotals(periodRows);
-  const periodMoney = carryIn + moneyIn;
+  const { moneyIn, moneyOut: spending, toSavings } = periodTotals(periodRows);
+  const moneyOut = spending + Math.max(toSavings, 0);
+  const periodMoney = carryIn + moneyIn + Math.max(-toSavings, 0);
   const spentShare = periodMoney > 0 ? Math.min(1, moneyOut / periodMoney) : moneyOut > 0 ? 1 : 0;
   return {
     carryIn,
     income: moneyIn,
-    moneyOut,
+    spending,
     toSavings,
+    moneyOut,
     periodMoney,
-    cashNow: periodMoney - moneyOut - toSavings,
+    cashNow: periodMoney - moneyOut,
     spentShare,
   };
 }

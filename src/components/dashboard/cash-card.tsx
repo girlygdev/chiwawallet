@@ -51,6 +51,11 @@ export function CashCard({ numbers, due, today }: { numbers: DashboardNumbers; d
           <span>{formatPeso(numbers.moneyOut)} out so far</span>
           <span className="opacity-90">of {formatPeso(numbers.periodMoney)}</span>
         </p>
+        {/* Money out counts transfers to pots from Week 4; Activity shows
+            them apart as To savings, so say why the two differ. */}
+        {numbers.toSavings > 0 && (
+          <p className="text-[13px] opacity-90">Includes {formatPeso(numbers.toSavings)} put into savings.</p>
+        )}
       </div>
 
       {/* Three small stats. The spec's third is Cash now, which is already

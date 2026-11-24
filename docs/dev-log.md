@@ -2,6 +2,27 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4g Wire-up: Dashboard money out, More › Money lines
+- **What:**
+  - **Dashboard:**
+    - Money out now counts net transfers to pots (decided in 3f): the spend bar, "₱X out so far" and the Money out stat.
+    - When some went to pots, a line under the bar says "Includes ₱2,000 put into savings."
+    - Cash now is unchanged (it already took pot transfers off).
+  - **More › Money detail lines:**
+    - Bills "3 recurring" / "No bills yet".
+    - Savings pots "3 pots · ₱67,500 saved" / "No pots yet".
+    - Debts "1 debt · ₱8,000 left" / "No active debts".
+- **Files:** `src/lib/money.ts` (`dashboardNumbers`) and its test, `src/components/dashboard/cash-card.tsx`, `src/app/(app)/more/money-section.tsx`, `docs/week-4-tasks.md`
+- **Decisions:**
+  - **`dashboardNumbers` has new fields:**
+    - `spending`: Activity's Money out.
+    - `toSavings`: Activity's To savings.
+    - `moneyOut` = spending + net deposits into pots.
+  - **Net withdrawals** (more taken out of pots than put in this period) count as money coming in this period, adding to `periodMoney`, not as negative money out. It matches Delete pot's "Adds ₱6,000 to this period's money", and keeps cash now = period money − money out.
+  - **Activity vs Dashboard:** they agree on Money in and on spending. Activity still shows To savings apart; the Dashboard's line explains the difference. A test checks cash now equals `cashOnHand` over every row.
+- **Tests:** dashboard tests updated (389 pass), including deposits and a net withdrawal. Lint, typecheck and the build pass. Not browser-checked.
+- **Next:** 4h live check: push, then enter your real bills, pots and debts on your phone.
+
 ## 2026-11-24 · Week 4 · 4f-2 New and Edit debt, Mark paid off, Delete
 - **What:**
   - **New debt** (`/debts?add=1`):

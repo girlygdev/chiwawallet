@@ -92,8 +92,9 @@ describe("dashboardNumbers (dashboard.md §1)", () => {
     expect(dashboardNumbers(500_000, earlier, current)).toEqual({
       carryIn: 2_700_000,
       income: 2_500_000,
-      moneyOut: 423_000,
+      spending: 423_000,
       toSavings: 0,
+      moneyOut: 423_000,
       periodMoney: 5_200_000,
       cashNow: 4_777_000,
       spentShare: 423_000 / 5_200_000,
@@ -101,19 +102,33 @@ describe("dashboardNumbers (dashboard.md §1)", () => {
   });
 
   it("matches Activity's totals and cashOnHand over every row", () => {
-    const numbers = dashboardNumbers(500_000, earlier, current);
-    const totals = periodTotals(current);
+    const withPot = [...current, row("savings", 300_000), row("savings", -100_000)];
+    const numbers = dashboardNumbers(500_000, earlier, withPot);
+    const totals = periodTotals(withPot);
     expect(numbers.income).toBe(totals.moneyIn);
-    expect(numbers.moneyOut).toBe(totals.moneyOut);
-    expect(numbers.cashNow).toBe(cashOnHand(500_000, [...earlier, ...current]));
+    // Activity's Money out is spending and debt payments; its To savings is separate.
+    expect(numbers.spending).toBe(totals.moneyOut);
+    expect(numbers.toSavings).toBe(totals.toSavings);
+    expect(numbers.cashNow).toBe(cashOnHand(500_000, [...earlier, ...withPot]));
   });
 
-  it("counts savings and withdrawals in cash now, not in money out (owner, Nov 23: until Week 4)", () => {
+  it("counts net transfers to pots in money out (Week 4, dashboard.md §1)", () => {
     const withPot = [...current, row("savings", 300_000), row("savings", -100_000)];
     const numbers = dashboardNumbers(500_000, earlier, withPot);
     expect(numbers.toSavings).toBe(200_000);
-    expect(numbers.moneyOut).toBe(423_000);
+    expect(numbers.moneyOut).toBe(623_000);
     expect(numbers.cashNow).toBe(4_577_000);
+    expect(numbers.cashNow).toBe(numbers.periodMoney - numbers.moneyOut);
+    expect(numbers.spentShare).toBe(623_000 / 5_200_000);
+  });
+
+  it("counts net withdrawals from pots as money in this period, not negative money out", () => {
+    const withdrawn = [...current, row("savings", -300_000)];
+    const numbers = dashboardNumbers(500_000, earlier, withdrawn);
+    expect(numbers.moneyOut).toBe(423_000);
+    expect(numbers.periodMoney).toBe(5_500_000);
+    expect(numbers.cashNow).toBe(5_077_000);
+    expect(numbers.cashNow).toBe(cashOnHand(500_000, [...earlier, ...withdrawn]));
   });
 
   it("starts the first period from the opening balance alone, and treats a missing one as ₱0", () => {

@@ -54,7 +54,7 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
   - Details at `/debts/details?id=…`. On mobile, the card expands in place (fix #4). The mobile summary card is white, not Deep Green (fix #1).
   - Delete: level 2. "Mark it paid off" or "Delete it (paid outside the app)".
   - Done when: your real debts list with the right amounts left.
-- [ ] **4g. Wire-up.**
+- [x] **4g. Wire-up.** Done Nov 24.
   - More › Money detail lines: "3 recurring", "3 pots · ₱67,500 saved", "1 debt · ₱8,000 left".
   - Dashboard: transfers to pots count in Money out (decided in 3f). Activity keeps showing them as To savings.
   - Done when: the Dashboard and Activity agree.
