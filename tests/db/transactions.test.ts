@@ -92,18 +92,27 @@ describe("transactions: owner's own rows", () => {
   });
 
   it("adds to a pot and withdraws (a negative savings amount)", async () => {
-    const add = await createTransaction(s, { type: "savings", category_id: s.category["Savings pot"], amount: 300_000 });
-    const withdraw = await createTransaction(s, {
-      type: "savings",
-      category_id: s.category["Savings pot"],
-      amount: -100_000,
-    });
+    // Every account has the default Emergency Fund pot (4a-2).
+    const { data: pot } = await s.user.client.from("savings_pots").select("id").eq("name", "Emergency Fund").single();
+    const savings = { type: "savings", category_id: s.category["Savings pot"], pot_id: pot!.id };
+    const add = await createTransaction(s, { ...savings, amount: 300_000 });
+    const withdraw = await createTransaction(s, { ...savings, amount: -100_000 });
     expect([add.amount, withdraw.amount]).toEqual([300_000, -100_000]);
   });
 
   it("adds a debt payment", async () => {
-    const row = await createTransaction(s, { type: "debt_payment", category_id: s.category.Bills, amount: 400_000 });
-    expect(row.type).toBe("debt_payment");
+    const { data: debt } = await s.user.client
+      .from("debts")
+      .insert({ name: "SPayLater", total_amount: 1_200_000, payment_type: "installments", num_payments: 3, payment_amount: 400_000, first_due_date: "2026-11-25" })
+      .select("id")
+      .single();
+    const row = await createTransaction(s, {
+      type: "debt_payment",
+      category_id: s.category.Bills,
+      amount: 400_000,
+      debt_id: debt!.id,
+    });
+    expect(row.debt_id).toBe(debt!.id);
   });
 
   it("allows the first and last day of the period", async () => {

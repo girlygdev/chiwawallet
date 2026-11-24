@@ -2,6 +2,33 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4a-2 `savings_pots`, `debts` and transaction links
+- **What:** The `savings_pots` and `debts` tables with RLS, `pot_id` and `debt_id` on `transactions`, and two default pots (Emergency Fund, Sinking Funds) for every account.
+- **Files:**
+  - New: `supabase/migrations/20261124150000_savings_pots_and_debts.sql`, `tests/db/pots-and-debts.test.ts`
+  - Edited: `tests/db/transactions.test.ts` (savings and debt rows now need a pot and a debt), `docs/week-4-tasks.md`
+- **Decisions:**
+  - **Pots:**
+    - Names are unique per user, ignoring case, like categories.
+    - The target date is stored as the 1st of its month (the form picks a month).
+    - The starting balance and contribution can be ₱0, so the default pots start empty.
+    - The pay slot is `payday_1`, `payday_2` or `every` (default `every`).
+  - **Debts:**
+    - Installments are 2–60 payments.
+    - One-time means 1 payment equal to the total.
+    - The payment amount doesn't have to divide the total evenly (the form fills in total ÷ payments, still editable).
+    - Interest is 0–100, display only. `paid_off_at` can be set by the user ("Mark it paid off").
+  - **Links:**
+    - `on delete set null`, so deleting a pot or debt keeps its transactions (3.6).
+    - A pot only on savings rows, a debt only on debt payments.
+    - **A savings row needs a pot and a debt payment needs a debt** when it's added or its type changes, checked in `check_transaction_links()`.
+    - **No withdrawals from a locked pot.**
+  - **Default pots:** `add_default_pots()` runs at sign-up (`handle_new_user()`) and for existing accounts. They're ordinary pots, so they can be edited and deleted. Icons: `life-buoy` (red) and `calendar-clock` (blue); 4d's icon choices must include them.
+  - **Types:** not hand-written this time. Regenerate from live after the push.
+- **AI notes:** The first version also required a pot whenever `pot_id` changed. That blocked deleting a pot: `set null` is an update of `pot_id`, so the trigger refused it and the delete rolled back. A test caught it. The check now runs only on insert or a type change, and the fixed function was re-run on the local database instead of resetting it.
+- **Tests:** 31 new database tests (206 pass), including user A vs user B for both tables and links to B's pot or debt. 290 unit tests, lint and typecheck pass. On local, all 802 accounts have both default pots.
+- **Live:** 4a-1 and 4a-2 are local only. Next: one dry run for both, then the owner's go, then regenerate types from live.
+
 ## 2026-11-24 · Week 4 · 4a-1 `recurring_bills` migration
 - **What:** The `recurring_bills` table with RLS. `delete_category()` now moves a category's bills along with its transactions, and the Delete category dialog counts bills ("2 bills and 12 transactions (₱3,400) use Fun.").
 - **Files:**

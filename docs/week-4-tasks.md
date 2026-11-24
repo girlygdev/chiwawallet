@@ -8,9 +8,9 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
 
 ## Tasks
 
-- [ ] **4a. Migrations: `recurring_bills`, `savings_pots`, `debts`.** Two sessions:
+- [x] **4a. Migrations: `recurring_bills`, `savings_pots`, `debts`.** Done Nov 24 in two sessions (local; live after the owner's go):
   - [x] **4a-1. `recurring_bills`.** Done Nov 24 (local; live after the owner's go). Also `delete_category()` moves bills, and the delete dialog counts them.
-  - [ ] **4a-2. `savings_pots`, `debts`, and `pot_id` / `debt_id` on transactions.**
+  - [x] **4a-2. `savings_pots`, `debts`, and `pot_id` / `debt_id` on transactions.** Done Nov 24. Default pots: Emergency Fund (life-buoy, red) and Sinking Funds (calendar-clock, blue).
   - Columns from the brief's data model, plus `first_due_month` on bills (3.7). Pots' `pay_slot` is `payday_1`, `payday_2` or `every` (no split, 3.8).
   - Same-owner links like `transactions` (`(id, user_id)` keys); a bill's `category_id` uses the same rule as transactions (`on delete no action`).
   - On `transactions`: add `pot_id` and `debt_id`, `on delete set null` (3.6). A `savings` row needs a pot; a `debt_payment` row needs a debt.
@@ -33,7 +33,7 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
   - Done when: your real bills list with the right monthly total.
 - [ ] **4d. Savings screen** (`savings.md`).
   - Pot cards with balance, progress, target and status ("On track for…", "Locked · deposits only").
-  - New and Edit pot. Locked switch with `role="switch"`.
+  - New and Edit pot. Locked switch with `role="switch"`. The icon choices must include the default pots' icons: Emergency is `life-buoy`, and add `calendar-clock` for Sinking Funds.
   - Pot details at `/savings/details?id=…` (not `[id]`: a dynamic segment breaks the build). Mobile stacks the desktop panel (fix #4).
   - Delete: level 2. "Move it to [pot]" or "Count it as withdrawn" (`delete-pattern.md` §4). Locked pots only offer "Count it as withdrawn" after a confirm.
   - Done when: your real pots list with the right balances.
