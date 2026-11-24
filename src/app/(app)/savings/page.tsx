@@ -1,4 +1,4 @@
-import { Lock, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -7,7 +7,7 @@ import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import { formatPeso } from "@/lib/money";
-import { formatMonthYear, getPeriod, type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { getPeriod, type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import {
   monthlySavingPlan,
   potBalance,
@@ -20,8 +20,8 @@ import {
 } from "@/lib/pots";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
-import { cn } from "@/lib/utils";
 import { PotSheet } from "./pot-sheet";
+import { PotStatusTag } from "@/components/savings/pot-status-tag";
 
 export const metadata: Metadata = { title: "Savings pots · Chiwawallet" };
 
@@ -215,40 +215,9 @@ function PotCard({ pot, balance, status, schedule }: { pot: Pot; balance: number
         pot.is_locked && <span className="text-[13px] text-text-3">No target · long-term savings</span>
       )}
 
-      <StatusTag status={status} />
+      <PotStatusTag status={status} />
     </Link>
   );
-}
-
-// Status in words, not only colour (savings.md §2).
-function StatusTag({ status }: { status: PotStatus }) {
-  const TAG = "inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold";
-  switch (status.kind) {
-    case "on_track":
-      return <span className={cn(TAG, "bg-mint text-link-hover")}>On track for {formatMonthYear(status.date)}</span>;
-    case "reached":
-      return <span className={cn(TAG, "bg-mint text-link-hover")}>Goal reached</span>;
-    case "locked":
-      return (
-        <span className={cn(TAG, "bg-track text-text-2")}>
-          <Lock aria-hidden size={12} strokeWidth={2.5} />
-          Locked · deposits only
-        </span>
-      );
-    case "behind":
-      return (
-        <span className="flex flex-col gap-1">
-          <span className={cn(TAG, "bg-warn-bg text-warn-fg")}>Behind</span>
-          <span className="text-[13px] font-bold text-warn-fg">
-            Save {formatPeso(status.needed)} each payday to make it by {formatMonthYear(status.by)}.
-          </span>
-        </span>
-      );
-    case "no_plan":
-      return <span className={cn(TAG, "bg-track text-text-2")}>Set how much to save each payday</span>;
-    case "no_target":
-      return null;
-  }
 }
 
 function EmptyState() {

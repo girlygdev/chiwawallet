@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PaySchedule } from "@/lib/periods";
 import {
+  balanceAfterMove,
   contributionNeeded,
   monthlySavingPlan,
   potBalance,
@@ -215,5 +216,11 @@ describe("potProjection", () => {
       goalDate: null,
       perYear: 4_800_000,
     });
+  });
+});
+
+describe("balanceAfterMove", () => {
+  it("is the other pot's balance plus what moves in (delete-pattern.md §4: Emergency becomes ₱19,000)", () => {
+    expect(balanceAfterMove(1_300_000, 600_000)).toBe(1_900_000);
   });
 });

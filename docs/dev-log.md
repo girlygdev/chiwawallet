@@ -2,6 +2,38 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4d-3 Pot details and Delete pot
+- **What:**
+  - **Pot details** (`/savings/details?id=…`, opened from a pot card):
+    - The balance hero ("₱13,000 of ₱30,000 · 43%") with the bar and status.
+    - Plan, Still needed and Goal date.
+    - **Edit pot** (opens the sheet on `/savings`) and **Delete pot**.
+    - HISTORY, newest first, ending with "Starting balance".
+  - **Delete pot** (level 2):
+    - "It still has ₱6,000.", then either **Move it to another pot** ("Emergency Fund becomes ₱19,000 of ₱30,000"; a pot select when there's more than one) or **Count it as withdrawn** ("Adds ₱6,000 to this period's money").
+    - "Past deposits stay in Activity for your records."
+    - An empty pot just deletes.
+- **Files:**
+  - New:
+    - `supabase/migrations/20261124160000_delete_pot.sql`, `tests/db/delete-pot.test.ts`
+    - `src/app/(app)/savings/details/page.tsx`
+    - `src/components/savings/delete-pot.tsx`, `pot-status-tag.tsx` (moved out of the Savings page)
+  - Edited: `src/app/(app)/savings/actions.ts` (`deletePot`), `page.tsx`, `pot-sheet.tsx`, `src/lib/pots.ts` (`balanceAfterMove`) and its test, `src/lib/supabase/types.ts` (`delete_pot`, by hand), `docs/week-4-tasks.md`
+- **Decisions:**
+  - **`delete_pot(target_pot, on_period, on_date, choice, move_to)`:**
+    - `security invoker`. Works out the balance like `potBalance()`.
+    - **move** writes a withdrawal from this pot ("Moved to Emergency Fund") and the same deposit into the other ("Moved from Travel"): net ₱0 to cash.
+    - **withdraw** writes one withdrawal ("Travel closed"), which adds the money to cash.
+    - Then it deletes the pot; earlier rows keep their history with the link emptied. All in one database transaction.
+    - The Server Action passes today's period (`getOrCreatePeriod`) and date.
+  - **Locked pots** only offer "Count it as withdrawn", behind a "The money really left" checkbox. The function unlocks the pot just before writing the withdrawal, because `check_transaction_links()` refuses withdrawals from locked pots.
+  - **One details page on every screen size** instead of the desktop side panel (savings.md §3). Simpler, and it's also the mobile page the spec asks for.
+  - **`choice` and `move_to` default to null,** so the generated types make them optional (the first version had no defaults; it was fixed before going live).
+  - **Not yet:** Add money and Withdraw (4e); after Edit pot, the sheet returns to the list, not the details.
+- **Tests:** 9 new database tests (215 pass): move, withdraw, locked, empty, bad choices change nothing, past deposits kept, user A vs B, logged out. 1 new unit test (376 pass), lint, typecheck and the build. Not browser-checked.
+- **Live:** the `delete_pot` migration is local only. It needs a dry run and the owner's go before pushing.
+- **Next:** 4e, the add sheet's Savings tab.
+
 ## 2026-11-24 · Week 4 · 4d-2 New and Edit pot
 - **What:** New savings pot (`/savings?add=1`) and Edit pot (`?edit=…`):
   - **Fields:**

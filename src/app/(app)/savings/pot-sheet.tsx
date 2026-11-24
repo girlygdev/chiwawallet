@@ -10,7 +10,7 @@ import { addPot, updatePot } from "./actions";
 // + button can be a plain link:
 //   /savings?add=1        New savings pot
 //   /savings?edit=<id>    Edit pot (the details page links here, 4d-3)
-// Closing clears the address. Delete pot comes in 4d-3.
+// Closing clears the address. Delete pot lives on the pot details page (4d-3).
 export function PotSheet({ pots, schedule, today }: { pots: EditablePot[]; schedule: PaySchedule; today: string }) {
   const router = useRouter();
   const pathname = usePathname();

@@ -552,6 +552,16 @@ export type Database = {
         Args: { move_to?: string; target_category: string }
         Returns: number
       }
+      delete_pot: {
+        Args: {
+          choice?: string
+          move_to?: string
+          on_date: string
+          on_period: string
+          target_pot: string
+        }
+        Returns: number
+      }
       record_consent: {
         Args: { name: string; version: string }
         Returns: undefined

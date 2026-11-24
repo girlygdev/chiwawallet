@@ -215,3 +215,8 @@ export function potProjection(
     reached: pot.target_amount != null && balance >= pot.target_amount,
   };
 }
+
+/** Delete pot's "Move it to Emergency" line: the other pot's balance after the move. */
+export function balanceAfterMove(destinationBalance: number, moved: number): number {
+  return destinationBalance + moved;
+}
