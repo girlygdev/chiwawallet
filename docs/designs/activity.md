@@ -100,6 +100,8 @@ A bottom sheet on mobile: white, 28px top corners, a grab handle and a close but
 
 ### Savings
 
+> **Changed Nov 24 (owner):** in Week 6 this tab becomes **Transfer**: To a pot, From a pot, Pot to pot (a withdrawal and a deposit, net ₱0 to cash), and To a debt (a planned payment when one is due this period, counted as Needs in the locked "Debt payment" category; otherwise an extra payment in "Extra debt payment", Savings & debt payoff). Until then it's the Savings tab below. See `mvp-brief.md` Week 6.
+
 - **Segmented control:** Add to pot or Withdraw.
 - **Amount.**
 - **"Which pot?"**: radio cards per pot, plus a "+ New pot" link.

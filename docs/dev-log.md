@@ -2,6 +2,22 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 (planning) · Transfers in the add sheet
+- **What:** The owner asked whether + can log a transfer (from cash to savings or debts). The brief already had cash ↔ pot (the Savings tab, built in 4e); debt payments were planned only as Mark paid / Pay extra on the Debts and Plan screens; pot ↔ pot wasn't in the brief; account transfers are v1.1.
+- **Decisions (owner, Nov 24, Claude's recommendations):**
+  - **In Week 6, the add sheet's Savings tab becomes "Transfer":**
+    - **To a pot** and **From a pot** (today's Add / Withdraw).
+    - **Pot to pot:** a withdrawal plus a deposit, net ₱0 to cash, like Delete pot's move.
+    - **To a debt:** a planned payment when one is due this period, otherwise an extra payment.
+    - It's Week 6 because it needs Mark paid and plan items.
+  - **Planned debt payments use a new locked system category "Debt payment"** (Needs, `system_key = debt_payment`), added with Mark paid. Extra payments keep "Extra debt payment" (Savings & debt payoff). This settles 4f's open question.
+- **Files:**
+  - `docs/mvp-brief.md`: data model `system_key` values; a new Week 6 checkbox.
+  - `docs/designs/activity.md`: a note at the top of the Savings tab section.
+  - `docs/week-4-tasks.md`: the open question marked decided.
+- **Tests:** docs only.
+- **Next:** 4h live check (push the 4g commit first).
+
 ## 2026-11-24 · Week 4 · 4g Wire-up: Dashboard money out, More › Money lines
 - **What:**
   - **Dashboard:**

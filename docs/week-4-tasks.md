@@ -78,6 +78,7 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
 
 Plan items and "Planned in N upcoming paydays" (Week 5); pot progress on the Dashboard, debt status and Due this period (Week 6); push reminders (v1.1).
 
-## Open (for Week 5)
+## Decided for later weeks
 
-- **Which category do planned debt payments use?** Mark paid creates a `debt_payment` that counts as **Needs** (debts.md §5), but there's no Needs debt category; Extra debt payment (a system category) is Savings & debt payoff. Options: a new system category "Debt payment" (Needs), or the debt's own category picked in New debt. Decide before Mark paid.
+- ~~Which category do planned debt payments use?~~ **Decided Nov 24:** a new locked system category **"Debt payment"** (Needs, `system_key = debt_payment`), added with Mark paid in Week 6. Extra payments keep "Extra debt payment" (Savings & debt payoff).
+- **Transfer tab (decided Nov 24):** in Week 6 the add sheet's Savings tab becomes Transfer: To a pot, From a pot, Pot to pot, To a debt. See the brief's Week 6.
