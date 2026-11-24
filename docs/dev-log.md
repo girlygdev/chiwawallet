@@ -2,6 +2,13 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 3 · `delete_category` migration on live
+- **What:** Applied `20261124093000_delete_category.sql` to the live project with `npx supabase db push --linked`, after a dry run that listed only this migration (owner's go).
+- **Files:** none changed. `types.ts` regenerated from live (`--linked`) matched the hand-added `delete_category` entry exactly.
+- **Decisions:** Pass `--linked` explicitly: the CLI warns that `db push` will target local by default in its next major version.
+- **Tests:** the dry run, then the push reported "Finished". Not yet tried in the live app.
+- **Next:** push the code (3h is on `main`, not pushed), then the 3g live check: log a real expense on your phone in under 10 seconds, and try deleting a test category.
+
 ## 2026-11-24 · Week 3 · 3h-3 New category from the category picker
 - **What:** The picker ends with a dashed **New category** tile. It opens New category inside the add sheet (title "New category", back arrow to the picker). After **Save category**, the sheet's categories reload and the expense form comes back with the new category selected in the grid.
 - **Files:** `src/components/transactions/category-picker.tsx`, `expense-form.tsx`, `add-transaction-provider.tsx`, `src/components/categories/category-form.tsx`
