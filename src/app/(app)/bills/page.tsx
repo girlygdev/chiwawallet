@@ -21,6 +21,7 @@ import { formatShortDate, getPeriod, type PaySchedule, paydayLabel, scheduleFrom
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { BillSheet } from "./bill-sheet";
 
 export const metadata: Metadata = { title: "Bills · Chiwawallet" };
 
@@ -28,7 +29,7 @@ const ADD_HREF = "/bills?add=1";
 
 // The Bills screen (bills.md, week-4-tasks.md 4c): what bills cost each
 // month, how they spread across paydays, and each bill with when it's due.
-// New and Edit bill open in a sheet (`?add=1`, `?edit=…`; 4c-2), like Income.
+// New and Edit bill open in a sheet (`?add=1`, `?edit=…`, `?delete=…`; 4c-2), like Income.
 // Paid / Still due this period and Mark paid need plan items (Week 5).
 export default function BillsPage() {
   return (
@@ -50,20 +51,33 @@ type Bill = {
   due_day: number;
   first_due_month: number | null;
   pay_slot: string;
+  category_id: string;
+  remind: boolean;
   category: { name: string; icon: string; color: string };
 };
 
 async function BillsContent() {
   const { budget } = await requireAppUser();
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("recurring_bills")
-    .select("id, name, amount, amount_varies, frequency, due_day, first_due_month, pay_slot, category:categories(name, icon, color)")
-    .eq("budget_id", budget.id)
-    .order("name");
-  if (error) throw new Error(`Couldn't load bills: ${error.message}`, { cause: error });
+  const [billRows, categoryRows] = await Promise.all([
+    supabase
+      .from("recurring_bills")
+      .select(
+        "id, name, amount, amount_varies, frequency, due_day, first_due_month, pay_slot, category_id, remind, category:categories(name, icon, color)",
+      )
+      .eq("budget_id", budget.id)
+      .order("name"),
+    // The form's category choices: spending categories that aren't system ones.
+    supabase.from("categories").select("id, name").eq("kind", "expense").is("system_key", null).order("name"),
+  ]);
+  for (const result of [billRows, categoryRows]) {
+    if (result.error) throw new Error(`Couldn't load bills: ${result.error.message}`, { cause: result.error });
+  }
   // The check constraints allow only these frequencies; each bill has one category.
-  const bills = data as unknown as Bill[];
+  const bills = billRows.data as unknown as Bill[];
+  const categories = categoryRows.data!;
+  // New bills use the Bills category by default (bills.md §4).
+  const defaultCategoryId = (categories.find((c) => c.name === "Bills") ?? categories[0])?.id ?? "";
 
   const schedule = scheduleFromBudget(budget);
   const today = todayInManila(new Date());
@@ -122,6 +136,14 @@ async function BillsContent() {
           </div>
         </>
       )}
+
+      <BillSheet
+        bills={bills}
+        categories={categories}
+        defaultCategoryId={defaultCategoryId}
+        schedule={schedule}
+        today={today}
+      />
     </>
   );
 }

@@ -25,9 +25,9 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
   - Due days on the 29th–31st use the month's last day, like paydays (`debts.md` fix #5).
   - Zod schemas in `src/lib/validation/` (one file per entity).
   - Done when: the Vitest cases pass, including Feb 29–31 and a yearly bill.
-- [ ] **4c. Bills screen** (`bills.md`). Two sessions:
+- [x] **4c. Bills screen** (`bills.md`). Done Nov 24 in two sessions:
   - [x] **4c-1. The page.** Done Nov 24: summary, bills per payday with the balance message, a section per payday, empty state.
-  - [ ] **4c-2. New and Edit bill sheet, Delete bill.**
+  - [x] **4c-2. New and Edit bill sheet, Delete bill.** Done Nov 24.
   - List with the monthly total ("Bills each month": quarterly ÷ 3, yearly ÷ 12), New bill, and Edit bill (New bill's form with **Save changes** and **Delete bill**).
   - "Paid from": payday 1, payday 2 or split, labelled with the budget's real pay days (fix #4).
   - "Remind me" hint: "Shows on your dashboard 2 days before" (fix #3).

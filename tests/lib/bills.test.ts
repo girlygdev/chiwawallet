@@ -6,6 +6,7 @@ import {
   billsPerMonth,
   billsPerPayday,
   billStatus,
+  billTotalsChange,
   heavyPayday,
   nextBillDue,
   paydayShares,
@@ -196,5 +197,24 @@ describe("paydayShares", () => {
   it("is each payday's share of the bills, for the bars", () => {
     expect(paydayShares({ payday_1: 300, payday_2: 100 })).toEqual({ payday_1: 0.75, payday_2: 0.25 });
     expect(paydayShares({ payday_1: 0, payday_2: 0 })).toEqual({ payday_1: 0, payday_2: 0 });
+  });
+});
+
+describe("billTotalsChange", () => {
+  const water = bill(45_000, "monthly", "payday_2");
+  const internet = bill(170_000, "monthly", "payday_1");
+
+  it("twice a month: each payday's bills before → after, marking the unchanged one (bills.md §4)", () => {
+    expect(billTotalsChange([internet], [internet, water], twiceAMonth)).toEqual([
+      { slot: "payday_1", label: "15th payday bills", before: 170_000, after: 170_000 },
+      { slot: "payday_2", label: "30th payday bills", before: 0, after: 45_000 },
+    ]);
+  });
+
+  it("one payday: bills each month", () => {
+    const monthlyBudget = { frequency: "monthly" as const, payDay1: 30 };
+    expect(billTotalsChange([{ ...water, pay_slot: "every" }], [], monthlyBudget)).toEqual([
+      { slot: "every", label: "Bills each month", before: 45_000, after: 0 },
+    ]);
   });
 });

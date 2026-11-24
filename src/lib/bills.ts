@@ -1,5 +1,5 @@
 import { addDays, format, parseISO } from "date-fns";
-import { dateInMonth, formatShortDate, ordinal, type PaySchedule } from "@/lib/periods";
+import { dateInMonth, formatShortDate, ordinal, type PaySchedule, paydayLabel } from "@/lib/periods";
 
 // Bill math (bills.md §1, week-4-tasks.md 4b): pure functions, no React.
 // Dates are "YYYY-MM-DD" strings. A due day the month doesn't have (31 in
@@ -174,3 +174,31 @@ export function paydayShares(perPayday: { payday_1: number; payday_2: number }):
   if (total <= 0) return { payday_1: 0, payday_2: 0 };
   return { payday_1: perPayday.payday_1 / total, payday_2: perPayday.payday_2 / total };
 }
+
+export type BillTotalLine = { slot: "payday_1" | "payday_2" | "every"; label: string; before: number; after: number };
+
+/**
+ * What adding, editing or deleting a bill does to the totals, for New bill's
+ * impact box and Delete bill's effect (bills.md §4): each payday's bills on
+ * twice-a-month budgets ("30th payday bills: ₱2,500 → ₱2,950"), or "Bills
+ * each month" otherwise. `before` and `after` are the budget's bills without
+ * and with the change.
+ */
+export function billTotalsChange(
+  before: { amount: number; frequency: BillFrequency; pay_slot: string }[],
+  after: { amount: number; frequency: BillFrequency; pay_slot: string }[],
+  schedule: PaySchedule,
+): BillTotalLine[] {
+  const was = billsPerPayday(before, schedule);
+  const now = billsPerPayday(after, schedule);
+  if (!was || !now) {
+    return [{ slot: "every", label: "Bills each month", before: billsPerMonth(before), after: billsPerMonth(after) }];
+  }
+  return (["payday_1", "payday_2"] as const).map((slot) => ({
+    slot,
+    label: `${paydayLabel(schedule, slot)} payday bills`,
+    before: was[slot],
+    after: now[slot],
+  }));
+}
+

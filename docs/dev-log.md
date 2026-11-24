@@ -2,6 +2,25 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4c-2 New and Edit bill, Delete bill
+- **What:** Bills can be added, edited and deleted from `/bills`.
+  - **New bill** (`?add=1`): name, amount, How often? (Monthly, Quarterly, Yearly), then "Due every [day]" or "First due [month] [day]", Paid from, Category, "Amount changes each month", "Remind me before it's due", the impact box, and **Add bill**.
+  - Paid from is labelled with the budget's real pay days ("15th payday", "30th payday", "Split"). It's hidden on one-payday budgets.
+  - **Edit bill** (`?edit=…`): the same form with **Save changes** and **Delete bill**.
+  - **Delete** (`?delete=…`): level 2 with no choice. It shows the bill, "It disappears from your bills. Past payments stay in Activity.", and each payday's bills before → after.
+- **Files:**
+  - New: `src/components/bills/bill-form.tsx`, `src/components/switch.tsx`, `src/app/(app)/bills/actions.ts`, `bill-sheet.tsx`
+  - Edited: `src/app/(app)/bills/page.tsx` (loads the form's categories, mounts the sheet), `src/lib/bills.ts` (`billTotalsChange`) and its test, `docs/week-4-tasks.md`
+- **Decisions:**
+  - **Suggested payday:** picking the due day moves Paid from to the last payday on or before it ("Suggested: the 30th comes right before the 10th."), until Paid from is picked by hand. Editing keeps the saved payday.
+  - **Category:** a select of your spending categories (no system ones), defaulting to Bills. If the database refuses one, the error shows under Category.
+  - **Impact box:** each payday's bills before → after, with "stay at" for the unchanged one (bills.md §4). Monthly amounts, so a quarterly bill adds a third.
+  - **"Remind me" hint:** "Shows on your dashboard 2 days before." (fix #3). The reminder itself is Week 6.
+  - **`Switch`:** a new shared component (`role="switch"`, `aria-checked`, label and hint tied to it) for Bills and, next, pots.
+  - **After saving:** the spec adds the bill to every open future period's plan. That's Week 5, when plan items exist.
+- **Tests:** 2 new unit tests (360 pass), lint, typecheck and the build. **Not browser-checked**, and no automated UI test covers the form. Check it by hand before pushing.
+- **Next:** 4d, the Savings screen.
+
 ## 2026-11-24 · Week 4 · 4c-1 Bills page
 - **What:** `/bills` replaces its placeholder:
   - **Hero:** "Bills each month" with the count.
