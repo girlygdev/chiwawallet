@@ -66,7 +66,7 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
   - Done when: add, edit, delete and undo all update the list and totals.
 - [x] **3f. Dashboard.** Done Nov 23. Expected vs actual income, spent, and available (`cashOnHand`) for this period. The hero says Cash now until Safe to spend exists (Week 5).
   - Done when: it matches the Activity totals.
-- [ ] **3g. Live check.** Push, then log a real expense on your phone in under 10 seconds.
+- [x] **3g. Live check.** Done Nov 24: categories work on the phone (owner). Live is still slow: functions run in `iad1`, not Tokyo (see the dev log).
 - [x] **3h. Categories (optional, else Week 4).** Done Nov 24 in three parts. The `delete_category` migration still needs applying to live before the push (3g). The category list from More › Categories, New category, Edit category, and a level 2 delete that moves rows first. Also add the picker's last tile, **New category**, which returns to the picker with the new category selected (activity.md §4). Split in three (owner, Nov 24):
   - [x] **3h-1. List, New and Edit.** Done Nov 24. `/settings/categories`, `/new`, `/edit?id=…`; reached from More › BUDGET and Settings.
   - [x] **3h-2. Level 2 delete.** Done Nov 24 (local only; the migration isn't on live yet). A `delete_category(category_id, move_to)` migration (approved Nov 24) that moves transactions and deletes in one database transaction; a dialog with a required "Move them to…" choice.

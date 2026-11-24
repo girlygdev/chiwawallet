@@ -2,6 +2,12 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 3 · 3g Live check, Week 3 done
+- **What:** On the phone, categories work end to end (owner). 3g and the brief's five Week 3 boxes are ticked.
+- **Still slow on live, fast locally.** Measured from the server code's `x-vercel-id` (`/auth/callback`, 3 tries): `sfo1::iad1::…`. Functions still run in **US East (`iad1`)**, not Tokyo, so every database call crosses the Pacific, several times per page. The dashboard change to `hnd1` didn't apply to this deployment.
+- **Files:** `docs/week-3-tasks.md`, `docs/mvp-brief.md`
+- **Next:** pin the region in the repo (`vercel.json` with `"regions": ["hnd1"]`), redeploy, and check `x-vercel-id` shows `hnd1`.
+
 ## 2026-11-24 · Week 3 (extra) · Live: new default categories, Vercel functions in Tokyo
 - **What:**
   - Applied `20261124120000_more_default_categories.sql` to live (`db push --linked`, after a dry run; owner's go). The live database is up to date.

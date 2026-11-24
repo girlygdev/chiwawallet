@@ -258,11 +258,11 @@ Each task fits in one session and ends with something you can check. Deploy from
 
 **Done when:** you log a real expense on your phone in under 10 seconds.
 
-- [ ] `categories` table with group (Needs, Wants, Savings & debt payoff) and default Filipino-friendly categories (Food, Transport, Load/Internet, Bills, Rent, Padala, etc.)
-- [ ] `transactions` table + RLS; amounts in centavos; PHP formatting helper (`formatPeso()` already exists)
-- [ ] Add transaction bottom sheet with Zod validation (Expense and Income; the Savings tab moves to Week 4 with pots)
-- [ ] Transaction list for the current period; edit and delete
-- [ ] Dashboard: expected vs actual income, spent and available
+- [x] `categories` table with group (Needs, Wants, Savings & debt payoff) and default Filipino-friendly categories (Food, Transport, Load/Internet, Bills, Rent, Padala, etc.)
+- [x] `transactions` table + RLS; amounts in centavos; PHP formatting helper (`formatPeso()` already exists)
+- [x] Add transaction bottom sheet with Zod validation (Expense and Income; the Savings tab moves to Week 4 with pots)
+- [x] Transaction list for the current period; edit and delete
+- [x] Dashboard: expected vs actual income, spent and available
 
 ### Week 4: Bills, savings pots and debts setup
 
