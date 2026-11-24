@@ -21,7 +21,7 @@ import { Toast, type ToastMessage } from "@/components/toast";
 import { formatPeso, formatPesoInput } from "@/lib/money";
 import { ONE_TIME } from "@/lib/validation/transaction";
 import { type DeleteTarget, DeleteTransactionDialog } from "./delete-transaction-dialog";
-import { ExpenseForm } from "./expense-form";
+import { ExpenseForm, type ExpenseView } from "./expense-form";
 import { IncomeForm } from "./income-form";
 import { type SheetTab, TAB_PANEL_ID, tabId, TypeTabs } from "./type-tabs";
 
@@ -67,8 +67,8 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   const [editing, setEditing] = useState<EditingTransaction | null>(null);
   const [editDelete, setEditDelete] = useState<DeleteTarget | null>(null);
   const [deleting, setDeleting] = useState<DeleteTarget | null>(null);
-  // True while the category picker shows in place of the expense form.
-  const [picking, setPicking] = useState(false);
+  // The expense form, or the category picker or New category in its place.
+  const [view, setView] = useState<ExpenseView>("form");
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const amountRef = useRef<HTMLInputElement>(null);
   // The amount as typed, so switching tabs keeps it. A ref, not state: the
@@ -90,7 +90,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
     setData(null);
     setTab(options.tab ?? "expense");
     setIncomeSource(options.incomeSource ?? "");
-    setPicking(false);
+    setView("form");
     const startAmount = options.amount != null ? formatPesoInput(options.amount) : "";
     amountText.current = startAmount;
     setCarriedAmount(startAmount);
@@ -108,7 +108,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
     setEditing(null);
     setEditDelete(deleteTarget);
     setData(null);
-    setPicking(false);
+    setView("form");
     setOpenCount((n) => n + 1);
     setOpen(true);
     Promise.all([getAddSheetData(), getEditTransaction(id)])
@@ -127,6 +127,9 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   }, []);
 
   const openDelete = useCallback((target: DeleteTarget) => setDeleting(target), []);
+
+  // After New category saves (3h-3): fresh categories, so the grid has its tile.
+  const reloadData = useCallback(async () => setData(await getAddSheetData()), []);
 
   // After Delete transaction: the list and totals update, then "Lunch deleted"
   // with Undo for 5 seconds, which clears deleted_at again.
@@ -188,7 +191,21 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   const editMode = mode === "edit";
   // Edit mode waits for the row before showing a form, so it starts filled in.
   const loadingEdit = editMode && editing == null;
-  const title = picking ? "Choose a category" : editMode ? "Edit transaction" : TITLES[tab];
+  const title =
+    view === "picker"
+      ? "Choose a category"
+      : view === "new-category"
+        ? "New category"
+        : editMode
+          ? "Edit transaction"
+          : TITLES[tab];
+  // The back arrow and Esc go one step back: New category → picker → form.
+  const back =
+    view === "new-category"
+      ? { label: "Back to Choose a category", onClick: () => setView("picker") }
+      : view === "picker"
+        ? { label: editMode ? "Back to Edit transaction" : "Back to Add expense", onClick: () => setView("form") }
+        : undefined;
 
   const forms =
     tab === "expense" ? (
@@ -198,8 +215,9 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
         {...formProps}
         onSave={editing ? (input) => updateExpense(editing.id, input) : saveExpense}
         onSaved={editing ? onEdited : savedToast("Expense", -1)}
-        picking={picking}
-        onPickingChange={setPicking}
+        view={view}
+        onViewChange={setView}
+        onCategoriesChanged={reloadData}
         editing={editing}
         onDelete={deleteFromEdit}
       />
@@ -221,20 +239,17 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
       <Sheet
         open={open}
         onOpenChange={(next, details) => {
-          // Esc in the picker goes back to the form instead of closing everything.
-          if (!next && picking && details.reason === "escape-key") {
+          // Esc in the picker or New category goes back one step instead of
+          // closing everything.
+          if (!next && back && details.reason === "escape-key") {
             details.cancel();
-            setPicking(false);
+            back.onClick();
             return;
           }
           setOpen(next);
         }}
         title={title}
-        back={
-          picking
-            ? { label: editMode ? "Back to Edit transaction" : "Back to Add expense", onClick: () => setPicking(false) }
-            : undefined
-        }
+        back={back}
         // Adding: straight to the amount. Editing: the sheet itself (Base UI's
         // default), so the phone keyboard doesn't cover the filled-in form.
         initialFocus={editMode ? undefined : amountRef}
@@ -251,7 +266,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
           forms
         ) : (
           <div className="flex flex-col gap-5">
-            {!picking && <TypeTabs value={tab} onChange={switchTab} />}
+            {view === "form" && <TypeTabs value={tab} onChange={switchTab} />}
             <div id={TAB_PANEL_ID} role="tabpanel" aria-labelledby={tabId(tab)}>
               {forms}
             </div>

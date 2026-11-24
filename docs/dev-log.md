@@ -2,6 +2,18 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 3 · 3h-3 New category from the category picker
+- **What:** The picker ends with a dashed **New category** tile. It opens New category inside the add sheet (title "New category", back arrow to the picker). After **Save category**, the sheet's categories reload and the expense form comes back with the new category selected in the grid.
+- **Files:** `src/components/transactions/category-picker.tsx`, `expense-form.tsx`, `add-transaction-provider.tsx`, `src/components/categories/category-form.tsx`
+- **Decisions:**
+  - **Back to the expense form, not the picker** (owner, Nov 24): picking from the picker returns to the form anyway, so this saves a tap. activity.md §4 says "returns here [the picker]".
+  - **One `view` instead of `picking`:** the provider now holds `"form" | "picker" | "new-category"`. The back arrow and Esc go one step back (New category → picker → form).
+  - **The search text becomes the starting name:** searching "Pet" with no match, then New category, starts the name as "Pet". The tile shows while searching too.
+  - **Save stays busy until the categories reload,** so the grid never comes back without the new tile. If the reload fails, the id is still selected and saving still works.
+  - The tile copies the grid's dashed More style.
+- **Tests:** no new pure logic. 289 unit tests, lint, typecheck and the build pass. Not browser-checked.
+- **Next:** apply `20261124093000_delete_category.sql` to live (dry run first, owner's go), then 3g live check.
+
 ## 2026-11-24 · Week 3 · 3h-2 Delete a category (level 2)
 - **What:** Edit category has a **Delete category** link. Its dialog shows the category, says what uses it ("12 transactions (₱3,400) use Fun."), and when anything does, requires **Move them to** (a select grouped by Needs / Wants / Savings & debt payoff). It shows the effect: "₱3,400 moves to Food and counts as Needs." Then **Delete category** or **Keep it**, and back to the list.
 - **Files:**

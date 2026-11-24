@@ -4,9 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { type Resolver, useForm, useWatch } from "react-hook-form";
 import type { AddSheetData, EditingTransaction, SaveExpenseResult } from "@/app/(app)/activity/actions";
+import { createCategory } from "@/app/(app)/settings/categories/actions";
 import { FormError } from "@/components/auth/form-error";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { TextField } from "@/components/auth/text-field";
+import { CategoryForm } from "@/components/categories/category-form";
 import { formatPesoInput, parsePesoInput } from "@/lib/money";
 import { todayInManila } from "@/lib/periods";
 import {
@@ -23,13 +25,18 @@ import { sheetImpact } from "./sheet-impact";
 
 const FIELD_ORDER = ["amount", "categoryId", "date", "note"] as const;
 
+/** What the sheet shows: the form, the category picker, or New category (3h-3). */
+export type ExpenseView = "form" | "picker" | "new-category";
+
 // The Add expense form (activity.md §3): amount → category → Save in under
 // 10 seconds; date and note are optional. `data` arrives a moment after the
 // sheet opens; the amount field works before that, and Save waits for it.
 //
-// More swaps the form for the category picker. The form stays mounted (only
-// hidden), so what was typed is kept; `picking` lives in the provider because
-// the sheet's title and back arrow change with it.
+// More swaps the form for the category picker, and the picker's New category
+// tile for New category (3h-3). The form stays mounted (only hidden), so what
+// was typed is kept; `view` lives in the provider because the sheet's title
+// and back arrow change with it. After saving a new category, the sheet's
+// categories reload and the form comes back with it selected (owner, Nov 24).
 //
 // With `editing`, it's Edit transaction (activity.md fix #6): filled in from
 // the row, Save changes, and a Delete link at the bottom.
@@ -40,8 +47,9 @@ export function ExpenseForm({
   onAmountChange,
   onSave,
   onSaved,
-  picking,
-  onPickingChange,
+  view,
+  onViewChange,
+  onCategoriesChanged,
   editing = null,
   onDelete,
 }: {
@@ -52,8 +60,10 @@ export function ExpenseForm({
   onAmountChange: (text: string) => void;
   onSave: (input: TransactionFormInput) => Promise<SaveExpenseResult>;
   onSaved: (saved: { id: string; amount: number }) => void;
-  picking: boolean;
-  onPickingChange: (picking: boolean) => void;
+  view: ExpenseView;
+  onViewChange: (view: ExpenseView) => void;
+  /** Reloads the sheet's data after a new category is saved. */
+  onCategoriesChanged: () => Promise<void>;
   editing?: EditingTransaction | null;
   onDelete?: () => void;
 }) {
@@ -129,35 +139,54 @@ export function ExpenseForm({
 
   const amountField = register("amount");
 
-  // Back from the picker: focus the chosen tile, or More if nothing was
-  // picked, so keyboard and screen-reader users land where they left.
+  // Back to the form: focus the chosen tile, or More if nothing was picked,
+  // so keyboard and screen-reader users land where they left.
   const gridRef = useRef<HTMLDivElement>(null);
-  const wasPicking = useRef(false);
+  const wasAway = useRef(false);
   useEffect(() => {
-    if (wasPicking.current && !picking) {
+    if (wasAway.current && view === "form") {
       const grid = gridRef.current;
       (grid?.querySelector<HTMLElement>('[aria-pressed="true"]') ?? grid?.querySelector<HTMLElement>("[data-more]"))?.focus();
     }
-    wasPicking.current = picking;
-  }, [picking]);
+    wasAway.current = view !== "form";
+  }, [view]);
 
   const pick = (id: string) => {
     setValue("categoryId", id, { shouldValidate: errors.categoryId != null });
-    onPickingChange(false);
+    onViewChange("form");
+  };
+
+  // The picker's search text becomes New category's starting name.
+  const [newName, setNewName] = useState("");
+  const onCategoryCreated = async (id: string) => {
+    try {
+      // So the grid has a tile for it. If this fails, the id still saves fine.
+      await onCategoriesChanged();
+    } catch (error) {
+      console.error("activity: couldn't reload categories", error);
+    }
+    pick(id);
   };
 
   return (
     <>
-      {picking && data && (
+      {view === "picker" && data && (
         <CategoryPicker
           categories={data.categories}
           recentIds={data.recentIds}
           targets={data.targets}
           value={categoryId || undefined}
           onPick={pick}
+          onNew={(name) => {
+            setNewName(name);
+            onViewChange("new-category");
+          }}
         />
       )}
-      <form onSubmit={handleSubmit(onSubmit)} noValidate hidden={picking} className="flex flex-col gap-5">
+      {view === "new-category" && data && (
+        <CategoryForm targets={data.targets} defaultName={newName} onSave={createCategory} onSaved={onCategoryCreated} />
+      )}
+      <form onSubmit={handleSubmit(onSubmit)} noValidate hidden={view !== "form"} className="flex flex-col gap-5">
         <AmountField id="expense-amount" field={amountField} amountRef={amountRef} error={errors.amount?.message} />
 
         <CategoryGrid
@@ -166,7 +195,7 @@ export function ExpenseForm({
           loading={data == null}
           value={categoryId || undefined}
           onChange={(id) => setValue("categoryId", id, { shouldValidate: errors.categoryId != null })}
-          onMore={() => onPickingChange(true)}
+          onMore={() => onViewChange("picker")}
           error={errors.categoryId?.message}
           ref={gridRef}
         />

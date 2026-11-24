@@ -87,14 +87,17 @@ export function CategoryForm({
   category,
   onSave,
   onSaved,
+  defaultName = "",
 }: {
   /** The budget's 50/30/20 targets, shown beside each group. */
   targets: Record<BudgetGroup, number>;
   /** Editing an existing category; leave out to make a new one. */
   category?: EditableCategory;
   onSave: (input: CategoryFormInput) => Promise<CategoryFormResult>;
-  /** After a successful save, with the category's id. */
-  onSaved: (id: string) => void;
+  /** After a successful save, with the category's id. The button stays busy until a returned promise settles. */
+  onSaved: (id: string) => void | Promise<void>;
+  /** A starting name for a new category, e.g. what was typed in the picker's search. */
+  defaultName?: string;
 }) {
   const [formError, setFormError] = useState<string>();
   const [pending, startTransition] = useTransition();
@@ -117,7 +120,7 @@ export function CategoryForm({
           color: category.color as CategoryFormInput["color"],
         }
       : // The spec's defaults: Needs, the paw, orange.
-        { name: "", budgetGroup: "needs", icon: "paw-print", color: "orange" },
+        { name: defaultName, budgetGroup: "needs", icon: "paw-print", color: "orange" },
   });
 
   const name = useWatch({ control, name: "name" });
@@ -136,7 +139,7 @@ export function CategoryForm({
         const message = result.fieldErrors?.[f];
         if (message) setError(f, { message }, { shouldFocus: f === firstBad });
       }
-      if (result.ok && result.id) onSaved(result.id);
+      if (result.ok && result.id) await onSaved(result.id);
     });
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { SheetCategory } from "@/app/(app)/activity/actions";
 import { inputClassName } from "@/components/auth/text-field";
@@ -19,20 +19,23 @@ const HEADING = "text-xs font-extrabold tracking-wide text-text-3 uppercase";
 // "Choose a category" (activity.md §4), shown inside the Add expense sheet in
 // place of the form. Search, RECENT, then one section per 50/30/20 group with
 // the budget's own target. `categories` never includes income or system ones.
-// Not yet: "₱2,760 left" on tiles (needs the Plan, Week 5) and the New
-// category tile (3h).
+// The last tile, New category, opens New category in the sheet (3h-3).
+// Not yet: "₱2,760 left" on tiles (needs the Plan, Week 5).
 export function CategoryPicker({
   categories,
   recentIds,
   targets,
   value,
   onPick,
+  onNew,
 }: {
   categories: SheetCategory[];
   recentIds: string[];
   targets: Record<BudgetGroup, number>;
   value: string | undefined;
   onPick: (id: string) => void;
+  /** New category, with the search text as a starting name. */
+  onNew: (name: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const regionRef = useRef<HTMLDivElement>(null);
@@ -116,6 +119,22 @@ export function CategoryPicker({
             No categories match &ldquo;{query.trim()}&rdquo;.
           </p>
         )}
+      </div>
+
+      {/* The last tile (activity.md §4). Shown while searching too, so a
+          missing category is one tap away, named as searched. */}
+      <div className="grid grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={() => onNew(query.trim())}
+          // The same dashed look as the grid's More tile.
+          className="flex min-h-[92px] flex-col items-center justify-center gap-1 rounded-[14px] border-[1.5px] border-dashed border-line-dash px-1 py-2 text-xs font-extrabold text-text-2 outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          <span aria-hidden className="flex size-9 items-center justify-center">
+            <Plus size={20} />
+          </span>
+          New category
+        </button>
       </div>
     </div>
   );
