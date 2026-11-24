@@ -2,6 +2,14 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 (fix) · Date fields too wide on mobile
+- **What:** On the owner's phone, the date field was wider than its neighbour in New debt (Due date next to Number of payments) and in the Income sheet (Ends next to Starts).
+- **Files:** `src/components/auth/text-field.tsx`
+- **Decisions:**
+  - iPhone Safari gives native date inputs their own minimum width and centres the value, and a grid column doesn't shrink below its content.
+  - Fixed once in the shared field: `FieldShell` gets `min-w-0` so a field shrinks to its column, and `TextField` with `type="date"` drops the native look (`appearance-none`, `min-w-0`) and left-aligns the value. Every date field gets the fix.
+- **Tests:** lint, typecheck, 389 unit tests and the build pass. Not checked on an iPhone here; the owner checks after the push.
+
 ## 2026-11-24 · Week 4 (planning) · Transfers in the add sheet
 - **What:** The owner asked whether + can log a transfer (from cash to savings or debts). The brief already had cash ↔ pot (the Savings tab, built in 4e); debt payments were planned only as Mark paid / Pay extra on the Debts and Plan screens; pot ↔ pot wasn't in the brief; account transfers are v1.1.
 - **Decisions (owner, Nov 24, Claude's recommendations):**

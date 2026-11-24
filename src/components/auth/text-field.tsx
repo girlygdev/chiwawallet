@@ -25,7 +25,9 @@ export function FieldShell({ id, label, hint, error, labelAside, children }: Fie
   const describedBy = [errorId, hintId].filter(Boolean).join(" ") || undefined;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    // min-w-0: inside a grid row, a field may shrink to its column instead of
+    // growing to its input's own width (native date inputs on iPhones).
+    <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex items-center justify-between gap-3">
         <label htmlFor={id} className="text-sm font-bold text-ink">
           {label}
@@ -55,6 +57,12 @@ type TextFieldProps = Omit<React.ComponentProps<"input">, "id"> & {
   error?: string;
 };
 
+// iPhone Safari gives native date inputs their own minimum width and centres
+// the value, so in a two-column row the date field came out wider than its
+// neighbour. Drop the native look and the minimum width, and left-align the
+// value like every other field.
+const DATE_INPUT = "min-w-0 appearance-none text-left [&::-webkit-date-and-time-value]:text-left";
+
 export function TextField({ id, label, hint, error, className, ...inputProps }: TextFieldProps) {
   return (
     <FieldShell id={id} label={label} hint={hint} error={error}>
@@ -63,7 +71,7 @@ export function TextField({ id, label, hint, error, className, ...inputProps }: 
           id={id}
           aria-describedby={describedBy}
           aria-invalid={error ? true : undefined}
-          className={cn(inputClassName, className)}
+          className={cn(inputClassName, inputProps.type === "date" && DATE_INPUT, className)}
           {...inputProps}
         />
       )}
