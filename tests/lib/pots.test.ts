@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { PaySchedule } from "@/lib/periods";
-import { contributionNeeded, potBalance, potGoalDate, potProgress } from "@/lib/pots";
+import {
+  contributionNeeded,
+  monthlySavingPlan,
+  potBalance,
+  potGoalDate,
+  potProgress,
+  potScheduleLine,
+  potStatus,
+  potToGo,
+  totalSaved,
+} from "@/lib/pots";
 
 const twiceAMonth: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
 const today = "2026-11-20"; // in the Nov 15 – 29 period
@@ -83,5 +93,80 @@ describe("contributionNeeded", () => {
   it("still counts this month's last payday (Nov 30 for a November target)", () => {
     const pot = { target_amount: 100_000, target_date: "2026-11-01", pay_slot: "every" as const };
     expect(contributionNeeded(pot, 0, twiceAMonth, today)).toBe(100_000);
+  });
+});
+
+const pot = (planned_contribution: number, pay_slot: "payday_1" | "payday_2" | "every") => ({ planned_contribution, pay_slot });
+
+describe("monthlySavingPlan", () => {
+  it("adds each pot's contribution × its paydays a month (savings.md §1: ₱12,000)", () => {
+    expect(monthlySavingPlan([pot(300_000, "payday_1"), pot(200_000, "every"), pot(500_000, "payday_2")], twiceAMonth)).toBe(
+      1_200_000,
+    );
+  });
+
+  it("one payday a month on monthly budgets; 52 ÷ 12 on weekly ones", () => {
+    expect(monthlySavingPlan([pot(500_000, "every")], { frequency: "monthly", payDay1: 30 })).toBe(500_000);
+    expect(monthlySavingPlan([pot(120_000, "every")], { frequency: "weekly", payWeekday: 5 })).toBe(520_000);
+  });
+});
+
+describe("potScheduleLine", () => {
+  it("says how much and when, with the real pay days", () => {
+    expect(potScheduleLine(pot(300_000, "payday_1"), twiceAMonth)).toBe("₱3,000 every 15th");
+    expect(potScheduleLine(pot(200_000, "every"), twiceAMonth)).toBe("₱2,000 each payday");
+    expect(potScheduleLine(pot(500_000, "every"), { frequency: "monthly", payDay1: 30 })).toBe("₱5,000 every 30th");
+    expect(potScheduleLine(pot(50_000, "every"), { frequency: "weekly", payWeekday: 5 })).toBe("₱500 every Fri");
+  });
+
+  it("says when there's no plan yet", () => {
+    expect(potScheduleLine(pot(0, "every"), twiceAMonth)).toBe("No savings plan yet");
+  });
+});
+
+describe("potStatus", () => {
+  const base = {
+    target_amount: 2_000_000,
+    target_date: null,
+    planned_contribution: 200_000,
+    pay_slot: "every" as const,
+    is_locked: false,
+  };
+
+  it("on track: the goal month", () => {
+    expect(potStatus(base, 600_000, twiceAMonth, today)).toEqual({ kind: "on_track", date: "2027-02-28" });
+  });
+
+  it("behind: the contribution can't make the target date, with what it would take", () => {
+    // ₱14,000 to go by Dec 2026: 3 paydays (Nov 30, Dec 15, Dec 30) → ₱4,700 each.
+    expect(potStatus({ ...base, target_date: "2026-12-01" }, 600_000, twiceAMonth, today)).toEqual({
+      kind: "behind",
+      needed: 470_000,
+      by: "2026-12-01",
+    });
+  });
+
+  it("locked pots say so first", () => {
+    expect(potStatus({ ...base, is_locked: true }, 600_000, twiceAMonth, today)).toEqual({ kind: "locked" });
+  });
+
+  it("reached, no target, and a target with no plan", () => {
+    expect(potStatus(base, 2_000_000, twiceAMonth, today)).toEqual({ kind: "reached" });
+    expect(potStatus({ ...base, target_amount: null }, 0, twiceAMonth, today)).toEqual({ kind: "no_target" });
+    expect(potStatus({ ...base, planned_contribution: 0 }, 0, twiceAMonth, today)).toEqual({ kind: "no_plan" });
+  });
+});
+
+describe("potToGo", () => {
+  it("is the target minus the balance, never below ₱0", () => {
+    expect(potToGo(1_300_000, 3_000_000)).toBe(1_700_000);
+    expect(potToGo(3_500_000, 3_000_000)).toBe(0);
+  });
+});
+
+describe("totalSaved", () => {
+  it("adds the pots' balances (savings.md §1: ₱67,500)", () => {
+    expect(totalSaved([1_300_000, 600_000, 4_850_000])).toBe(6_750_000);
+    expect(totalSaved([])).toBe(0);
   });
 });

@@ -2,6 +2,7 @@
 
 import {
   Baby,
+  CalendarClock,
   Car,
   CircleAlert,
   Coffee,
@@ -15,6 +16,8 @@ import {
   GraduationCap,
   HeartPulse,
   House,
+  Laptop,
+  LifeBuoy,
   type LucideIcon,
   Pill,
   PawPrint,
@@ -65,6 +68,10 @@ const ICONS: Record<string, LucideIcon> = {
   fuel: Fuel,
   dumbbell: Dumbbell,
   baby: Baby,
+  // Pot icons (4d): Laptop, Emergency and Planned costs.
+  laptop: Laptop,
+  "life-buoy": LifeBuoy,
+  "calendar-clock": CalendarClock,
   // Added with the Nov 24 defaults.
   utensils: Utensils,
   "shopping-cart": ShoppingCart,

@@ -259,3 +259,8 @@ function checkSchedule(schedule: PaySchedule) {
     }
   }
 }
+
+/** "2027-02-28" → "Feb 2027", for goal dates (savings.md §2 "On track for…"). */
+export function formatMonthYear(date: string): string {
+  return format(parseDate(date), "MMM yyyy");
+}

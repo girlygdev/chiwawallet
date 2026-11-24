@@ -33,7 +33,10 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
   - "Remind me" hint: "Shows on your dashboard 2 days before" (fix #3).
   - Delete: level 2, stating what's planned. Past transactions stay.
   - Done when: your real bills list with the right monthly total.
-- [ ] **4d. Savings screen** (`savings.md`).
+- [ ] **4d. Savings screen** (`savings.md`). Three sessions:
+  - [x] **4d-1. The page.** Done Nov 24: Total saved, desktop stat cards, pot cards with progress and status, empty state.
+  - [ ] **4d-2. New and Edit pot sheet with the projection box.**
+  - [ ] **4d-3. Pot details (desktop panel, mobile page) with history, and Delete pot.** Needs a `delete_pot()` migration (move the balance or count it as withdrawn, then delete, in one transaction); show the owner first.
   - Pot cards with balance, progress, target and status ("On track for…", "Locked · deposits only").
   - New and Edit pot. Locked switch with `role="switch"`. The icon choices must include the default pots' icons: Emergency is `life-buoy`, and add `calendar-clock` for Sinking Funds.
   - Pot details at `/savings/details?id=…` (not `[id]`: a dynamic segment breaks the build). Mobile stacks the desktop panel (fix #4).

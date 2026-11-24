@@ -2,6 +2,38 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4d-1 Savings page
+- **What:** `/savings` replaces its placeholder:
+  - **Hero:** "Total saved" with "Across 3 pots · +₱3,000 this period".
+  - **Desktop stat cards:** Added this period and Monthly saving plan.
+  - **YOUR POTS:** one card per pot with:
+    - The tile, name and schedule ("₱3,000 every 15th", "₱2,000 each payday", "No savings plan yet").
+    - The balance.
+    - A progress bar with "₱17,000 to go" and "43% of ₱30,000".
+    - A status tag in words.
+  - **Empty state** with **New pot**.
+- **Files:**
+  - `src/app/(app)/savings/page.tsx`
+  - `src/lib/pots.ts`: `monthlySavingPlan`, `potScheduleLine`, `potStatus`, `potToGo`, `totalSaved`
+  - `src/lib/periods.ts`: `formatMonthYear`
+  - `src/components/transactions/category-grid.tsx`: laptop, life-buoy and calendar-clock icons
+  - Tests, `docs/week-4-tasks.md`
+- **Decisions:**
+  - **4d split in three:** the page, then the New/Edit sheet, then details and delete.
+  - **Status order:**
+    - Locked ("Locked · deposits only").
+    - No target (no tag; a locked pot without one says "No target · long-term savings").
+    - Reached ("Goal reached").
+    - No plan ("Set how much to save each payday").
+    - Behind ("Behind" plus "Save ₱4,700 each payday to make it by Dec 2026.") when a target date can't be met.
+    - Otherwise "On track for Feb 2027".
+  - **Monthly saving plan:** every-payday pots count twice a month on twice-a-month budgets; weekly budgets count 52 ÷ 12 paydays a month.
+  - **"This period":** net deposits minus withdrawals dated inside the current period.
+  - **Pot cards** link to `/savings/details?id=…` (4d-3); **New pot** opens `?add=1` (4d-2). Both do nothing until then.
+  - **Not yet:** "Add money to a pot" (needs the Savings tab, 4e) and "Due this period: ₱2,000 to Travel" (needs plan items, Week 5).
+- **Tests:** 11 new unit tests (371 pass), lint, typecheck and the build. Not browser-checked.
+- **Next:** 4d-2, the New and Edit pot sheet.
+
 ## 2026-11-24 · Week 4 · 4c-2 New and Edit bill, Delete bill
 - **What:** Bills can be added, edited and deleted from `/bills`.
   - **New bill** (`?add=1`): name, amount, How often? (Monthly, Quarterly, Yearly), then "Due every [day]" or "First due [month] [day]", Paid from, Category, "Amount changes each month", "Remind me before it's due", the impact box, and **Add bill**.

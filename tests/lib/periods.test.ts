@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dateInMonth,
+  formatMonthYear,
   daysLeft,
   describeSchedule,
   periodStatusLine,
@@ -424,5 +425,11 @@ describe("dateInMonth", () => {
   it("rolls months past 12 into the next year", () => {
     expect(dateInMonth(2026, 13, 31)).toBe("2027-01-31");
     expect(dateInMonth(2026, 14, 31)).toBe("2027-02-28");
+  });
+});
+
+describe("formatMonthYear", () => {
+  it("shows a date's month and year", () => {
+    expect(formatMonthYear("2027-02-28")).toBe("Feb 2027");
   });
 });
