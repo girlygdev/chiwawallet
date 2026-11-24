@@ -2,6 +2,29 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4c-1 Bills page
+- **What:** `/bills` replaces its placeholder:
+  - **Hero:** "Bills each month" with the count.
+  - **BILLS PER PAYDAY:** bars with amounts in text and the balance message ("Nicely balanced…" or the heads-up "The 15th carries most of your bills…"), plus the desktop tip.
+  - **Sections:** one per payday ("PAID FROM 15TH PAYDAY ₱2,700"), or "Your bills" on one-payday budgets. Split bills appear in both at half, with a Split tag; variable bills show "≈".
+  - **Rows:** category tile, name, schedule line ("Due every 20th", "Quarterly · 5th of Feb, May, Aug, Nov", "Yearly · next Nov 30"), amount, and a status tag.
+  - **Empty state** with **Add bill**.
+- **Files:**
+  - `src/app/(app)/bills/page.tsx`
+  - `src/lib/bills.ts`: `billsPerPayday`, `heavyPayday`, `suggestedBillSlot` (for 4c-2), `billStatus`, `billScheduleLine`, `splitHalves`, `paydayShares`
+  - `tests/lib/bills.test.ts`, `docs/week-4-tasks.md`
+- **Decisions:**
+  - **4c split in two** (the page now, the sheet and delete next).
+  - **No plan items yet:**
+    - Status tags are "Due Nov 22" (a due date in this period) or "Next: Dec 10". "Paid Nov 15" waits for Week 5.
+    - No "still due this period", no Paid / Still due stat cards and no Mark paid, all Week 5.
+  - **Per-payday amounts** use monthly amounts (quarterly ÷ 3, yearly ÷ 12), so the two bars add up to "Bills each month", as in the spec's example (₱2,700 + ₱2,500 = ₱5,200). A split bill's odd centavo goes to the second payday.
+  - **Desktop:** the same rows in a two-column layout with BILLS PER PAYDAY on the side, instead of the spec's table. The table's THIS PERIOD column is mostly Mark paid, which waits for Week 5.
+  - **The bill tile** uses the bill's category colour, not a fixed yellow.
+  - **Add bill and the row links** go to `?add=1` and `?edit=…`, which open the sheet in 4c-2. They do nothing until then; push both together.
+- **Tests:** 11 new unit tests (358 pass), lint, typecheck and the build. Not browser-checked.
+- **Next:** 4c-2, the New and Edit bill sheet and Delete bill.
+
 ## 2026-11-24 · Week 4 · 4b Bill, debt and pot math, and their Zod schemas
 - **What:** Pure functions and form schemas for Week 4's screens, tests first.
   - **`lib/bills.ts`:**

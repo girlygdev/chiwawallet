@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { billDueDates, billMonths, billsPerMonth, nextBillDue } from "@/lib/bills";
+import {
+  billDueDates,
+  billMonths,
+  billScheduleLine,
+  billsPerMonth,
+  billsPerPayday,
+  billStatus,
+  heavyPayday,
+  nextBillDue,
+  paydayShares,
+  splitHalves,
+  suggestedBillSlot,
+} from "@/lib/bills";
 
 const monthly = (due_day: number) => ({ frequency: "monthly" as const, due_day, first_due_month: null });
 
@@ -90,5 +102,99 @@ describe("billsPerMonth", () => {
 
   it("is 0 with no bills", () => {
     expect(billsPerMonth([])).toBe(0);
+  });
+});
+
+const twiceAMonth = { frequency: "semi_monthly" as const, payDay1: 15, payDay2: 30 };
+const bill = (amount: number, frequency: "monthly" | "quarterly" | "yearly", pay_slot: string) => ({ amount, frequency, pay_slot });
+
+describe("billsPerPayday", () => {
+  it("adds each payday's bills as monthly amounts; split bills count half on each (bills.md §1)", () => {
+    // 15th: ₱1,700 + half of ₱2,000 = ₱2,700. 30th: ₱3,000 quarterly (₱1,000 a month) + half of ₱2,000 + ₱6,000 yearly (₱500) = ₱2,500.
+    expect(
+      billsPerPayday(
+        [
+          bill(170_000, "monthly", "payday_1"),
+          bill(200_000, "monthly", "split"),
+          bill(300_000, "quarterly", "payday_2"),
+          bill(600_000, "yearly", "payday_2"),
+        ],
+        twiceAMonth,
+      ),
+    ).toEqual({ payday_1: 270_000, payday_2: 250_000 });
+  });
+
+  it("is null on one-payday budgets (the per-payday section is hidden)", () => {
+    expect(billsPerPayday([bill(170_000, "monthly", "every")], { frequency: "monthly", payDay1: 30 })).toBeNull();
+    expect(billsPerPayday([bill(170_000, "monthly", "every")], { frequency: "weekly", payWeekday: 5 })).toBeNull();
+  });
+});
+
+describe("heavyPayday", () => {
+  it("names the payday carrying more than 60%", () => {
+    expect(heavyPayday({ payday_1: 610, payday_2: 390 })).toBe("payday_1");
+    expect(heavyPayday({ payday_1: 300, payday_2: 700 })).toBe("payday_2");
+  });
+
+  it("is null when balanced (60% or less each), or with no bills", () => {
+    expect(heavyPayday({ payday_1: 600, payday_2: 400 })).toBeNull();
+    expect(heavyPayday({ payday_1: 270_000, payday_2: 250_000 })).toBeNull();
+    expect(heavyPayday({ payday_1: 0, payday_2: 0 })).toBeNull();
+  });
+});
+
+describe("suggestedBillSlot", () => {
+  it("is the last payday on or before the due day (bills.md §1)", () => {
+    expect(suggestedBillSlot(10, twiceAMonth)).toBe("payday_2"); // the 30th, the month before
+    expect(suggestedBillSlot(22, twiceAMonth)).toBe("payday_1");
+    expect(suggestedBillSlot(15, twiceAMonth)).toBe("payday_1");
+    expect(suggestedBillSlot(30, twiceAMonth)).toBe("payday_2");
+    expect(suggestedBillSlot(31, twiceAMonth)).toBe("payday_2");
+  });
+
+  it("is every on one-payday budgets", () => {
+    expect(suggestedBillSlot(10, { frequency: "monthly", payDay1: 30 })).toBe("every");
+  });
+});
+
+describe("billStatus", () => {
+  const period = { start: "2026-11-15", end: "2026-11-29" };
+
+  it("is due when a due date falls in the current period", () => {
+    expect(billStatus(monthly(22), period)).toEqual({ kind: "due", date: "2026-11-22" });
+  });
+
+  it("otherwise shows the next due date after the period", () => {
+    expect(billStatus(monthly(10), period)).toEqual({ kind: "next", date: "2026-12-10" });
+    expect(billStatus({ frequency: "yearly", due_day: 30, first_due_month: 3 }, period)).toEqual({
+      kind: "next",
+      date: "2027-03-30",
+    });
+  });
+});
+
+describe("billScheduleLine", () => {
+  it("says when it's due", () => {
+    expect(billScheduleLine(monthly(20), "2026-11-20")).toBe("Due every 20th");
+    expect(billScheduleLine({ frequency: "quarterly", due_day: 5, first_due_month: 11 }, "2026-11-20")).toBe(
+      "Quarterly · 5th of Feb, May, Aug, Nov",
+    );
+    expect(billScheduleLine({ frequency: "yearly", due_day: 30, first_due_month: 11 }, "2026-11-20")).toBe(
+      "Yearly · next Nov 30",
+    );
+  });
+});
+
+describe("splitHalves", () => {
+  it("splits a bill across both paydays; an odd centavo goes to the second", () => {
+    expect(splitHalves(200_000)).toEqual({ payday_1: 100_000, payday_2: 100_000 });
+    expect(splitHalves(45_001)).toEqual({ payday_1: 22_500, payday_2: 22_501 });
+  });
+});
+
+describe("paydayShares", () => {
+  it("is each payday's share of the bills, for the bars", () => {
+    expect(paydayShares({ payday_1: 300, payday_2: 100 })).toEqual({ payday_1: 0.75, payday_2: 0.25 });
+    expect(paydayShares({ payday_1: 0, payday_2: 0 })).toEqual({ payday_1: 0, payday_2: 0 });
   });
 });
