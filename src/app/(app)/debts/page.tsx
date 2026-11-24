@@ -17,7 +17,7 @@ import {
   paymentStatusText,
 } from "@/lib/debts";
 import { formatPeso } from "@/lib/money";
-import { formatShortDate, getPeriod, type PaySchedule, scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { formatMonthYear, formatShortDate, getPeriod, type PaySchedule, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { potProgress } from "@/lib/pots";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
@@ -63,7 +63,7 @@ async function DebtsContent() {
     supabase
       .from("debts")
       .select(
-        "id, name, lender, total_amount, payment_type, num_payments, payment_amount, first_due_date, interest_rate, paid_off_at",
+        "id, name, lender, total_amount, payment_type, num_payments, payment_amount, first_due_date, interest_rate, paid_off_at, target_date",
       )
       .order("first_due_date"),
     // Every live payment, for what's been paid ("left" is never stored).
@@ -186,8 +186,9 @@ async function DebtsContent() {
       )}
 
       <DebtSheet
-        debts={debts.map(({ paid, ...debt }) => ({ ...debt, left: debtProgress(debt, paid, today, period).left }))}
+        debts={debts.map((debt) => ({ ...debt, left: debtProgress(debt, debt.paid, today, period).left }))}
         schedule={schedule}
+        today={today}
       />
     </>
   );
@@ -228,7 +229,7 @@ function DebtCard({
   const next = progress.payments.find((p) => p.status !== "paid");
   const count = progress.payments.length;
   const detail = [
-    debt.payment_type === "one_time" ? "One payment" : `${count} payments`,
+    debt.payment_type === "one_time" ? "One payment" : debt.payment_type === "flexible" ? "When I can" : `${count} payments`,
     debt.interest_rate != null ? `${debt.interest_rate}% interest` : null,
     debt.lender,
   ]
@@ -264,38 +265,56 @@ function DebtCard({
         </p>
       )}
 
-      <ol className="flex flex-col divide-y divide-line-soft">
-        {progress.payments.map((p) => {
-          const payday = formatShortDate(paydayFor(p.due, schedule));
-          return (
-            <li key={p.number} className="flex items-center gap-3 py-2.5">
-              <span
-                aria-hidden
-                className={cn(
-                  "flex size-6 shrink-0 items-center justify-center rounded-full",
-                  p.status === "paid" ? "bg-green-600 text-white" : "border-2 border-line",
-                )}
-              >
-                {p.status === "paid" && <Check size={14} strokeWidth={3} />}
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-extrabold text-ink">
-                  Payment {p.number} of {count}
+      {/* "When I can" (Nov 24): no schedule, just how much is paid and the target. */}
+      {debt.payment_type === "flexible" && (
+        <div className="flex flex-col gap-1.5">
+          <span aria-hidden className="block h-2 overflow-hidden rounded-full bg-track">
+            <span
+              className="block h-full rounded-full bg-green-600"
+              style={{ width: `${(potProgress(Math.min(debt.paid, debt.total_amount), debt.total_amount) ?? 0) * 100}%` }}
+            />
+          </span>
+          <p className="flex justify-between gap-2 text-[13px] text-text-2">
+            <span>{formatPeso(progress.paid)} paid so far</span>
+            <span>{debt.target_date ? `Aiming for ${formatMonthYear(debt.target_date)}` : "Pay whenever you have extra"}</span>
+          </p>
+        </div>
+      )}
+
+      {progress.payments.length > 0 && (
+        <ol className="flex flex-col divide-y divide-line-soft">
+          {progress.payments.map((p) => {
+            const payday = formatShortDate(paydayFor(p.due, schedule));
+            return (
+              <li key={p.number} className="flex items-center gap-3 py-2.5">
+                <span
+                  aria-hidden
+                  className={cn(
+                    "flex size-6 shrink-0 items-center justify-center rounded-full",
+                    p.status === "paid" ? "bg-green-600 text-white" : "border-2 border-line",
+                  )}
+                >
+                  {p.status === "paid" && <Check size={14} strokeWidth={3} />}
                 </span>
-                <span className="truncate text-[13px] text-text-3">
-                  {formatShortDate(p.due)} · {p.status === "paid" ? "paid from" : "planned in"} {payday} payday
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-sm font-extrabold text-ink">
+                    Payment {p.number} of {count}
+                  </span>
+                  <span className="truncate text-[13px] text-text-3">
+                    {formatShortDate(p.due)} · {p.status === "paid" ? "paid from" : "planned in"} {payday} payday
+                  </span>
                 </span>
-              </span>
-              <span className="flex shrink-0 flex-col items-end gap-1">
-                <span className="text-sm font-extrabold text-ink">{formatPeso(p.amount)}</span>
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_TONE[p.status])}>
-                  {paymentStatusText(p, today)}
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="text-sm font-extrabold text-ink">{formatPeso(p.amount)}</span>
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_TONE[p.status])}>
+                    {paymentStatusText(p, today)}
+                  </span>
                 </span>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+              </li>
+            );
+          })}
+        </ol>
+      )}
 
       <Link
         href={`/debts?edit=${debt.id}`}

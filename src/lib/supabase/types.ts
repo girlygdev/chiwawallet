@@ -194,45 +194,48 @@ export type Database = {
       debts: {
         Row: {
           created_at: string
-          first_due_date: string
+          first_due_date: string | null
           id: string
           interest_rate: number | null
           lender: string | null
           name: string
-          num_payments: number
+          num_payments: number | null
           paid_off_at: string | null
-          payment_amount: number
+          payment_amount: number | null
           payment_type: string
+          target_date: string | null
           total_amount: number
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
-          first_due_date: string
+          first_due_date?: string | null
           id?: string
           interest_rate?: number | null
           lender?: string | null
           name: string
-          num_payments: number
+          num_payments?: number | null
           paid_off_at?: string | null
-          payment_amount: number
+          payment_amount?: number | null
           payment_type: string
+          target_date?: string | null
           total_amount: number
           updated_at?: string
           user_id?: string
         }
         Update: {
           created_at?: string
-          first_due_date?: string
+          first_due_date?: string | null
           id?: string
           interest_rate?: number | null
           lender?: string | null
           name?: string
-          num_payments?: number
+          num_payments?: number | null
           paid_off_at?: string | null
-          payment_amount?: number
+          payment_amount?: number | null
           payment_type?: string
+          target_date?: string | null
           total_amount?: number
           updated_at?: string
           user_id?: string

@@ -4,6 +4,7 @@ import {
   debtProgress,
   debtSchedule,
   debtsSummary,
+  flexibleMonthly,
   isPaidOff,
   paydayFor,
   paymentStatusText,
@@ -187,5 +188,47 @@ describe("paymentStatusText", () => {
     expect(at("planned", "2026-12-25")).toBe("Planned");
     expect(at("late", "2026-11-17", 3)).toBe("Late · 3 days");
     expect(at("late", "2026-11-19", 1)).toBe("Late · 1 day");
+  });
+});
+
+describe("When I can (flexible debts, Nov 24)", () => {
+  const tita = {
+    total_amount: 1_000_000,
+    payment_type: "flexible" as const,
+    num_payments: null,
+    payment_amount: null,
+    first_due_date: null,
+    target_date: null,
+  };
+
+  it("has no schedule, never late, and no debt-free date without a target", () => {
+    expect(debtSchedule(tita)).toEqual([]);
+    expect(debtProgress(tita, 300_000, "2026-11-20", period)).toEqual({
+      paid: 300_000,
+      left: 700_000,
+      paidOff: false,
+      paymentsMade: 0,
+      debtFreeBy: null,
+      payments: [],
+    });
+  });
+
+  it("with a target month, is debt-free by the end of that month", () => {
+    expect(debtProgress({ ...tita, target_date: "2027-06-01" }, 0, "2026-11-20", period).debtFreeBy).toBe("2027-06-30");
+  });
+
+  it("counts in total owed but never in due this period", () => {
+    const summary = debtsSummary([{ ...tita, name: "Owe Tita", paid: 300_000, paid_off_at: null }], "2026-11-20", period);
+    expect(summary).toMatchObject({ totalOwed: 700_000, dueThisPeriod: 0, nextDue: null, debtFreeBy: null, activeCount: 1 });
+  });
+
+  it("suggests about how much a month to make the target (rounded up to ₱100)", () => {
+    // ₱7,000 left, Nov 2026 to Jun 2027 = 8 months → ₱875 → ₱900.
+    expect(flexibleMonthly(700_000, "2026-11-20", "2027-06-01")).toBe(90_000);
+    // This month: all of it.
+    expect(flexibleMonthly(700_000, "2026-11-20", "2026-11-01")).toBe(700_000);
+    // A month already gone, or nothing left: no suggestion.
+    expect(flexibleMonthly(700_000, "2026-11-20", "2026-10-01")).toBeNull();
+    expect(flexibleMonthly(0, "2026-11-20", "2027-06-01")).toBeNull();
   });
 });

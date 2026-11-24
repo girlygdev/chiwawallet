@@ -4,9 +4,11 @@ import { formatPeso, parsePesoInput } from "@/lib/money";
 // New and Edit debt (debts.md §4). Shared by the form and its Server Actions.
 // Money arrives as typed text and leaves as integer centavos.
 
-export const PAYMENT_TYPES = ["installments", "one_time"] as const;
+/** "flexible" is "When I can" (owner, Nov 24): no schedule, pay whenever there's extra. */
+export const PAYMENT_TYPES = ["installments", "one_time", "flexible"] as const;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 // 0 to 100 with up to two decimals, like the database's numeric(5, 2).
 const RATE = /^\d{1,3}(\.\d{1,2})?$/;
 const RATE_MESSAGE = "Enter a rate from 0 to 100, like 3.5.";
@@ -31,8 +33,11 @@ export const debtSchema = z
     numPayments: z.number(),
     // Installments only, as typed; checked below.
     payment: z.string(),
-    firstDueDate: z.string().regex(ISO_DATE, "Pick the first due date."),
+    // Installments and one payment; checked below ("" for flexible).
+    firstDueDate: z.string(),
     interestRate: z.string().trim(),
+    // Flexible only: "Aim to pay off by" as "YYYY-MM", or "" (optional).
+    targetMonth: z.string().optional().default(""),
   })
   .superRefine((v, ctx) => {
     const issue = (path: string, message: string) => ctx.addIssue({ code: "custom", path: [path], message });
@@ -40,6 +45,11 @@ export const debtSchema = z
     if (v.interestRate !== "" && !(RATE.test(v.interestRate) && Number(v.interestRate) <= 100)) {
       issue("interestRate", RATE_MESSAGE);
     }
+    if (v.paymentType === "flexible") {
+      if (v.targetMonth !== "" && !MONTH.test(v.targetMonth)) issue("targetMonth", "Pick a month.");
+      return;
+    }
+    if (!ISO_DATE.test(v.firstDueDate)) issue("firstDueDate", "Pick the first due date.");
     if (v.paymentType !== "installments") return;
 
     const n = v.numPayments;
@@ -68,16 +78,20 @@ export const debtSchema = z
   })
   .transform((v) => {
     const oneTime = v.paymentType === "one_time";
+    const flexible = v.paymentType === "flexible";
     return {
       name: v.name,
       lender: v.lender === "" ? null : v.lender,
       total: v.total,
       paymentType: v.paymentType,
-      // A one-time debt is one payment of the whole amount (the database checks it).
-      numPayments: oneTime ? 1 : v.numPayments,
-      payment: oneTime ? v.total : parsePesoInput(v.payment)!,
-      firstDueDate: v.firstDueDate,
+      // One payment is the whole amount; a flexible debt has no schedule at
+      // all (the database checks each type's fields).
+      numPayments: flexible ? null : oneTime ? 1 : v.numPayments,
+      payment: flexible ? null : oneTime ? v.total : parsePesoInput(v.payment)!,
+      firstDueDate: flexible ? null : v.firstDueDate,
       interestRate: v.interestRate === "" ? null : Number(v.interestRate),
+      // Stored as the 1st of the month; flexible debts only.
+      targetDate: flexible && v.targetMonth !== "" ? `${v.targetMonth}-01` : null,
     };
   });
 

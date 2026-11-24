@@ -268,3 +268,42 @@ describe("logged-out visitors", () => {
     expect((await anon.from("debts").insert(debt)).error).not.toBeNull();
   });
 });
+
+describe("debts: When I can (flexible, Nov 24)", () => {
+  const flexible = { name: "Owe Tita", total_amount: 1_000_000, payment_type: "flexible" };
+
+  it("adds a flexible debt with no schedule, with or without a target month", async () => {
+    const s = await setUp();
+    const row = await create(s, "debts", flexible);
+    expect(row).toMatchObject({ num_payments: null, payment_amount: null, first_due_date: null, target_date: null });
+    const aimed = await create(s, "debts", { ...flexible, name: "Owe Kuya", target_date: "2027-06-01" });
+    expect(aimed.target_date).toBe("2027-06-01");
+  });
+
+  it("edits the target month", async () => {
+    const s = await setUp();
+    const row = await create(s, "debts", flexible);
+    const { data, error } = await s.user.client
+      .from("debts")
+      .update({ target_date: "2027-03-01" })
+      .eq("id", row.id)
+      .select("target_date")
+      .single();
+    expect(error).toBeNull();
+    expect(data!.target_date).toBe("2027-03-01");
+  });
+
+  it.each([
+    ["a flexible debt with payments", { ...flexible, num_payments: 3, payment_amount: 400_000 }],
+    ["a flexible debt with a due date", { ...flexible, first_due_date: "2026-12-01" }],
+    ["a target that isn't the 1st", { ...flexible, target_date: "2027-06-15" }],
+    ["installments with a target month", { ...debt, target_date: "2027-06-01" }],
+    ["installments without a due date", { ...debt, first_due_date: null }],
+    ["installments without a payment amount", { ...debt, payment_amount: null }],
+    ["an unknown payment type", { ...flexible, payment_type: "someday" }],
+  ])("rejects %s", async (_label, fields) => {
+    const s = await setUp();
+    const { error } = await s.user.client.from("debts").insert(fields);
+    expect(error?.code).toBe(CHECK_VIOLATION);
+  });
+});

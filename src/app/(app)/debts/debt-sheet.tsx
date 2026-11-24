@@ -12,6 +12,8 @@ import { addDebt, deleteDebt, setDebtPaidOff, updateDebt } from "./actions";
 type SheetDebt = EditableDebt & {
   /** What's left, for the delete dialog. */
   left: number;
+  /** Paid so far, for the "When I can" monthly hint. */
+  paid: number;
 };
 
 // New / Edit debt and the Delete dialog, following the page address like
@@ -20,7 +22,7 @@ type SheetDebt = EditableDebt & {
 //   /debts?edit=<id>      Edit debt (with Mark as paid off)
 //   /debts?delete=<id>    Delete debt?
 // Closing clears the address.
-export function DebtSheet({ debts, schedule }: { debts: SheetDebt[]; schedule: PaySchedule }) {
+export function DebtSheet({ debts, schedule, today }: { debts: SheetDebt[]; schedule: PaySchedule; today: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -44,6 +46,8 @@ export function DebtSheet({ debts, schedule }: { debts: SheetDebt[]; schedule: P
             // A fresh form per debt, so its fields start from that debt.
             key={editing?.id ?? "add"}
             schedule={schedule}
+            today={today}
+            paidSoFar={editing?.paid ?? 0}
             debt={editing}
             onSave={(input) => (editing ? updateDebt(editing.id, input) : addDebt(input))}
             onPaidOffChange={editing ? (paidOff) => setDebtPaidOff(editing.id, paidOff) : undefined}

@@ -9,9 +9,9 @@ import { SubmitButton } from "@/components/auth/submit-button";
 import { FieldShell, inputClassName, TextField } from "@/components/auth/text-field";
 import { MoneyInput } from "@/components/money-input";
 import { Segmented } from "@/components/segmented";
-import { type DebtTerms, debtSchedule, paydayFor } from "@/lib/debts";
+import { type DebtTerms, debtProgress, debtSchedule, flexibleMonthly, paydayFor } from "@/lib/debts";
 import { formatPeso, formatPesoInput, parsePesoInput } from "@/lib/money";
-import { formatShortDate, type PaySchedule } from "@/lib/periods";
+import { formatMonthYear, formatShortDate, type PaySchedule } from "@/lib/periods";
 import { cn } from "@/lib/utils";
 import {
   type DebtFormInput,
@@ -32,6 +32,7 @@ export type EditableDebt = DebtTerms & {
 export type DebtFormResult = { ok?: true; formError?: string; fieldErrors?: Partial<Record<string, string>> };
 
 const FIELD_ORDER = ["name", "lender", "total", "numPayments", "firstDueDate", "payment", "interestRate"] as const;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const COUNTS = Array.from({ length: 59 }, (_, i) => i + 2);
 /** The preview shows this many payments, then "…", then the last one. */
 const PREVIEW_ROWS = 6;
@@ -44,6 +45,8 @@ const PREVIEW_ROWS = 6;
  */
 export function DebtForm({
   schedule,
+  today,
+  paidSoFar = 0,
   debt,
   onSave,
   onPaidOffChange,
@@ -51,6 +54,10 @@ export function DebtForm({
   onDone,
 }: {
   schedule: PaySchedule;
+  /** Manila "YYYY-MM-DD", for the "When I can" monthly hint. */
+  today: string;
+  /** Editing: what's been paid on it so far, so the hint uses what's left. */
+  paidSoFar?: number;
   /** Editing an existing debt; leave out to add one. */
   debt?: EditableDebt;
   onSave: (input: DebtFormInput) => Promise<DebtFormResult>;
@@ -82,10 +89,12 @@ export function DebtForm({
           lender: debt.lender ?? "",
           total: formatPesoInput(debt.total_amount),
           paymentType: debt.payment_type,
-          numPayments: debt.payment_type === "one_time" ? 3 : debt.num_payments,
-          payment: formatPesoInput(debt.payment_amount),
-          firstDueDate: debt.first_due_date,
+          // Hidden fields keep a sensible start in case the type is switched.
+          numPayments: debt.payment_type === "installments" ? (debt.num_payments ?? 3) : 3,
+          payment: debt.payment_amount != null ? formatPesoInput(debt.payment_amount) : "",
+          firstDueDate: debt.first_due_date ?? "",
           interestRate: debt.interest_rate != null ? String(debt.interest_rate) : "",
+          targetMonth: debt.target_date?.slice(0, 7) ?? "",
         }
       : {
           name: "",
@@ -96,14 +105,17 @@ export function DebtForm({
           payment: "",
           firstDueDate: "",
           interestRate: "",
+          targetMonth: "",
         },
   });
 
-  const [totalText, paymentType, numPayments, paymentText, firstDueDate] = useWatch({
+  const [totalText, paymentType, numPayments, paymentText, firstDueDate, targetMonth] = useWatch({
     control,
-    name: ["total", "paymentType", "numPayments", "payment", "firstDueDate"],
+    name: ["total", "paymentType", "numPayments", "payment", "firstDueDate", "targetMonth"],
   });
   const installments = paymentType === "installments";
+  // "When I can" (Nov 24): no schedule, so no count, due date or payment fields.
+  const flexible = paymentType === "flexible";
   const total = parsePesoInput(totalText ?? "");
   const validTotal = total != null && total > 0 ? total : null;
 
@@ -119,6 +131,7 @@ export function DebtForm({
     validTotal != null &&
     payment != null &&
     payment > 0 &&
+    !flexible &&
     /^\d{4}-\d{2}-\d{2}$/.test(firstDueDate ?? "") &&
     (!installments || payment * (numPayments - 1) < validTotal)
       ? {
@@ -130,7 +143,22 @@ export function DebtForm({
         }
       : null;
   const preview = terms ? debtSchedule(terms) : [];
-  const note = terms && installments ? lastPaymentNote(terms.total_amount, terms.num_payments, terms.payment_amount) : null;
+  const note =
+    terms && installments ? lastPaymentNote(terms.total_amount, numPayments, terms.payment_amount ?? 0) : null;
+  // "When I can" with a target month: about how much a month makes it (lib).
+  const flexibleLeft =
+    flexible && validTotal != null
+      ? debtProgress(
+          { total_amount: validTotal, payment_type: "flexible", num_payments: null, payment_amount: null, first_due_date: null },
+          paidSoFar,
+          today,
+          { start: today, end: today },
+        ).left
+      : 0;
+  const flexibleHint = flexible && targetMonth ? flexibleMonthly(flexibleLeft, today, `${targetMonth}-01`) : null;
+  const thisYear = Number(today.slice(0, 4));
+  const years = Array.from({ length: 11 }, (_, i) => thisYear + i);
+
   const shown =
     preview.length > PREVIEW_ROWS + 1 ? [...preview.slice(0, PREVIEW_ROWS), null, preview[preview.length - 1]] : preview;
 
@@ -155,10 +183,11 @@ export function DebtForm({
       lender: values.lender ?? "",
       total: totalText ?? "",
       paymentType: values.paymentType,
-      numPayments: installments ? values.numPayments : 1,
+      numPayments: installments ? numPayments : 1,
       payment: paymentText ?? "",
-      firstDueDate: values.firstDueDate,
+      firstDueDate: values.firstDueDate ?? "",
       interestRate: values.interestRate != null ? String(values.interestRate) : "",
+      targetMonth: flexible ? (targetMonth ?? "") : "",
     };
     startTransition(async () => finish(await onSave(input)));
   };
@@ -213,8 +242,9 @@ export function DebtForm({
             name={`${id}-type`}
             legend="How will you pay it?"
             options={[
-              { value: "installments", label: "In installments" },
+              { value: "installments", label: "Installments" },
               { value: "one_time", label: "One payment" },
+              { value: "flexible", label: "When I can" },
             ]}
             value={field.value}
             onChange={field.onChange}
@@ -223,7 +253,65 @@ export function DebtForm({
         )}
       />
 
-      <div className={cn("grid gap-3", installments && "grid-cols-2")}>
+      {/* "When I can": no schedule, only an optional month to aim for. */}
+      {flexible && (
+        <Controller
+          control={control}
+          name="targetMonth"
+          render={({ field }) => {
+            const [year, month] = field.value ? field.value.split("-") : ["", ""];
+            // Picking one half fills in the other, so the value is always a whole month.
+            const set = (y: string, m: string) => field.onChange(y || m ? `${y || thisYear}-${m || "01"}` : "");
+            return (
+              <fieldset className="flex flex-col gap-1.5">
+                <legend className="mb-1.5 text-sm font-bold text-ink">Aim to pay off by (optional)</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    aria-label="Month"
+                    value={month}
+                    onChange={(e) => set(year, e.target.value)}
+                    aria-invalid={errors.targetMonth ? true : undefined}
+                    className={cn(inputClassName, "h-12 appearance-auto")}
+                  >
+                    <option value="">—</option>
+                    {MONTHS.map((m, i) => (
+                      <option key={m} value={String(i + 1).padStart(2, "0")}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Year"
+                    value={year}
+                    onChange={(e) => set(e.target.value, month)}
+                    aria-invalid={errors.targetMonth ? true : undefined}
+                    className={cn(inputClassName, "h-12 appearance-auto")}
+                  >
+                    <option value="">—</option>
+                    {years.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {field.value && (
+                  <button
+                    type="button"
+                    onClick={() => field.onChange("")}
+                    className="self-start text-[13px] font-bold text-link outline-link focus-visible:outline-2"
+                  >
+                    Clear month
+                  </button>
+                )}
+                {errors.targetMonth && <p className="text-[13px] font-bold text-bad-fg">{errors.targetMonth.message}</p>}
+              </fieldset>
+            );
+          }}
+        />
+      )}
+
+      <div className={cn("grid gap-3", installments && "grid-cols-2", flexible && "hidden")}>
         {installments && (
           <Controller
             control={control}
@@ -314,10 +402,23 @@ export function DebtForm({
             {note && <p className="-mx-2 rounded-[10px] bg-warn-bg px-2 py-1 font-bold text-warn-fg">{note}</p>}
           </section>
         )}
+        {flexible && validTotal != null && (
+          <section aria-label="How it works" className="flex flex-col gap-1 rounded-[14px] bg-mint px-4 py-3 text-sm text-link-hover">
+            <p className="font-bold">Pay what you can, whenever you have extra. Nothing is ever late.</p>
+            {targetMonth && flexibleHint != null && (
+              <p>
+                To be debt-free by {formatMonthYear(`${targetMonth}-01`)}, pay about{" "}
+                <strong>{formatPeso(flexibleHint)}</strong> a month.
+              </p>
+            )}
+          </section>
+        )}
       </div>
 
       <p className="text-[13px] text-text-3">
-        Planned payments count as Needs; anything extra counts as Savings &amp; debt payoff.
+        {flexible
+          ? "Payments on it count as Savings & debt payoff, like extra payments."
+          : "Planned payments count as Needs; anything extra counts as Savings & debt payoff."}
       </p>
 
       <FormError message={formError} />

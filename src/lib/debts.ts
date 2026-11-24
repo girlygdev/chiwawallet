@@ -7,10 +7,14 @@ import { dateInMonth, getPeriod, type PaySchedule } from "@/lib/periods";
 
 export type DebtTerms = {
   total_amount: number;
-  payment_type: "installments" | "one_time";
-  num_payments: number;
-  payment_amount: number;
-  first_due_date: string;
+  /** "flexible" is "When I can" (Nov 24): no schedule, pay whenever there's extra. */
+  payment_type: "installments" | "one_time" | "flexible";
+  /** Empty for flexible debts (the database checks each type's fields). */
+  num_payments: number | null;
+  payment_amount: number | null;
+  first_due_date: string | null;
+  /** Flexible debts only: "Aim to pay off by", the 1st of that month. */
+  target_date?: string | null;
 };
 
 export type ScheduledPayment = { number: number; due: string; amount: number };
@@ -19,14 +23,16 @@ export type ScheduledPayment = { number: number; due: string; amount: number };
  * The payment schedule: `num_payments` payments, monthly from the first due
  * date, keeping its day (the 31st falls on a shorter month's last day,
  * debts.md fix #5). The last payment is whatever is left, so an uneven
- * amount still adds up to the total. A one-time debt is one payment.
+ * amount still adds up to the total. A one-time debt is one payment; a
+ * flexible ("When I can") debt has none.
  */
 export function debtSchedule(debt: DebtTerms): ScheduledPayment[] {
+  if (debt.payment_type === "flexible" || debt.first_due_date == null) return [];
   const year = Number(debt.first_due_date.slice(0, 4));
   const month = Number(debt.first_due_date.slice(5, 7));
   const day = Number(debt.first_due_date.slice(8, 10));
-  const count = debt.payment_type === "one_time" ? 1 : debt.num_payments;
-  const each = debt.payment_type === "one_time" ? debt.total_amount : debt.payment_amount;
+  const count = debt.payment_type === "one_time" ? 1 : (debt.num_payments ?? 1);
+  const each = debt.payment_type === "one_time" ? debt.total_amount : (debt.payment_amount ?? debt.total_amount);
 
   return Array.from({ length: count }, (_, i) => ({
     number: i + 1,
@@ -49,8 +55,11 @@ export type DebtProgress = {
   paidOff: boolean;
   /** How many scheduled payments the paid amount fully covers. */
   paymentsMade: number;
-  /** The last due date in the schedule (debts.md §1 "Debt-free by"). */
-  debtFreeBy: string;
+  /**
+   * The last due date in the schedule (debts.md §1 "Debt-free by"). For a
+   * flexible debt, the end of its target month, or null without one.
+   */
+  debtFreeBy: string | null;
   payments: (ScheduledPayment & { status: PaymentStatus; daysLate?: number })[];
 };
 
@@ -92,9 +101,33 @@ export function debtProgress(
     left,
     paidOff: left === 0,
     paymentsMade,
-    debtFreeBy: schedule[schedule.length - 1].due,
+    debtFreeBy: schedule.length > 0 ? schedule[schedule.length - 1].due : targetMonthEnd(debt.target_date),
     payments,
   };
+}
+
+// A target month ("2027-06-01") → its last day ("2027-06-30"), or null.
+function targetMonthEnd(target: string | null | undefined): string | null {
+  if (!target) return null;
+  return dateInMonth(Number(target.slice(0, 4)), Number(target.slice(5, 7)), 31);
+}
+
+/**
+ * New debt's hint for a flexible debt with a target (Nov 24): "To be
+ * debt-free by Jun 2027, pay about ₱900 a month." What's left over the
+ * months from this one to the target month, rounded up to ₱100. Null when
+ * nothing is left or the month has passed.
+ */
+export function flexibleMonthly(left: number, today: string, targetDate: string): number | null {
+  if (left <= 0) return null;
+  const months =
+    (Number(targetDate.slice(0, 4)) - Number(today.slice(0, 4))) * 12 +
+    (Number(targetDate.slice(5, 7)) - Number(today.slice(5, 7))) +
+    1;
+  if (months < 1) return null;
+  // Whole ₱100 steps (10,000 centavos), rounded up so the target is met.
+  const STEP = 10_000;
+  return Math.ceil(left / (months * STEP)) * STEP;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +200,9 @@ export function debtsSummary(
       summary.dueThisPeriod += p.amount;
       if (!summary.nextDue || p.due < summary.nextDue.date) summary.nextDue = { name: debt.name, date: p.due };
     }
-    if (!summary.debtFreeBy || progress.debtFreeBy > summary.debtFreeBy) summary.debtFreeBy = progress.debtFreeBy;
+    // A flexible debt without a target has no date, so it doesn't move this.
+    const by = progress.debtFreeBy;
+    if (by && (!summary.debtFreeBy || by > summary.debtFreeBy)) summary.debtFreeBy = by;
   }
   return summary;
 }

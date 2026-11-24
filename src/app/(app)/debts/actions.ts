@@ -86,6 +86,7 @@ function toRow(values: DebtValues) {
     payment_amount: values.payment,
     first_due_date: values.firstDueDate,
     interest_rate: values.interestRate,
+    target_date: values.targetDate,
   };
 }
 

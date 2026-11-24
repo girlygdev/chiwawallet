@@ -2,6 +2,33 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 (extra) · "When I can" debts
+- **What:** A third answer to "How will you pay it?": **Installments · One payment · When I can**, for debts with no schedule (owner: "I can only pay it when I have extra money for it").
+  - **New debt:** hides Number of payments, the due date and Each payment, and shows an optional **Aim to pay off by** month, plus "Pay what you can, whenever you have extra. Nothing is ever late." and, with a month, "To be debt-free by Jun 2027, pay about ₱900 a month."
+  - **Its card:** "When I can", "₱7,000 left of ₱10,000", a paid bar, "₱3,000 paid so far" and "Aiming for Jun 2027" (or "Pay whenever you have extra"). No next payment, no schedule.
+- **Files:**
+  - New: `supabase/migrations/20261124170000_flexible_debts.sql`
+  - Edited:
+    - `src/lib/debts.ts`: `DebtTerms` nullable schedule fields and `target_date`, `debtSchedule` / `debtProgress` / `debtsSummary` handle flexible, new `flexibleMonthly`.
+    - `src/lib/validation/debt.ts`: `flexible`, `targetMonth` → `targetDate`.
+    - `src/components/debts/debt-form.tsx`, `src/app/(app)/debts/page.tsx`, `debt-sheet.tsx`, `actions.ts`.
+    - `src/lib/supabase/types.ts` (by hand).
+    - Tests in `tests/lib/` and `tests/db/pots-and-debts.test.ts`.
+    - `docs/mvp-brief.md` (data model), `docs/designs/debts.md` (§4 note).
+- **Decisions (owner, Nov 24, Claude's recommendations):**
+  - **Label "When I can".** The optional target is a month, stored as its 1st, like a pot's target date.
+  - **Migration:**
+    - `payment_type` allows `flexible`.
+    - `num_payments`, `payment_amount` and `first_due_date` become nullable.
+    - New `target_date`.
+    - `debts_payments_match_type` rewritten so each type has exactly its fields (flexible: no schedule; only flexible may have a target).
+    - Existing debts are unchanged.
+  - **Totals:** a flexible debt is never Due or Late and adds nothing to Due this period; it counts in Total owed and Paid off so far. It sets Debt-free by (the end of its target month) only with a target.
+  - **Payments** on it count as extra payments (Savings & debt payoff). They come with Week 6's Transfer → To a debt and Pay extra. Week 5's plan never adds it automatically.
+  - **The monthly hint** (`flexibleMonthly`) is what's left ÷ months from this one to the target month, rounded up to ₱100.
+- **Tests:** 9 new database tests (224 pass) and 7 new unit tests (396 pass). Lint, typecheck and the build pass. Not browser-checked.
+- **Live:** the migration is local only. It must go live **before** this code: the new code reads and writes `target_date`, which doesn't exist on live yet, so pushing the code first would break the Debts page and saving debts.
+
 ## 2026-11-24 · Week 4 (fix) · Date fields too wide on mobile
 - **What:** On the owner's phone, the date field was wider than its neighbour in New debt (Due date next to Number of payments) and in the Income sheet (Ends next to Starts).
 - **Files:** `src/components/auth/text-field.tsx`

@@ -57,6 +57,8 @@ Routes: `/debts`, `/debts/[debtId]`, `/debts/new`.
 
 ## 4. New debt
 
+> **Added Nov 24 (owner): "When I can".** "How will you pay it?" has a third option for debts with no schedule (family, friends): pay whenever there's extra. It hides Number of payments, the due date and Each payment, and shows an optional **Aim to pay off by** month with "To be debt-free by Jun 2027, pay about ₱900 a month." The card shows "When I can", the paid bar and the target instead of a schedule. It's never Due or Late, counts in Total owed, and only sets Debt-free by when it has a target. Payments on it count as extra payments (Savings & debt payoff).
+
 A bottom sheet on mobile, a dialog or side panel on desktop. Title "New debt", subtitle "Loans, credit cards, BNPL or money you owe someone."
 
 | Field | Control | Example | Saves to |

@@ -29,6 +29,7 @@ describe("debtSchema", () => {
       payment: 400_000,
       firstDueDate: "2026-11-25",
       interestRate: 3.5,
+      targetDate: null,
     });
   });
 
@@ -84,5 +85,30 @@ describe("lastPaymentNote", () => {
   it("is null when they match, or for one payment", () => {
     expect(lastPaymentNote(1_200_000, 3, 400_000)).toBeNull();
     expect(lastPaymentNote(500_000, 1, 500_000)).toBeNull();
+  });
+});
+
+describe("debtSchema: When I can (flexible, Nov 24)", () => {
+  const flexible = { ...valid, paymentType: "flexible", numPayments: 7, payment: "", firstDueDate: "", targetMonth: "" };
+
+  it("has no schedule, whatever the hidden fields hold", () => {
+    expect(debtSchema.parse(flexible)).toMatchObject({
+      paymentType: "flexible",
+      numPayments: null,
+      payment: null,
+      firstDueDate: null,
+      targetDate: null,
+    });
+  });
+
+  it("takes an optional target month as its first day", () => {
+    expect(debtSchema.parse({ ...flexible, targetMonth: "2027-06" }).targetDate).toBe("2027-06-01");
+    const result = debtSchema.safeParse({ ...flexible, targetMonth: "June" });
+    expect(result.success).toBe(false);
+  });
+
+  it("installments and one payment still need a due date, and drop any target", () => {
+    expect(errorsFor({ firstDueDate: "" }).firstDueDate).toBe("Pick the first due date.");
+    expect(debtSchema.parse({ ...valid, targetMonth: "2027-06" }).targetDate).toBeNull();
   });
 });
