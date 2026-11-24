@@ -27,6 +27,25 @@ const CHIPS: { value: ActivityFilter; label: string }[] = [
   { value: "savings", label: "Savings" },
 ];
 
+/**
+ * What the delete dialog (and Edit's Delete link) shows for a row. Shared by
+ * Activity and the Dashboard's Recent activity. `impact` is editImpact(the
+ * row's period, row, 0); `periodLabel` is "this period" or "Nov 1 – 14".
+ */
+export function deleteTargetFor(row: ActivityRow, impact: DeleteTarget["impact"], periodLabel: string): DeleteTarget {
+  const { name, detail } = rowLabels(row);
+  return {
+    id: row.id,
+    name,
+    detail: `${detail} · ${formatShortDate(row.date)}`,
+    signedAmount: signedAmount(row),
+    icon: row.category.icon,
+    color: row.category.color,
+    impact,
+    periodLabel,
+  };
+}
+
 // The period's rows (activity.md §1–2), filtered in the browser: the whole
 // period loads at once (owner, Nov 23), so chips, search and the category
 // select are instant. Mobile shows day groups of row cards; desktop a table.
@@ -49,19 +68,7 @@ export function ActivityList({
 
   // What the delete dialog shows for a row. The effect uses every row of the
   // period, not just the ones a filter leaves.
-  const deleteTarget = (row: ActivityRow): DeleteTarget => {
-    const { name, detail } = rowLabels(row);
-    return {
-      id: row.id,
-      name,
-      detail: `${detail} · ${formatShortDate(row.date)}`,
-      signedAmount: signedAmount(row),
-      icon: row.category.icon,
-      color: row.category.color,
-      impact: editImpact(rows, row, 0),
-      periodLabel,
-    };
-  };
+  const deleteTarget = (row: ActivityRow) => deleteTargetFor(row, editImpact(rows, row, 0), periodLabel);
   const actions: RowActions = {
     edit: (row) => sheet.openEditSheet(row.id, deleteTarget(row)),
     remove: (row) => sheet.openDelete(deleteTarget(row)),

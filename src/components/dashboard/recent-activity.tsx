@@ -1,12 +1,28 @@
+"use client";
+
 import Link from "next/link";
-import { RowSummary } from "@/components/activity/activity-list";
-import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
+import { deleteTargetFor, RowSummary } from "@/components/activity/activity-list";
+import { OpenAddSheetButton, useTransactionSheet } from "@/components/transactions/add-transaction-provider";
+import type { DeleteTarget } from "@/components/transactions/delete-transaction-dialog";
 import { type ActivityRow, dayHeading, rowLabels } from "@/lib/activity";
+import { formatPeso } from "@/lib/money";
+import { signedAmount } from "@/lib/transactions";
+
+/** A recent row plus what its Delete link shows, worked out on the server. */
+export type RecentRow = ActivityRow & {
+  /** editImpact(the row's period, row, 0) */
+  impact: DeleteTarget["impact"];
+  /** "this period", or "Nov 1 – 14" for an older one. */
+  periodLabel: string;
+};
 
 // Recent activity (dashboard.md §2.7): the last four transactions, in
-// Activity's row style, then See all. Rows aren't buttons here; editing
-// lives in Activity.
-export function RecentActivity({ rows, today }: { rows: ActivityRow[]; today: string }) {
+// Activity's row style, then See all. Tapping a row opens Edit transaction,
+// the same sheet as Activity, with its Delete link (owner, Nov 24). The
+// provider refreshes the page after a save or delete, so the cards update.
+export function RecentActivity({ rows, today }: { rows: RecentRow[]; today: string }) {
+  const sheet = useTransactionSheet();
+
   return (
     <section aria-labelledby="recent-title" className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
@@ -40,8 +56,16 @@ export function RecentActivity({ rows, today }: { rows: ActivityRow[]; today: st
           {rows.map((row) => {
             const { name, detail } = rowLabels(row);
             return (
-              <li key={row.id} className="flex items-center gap-3 px-3.5 py-3">
-                <RowSummary row={row} name={name} detail={`${detail} · ${dayHeading(row.date, today)}`} />
+              <li key={row.id}>
+                {/* The row is the Edit button, like Activity's mobile rows. */}
+                <button
+                  type="button"
+                  onClick={() => sheet.openEditSheet(row.id, deleteTargetFor(row, row.impact, row.periodLabel))}
+                  aria-label={`Edit ${name}, ${formatPeso(signedAmount(row), { signed: true })}`}
+                  className="flex w-full items-center gap-3 rounded-[14px] px-3.5 py-3 text-left outline-link hover:bg-bg focus-visible:outline-2 focus-visible:-outline-offset-2"
+                >
+                  <RowSummary row={row} name={name} detail={`${detail} · ${dayHeading(row.date, today)}`} />
+                </button>
               </li>
             );
           })}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CashCard } from "@/components/dashboard/cash-card";
 import { IncomeCard } from "@/components/dashboard/income-card";
-import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { RecentActivity, type RecentRow } from "@/components/dashboard/recent-activity";
 import { PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
+import { editImpact } from "@/lib/transactions";
 
 export const metadata: Metadata = { title: "Dashboard · Chiwawallet" };
 
@@ -70,7 +71,7 @@ async function DashboardBody() {
     supabase
       .from("transactions")
       .select(
-        "id, type, amount, date, note, created_at, deleted_at, category:categories(id, name, icon, color), source:income_sources(name)",
+        "id, type, amount, date, note, created_at, deleted_at, period_id, category:categories(id, name, icon, color), source:income_sources(name)",
       )
       .is("deleted_at", null)
       .order("date", { ascending: false })
@@ -85,6 +86,37 @@ async function DashboardBody() {
   // only the four transaction types.
   type Rows = Parameters<typeof dashboardNumbers>[1];
   const numbers = dashboardNumbers(budget.opening_balance, earlierRows.data as Rows, periodRows.data as Rows);
+
+  // Recent rows open Edit transaction, whose Delete link shows the effect on
+  // the row's own period. Rows from earlier periods need those periods' rows
+  // and dates: one more round trip, only when there are any.
+  const recentRows = recent.data as unknown as (ActivityRow & { period_id: string })[];
+  const olderIds = [...new Set(recentRows.map((r) => r.period_id).filter((id) => id !== row.id))];
+  const [olderRows, olderPeriods] =
+    olderIds.length === 0
+      ? [{ data: [], error: null }, { data: [], error: null }]
+      : await Promise.all([
+          supabase
+            .from("transactions")
+            .select("period_id, type, amount, deleted_at")
+            .in("period_id", olderIds)
+            .is("deleted_at", null),
+          supabase.from("budget_periods").select("id, start_date, end_date").in("id", olderIds),
+        ]);
+  for (const result of [olderRows, olderPeriods]) {
+    if (result.error) throw new Error(`Couldn't load the dashboard: ${result.error.message}`, { cause: result.error });
+  }
+  const rowsOf = (periodId: string) =>
+    (periodId === row.id ? periodRows.data! : olderRows.data!.filter((r) => r.period_id === periodId)) as Rows;
+  const labelOf = (periodId: string) => {
+    const p = olderPeriods.data!.find((x) => x.id === periodId);
+    return periodId === row.id || !p ? "this period" : formatPeriodRange(p.start_date, p.end_date);
+  };
+  const recentWithImpact: RecentRow[] = recentRows.map((r) => ({
+    ...r,
+    impact: editImpact(rowsOf(r.period_id), r, 0),
+    periodLabel: labelOf(r.period_id),
+  }));
 
   // Income expected vs received, and the pay prompt.
   const received = receivedSourceIds(
@@ -127,7 +159,7 @@ async function DashboardBody() {
           />
         </div>
         {/* Each row has exactly one category; see the Activity page. */}
-        <RecentActivity rows={recent.data as unknown as ActivityRow[]} today={today} />
+        <RecentActivity rows={recentWithImpact} today={today} />
       </div>
     </div>
   );

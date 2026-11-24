@@ -2,6 +2,15 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 3 (extra) · Edit from the Dashboard's Recent activity
+- **What:** Tapping a Recent activity row on the Dashboard opens Edit transaction, the same sheet as Activity, with **Save changes** and the **Delete transaction** link. After a save or delete, the page refreshes, so Cash now, Income and the list update.
+- **Files:** `src/components/dashboard/recent-activity.tsx` (now a client component; rows are buttons), `src/app/(app)/dashboard/page.tsx`, `src/components/activity/activity-list.tsx` (`deleteTargetFor`, shared by both)
+- **Decisions:**
+  - **Changes 3f's "rows aren't buttons; editing lives in Activity"** (owner, Nov 24).
+  - The whole row is the Edit button ("Edit Lunch, −₱180") on mobile and desktop. There's no separate Delete button; Delete lives inside the sheet.
+  - **Delete effect for older rows:** the last four rows can come from earlier periods. Their delete effect uses that period's own rows and label ("Money out in Nov 1 – 14"). The Dashboard loads those periods' rows and dates in one extra round trip, only when any recent row is from an older period. `editImpact` does the math on the server.
+- **Tests:** lint, typecheck, 289 unit tests and the build pass. Not browser-checked.
+
 ## 2026-11-24 · Week 3 (extra) · Loading skeleton for New and Edit category
 - **What:** New and Edit category showed an empty area while the form loaded. They now show a grey skeleton the shape of the form: preview card, name, three group rows, the icon grid, colours and Save, plus the Delete link on Edit.
 - **Files:** new `src/components/categories/category-form-skeleton.tsx`; edited `src/app/(app)/settings/categories/edit/page.tsx` and `new/page.tsx`
