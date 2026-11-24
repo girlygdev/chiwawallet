@@ -2,6 +2,26 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 3 · 3h-1 Category list, New and Edit category
+- **What:** Users can see, add and edit their categories.
+  - **Category list** (`/settings/categories`): Needs, Wants, Savings & debt payoff (each with the budget's target), then Income categories, plus a dashed **+ New category** button. Each row has the icon tile and name and opens Edit. System rows show a lock and what they're for, and aren't links.
+  - **New / Edit category** (`/settings/categories/new`, `/settings/categories/edit?id=…`): preview card, name, group radios with the target %, 20 icons, 6 colours, then **Save category** / **Save changes**, which return to the list.
+  - **Reached from:** More › BUDGET › Categories (mobile) and a Manage categories link on Settings (desktop).
+- **Files:**
+  - New: `src/lib/validation/category.ts`, `src/lib/categories.ts`, `src/components/categories/category-form.tsx`, `category-list.tsx`, `src/app/(app)/settings/categories/actions.ts`, `page.tsx`, `new/page.tsx`, `edit/page.tsx`, `tests/lib/validation/category.test.ts`, `tests/lib/categories.test.ts`
+  - Edited: `src/app/(app)/more/page.tsx`, `src/app/(app)/settings/page.tsx`, `src/components/transactions/category-grid.tsx` (a 56px `lg` tile for the preview)
+- **Decisions (owner, Nov 24):**
+  - **Budget per payday is hidden until Week 5:** nothing reads `default_budget` before `generatePlan()`. Saving never touches it.
+  - **System categories are read-only** in the list (lock icon, no Edit). `updateCategory` also filters `system_key is null` and `kind = 'expense'`.
+  - **Edit is a query string, not `[id]`:** a dynamic segment failed the build, because the app shell's `usePathname()` can't be prerendered for it.
+  - **Duplicate names:** Postgres 23505 from the unique index → "You already have a category called Food." on the name field.
+  - **List order:** A–Z inside each group (ignoring case), system categories last (`categoryListSections`).
+  - **No peso effect line:** with the budget field hidden there's no money to show; the preview card shows the result instead.
+  - **Desktop:** the header has a **+ New category** sticker on the list and an "All categories" back link on New/Edit.
+- **Tests:** 8 new unit tests (schema and list sections); 286 pass, plus lint, typecheck and the build. Not browser-checked yet: the throwaway check was skipped (reading `.env.local` was blocked), so test by hand (below).
+- **AI notes:** Claude first built edit as `[id]/page.tsx`; the build caught the prerender error and it moved to `edit?id=`. It also first exported a constant from a `"use client"` file, which a server page would get as a client reference; that constant moved to `lib/categories.ts`. `npm run test` fails in Git Bash ("Cannot read properties of undefined (reading 'config')" on every suite) but passes in PowerShell. Looks like a path-casing quirk of the shell, not the code.
+- **Next:** 3h-2, level 2 delete with the `delete_category()` migration.
+
 ## 2026-11-23 · Week 3 · 3f Dashboard with real numbers
 - **What:** The Dashboard shows real money:
   - **Cash now (the hero):** the pay prompt with **I got paid**, the spend bar ("₱230 out so far" "of ₱30,760"), and Carry-in · Income · Money out.

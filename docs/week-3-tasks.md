@@ -67,7 +67,10 @@ Specs: `docs/designs/activity.md`, `more-and-categories.md` (§4 default categor
 - [x] **3f. Dashboard.** Done Nov 23. Expected vs actual income, spent, and available (`cashOnHand`) for this period. The hero says Cash now until Safe to spend exists (Week 5).
   - Done when: it matches the Activity totals.
 - [ ] **3g. Live check.** Push, then log a real expense on your phone in under 10 seconds.
-- [ ] **3h. Categories (optional, else Week 4).** The category list from More › Categories, New category, Edit category, and a level 2 delete that moves rows first. Also add the picker's last tile, **New category**, which returns to the picker with the new category selected (activity.md §4).
+- [ ] **3h. Categories (optional, else Week 4).** The category list from More › Categories, New category, Edit category, and a level 2 delete that moves rows first. Also add the picker's last tile, **New category**, which returns to the picker with the new category selected (activity.md §4). Split in three (owner, Nov 24):
+  - [x] **3h-1. List, New and Edit.** Done Nov 24. `/settings/categories`, `/new`, `/edit?id=…`; reached from More › BUDGET and Settings.
+  - [ ] **3h-2. Level 2 delete.** A `delete_category(category_id, move_to)` migration (approved Nov 24) that moves transactions and deletes in one database transaction; a dialog with a required "Move them to…" choice.
+  - [ ] **3h-3. New category tile in the picker.** Opens the same form in the add sheet; after saving it returns to the **expense form** with the new category selected (owner, Nov 24).
 
 ## Decisions
 

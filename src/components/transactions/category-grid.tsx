@@ -83,17 +83,26 @@ const COLORS: Record<string, string> = {
  * A category's icon on its soft colour: 36px in the grid and picker, 40px in
  * the Activity list (activity.md §1). Decorative: the name sits beside it.
  */
-export function CategoryIconTile({ icon, color, size = "sm" }: { icon: string; color: string; size?: "sm" | "md" }) {
+export function CategoryIconTile({
+  icon,
+  color,
+  size = "sm",
+}: {
+  icon: string;
+  color: string;
+  /** sm 36px, md 40px, lg 56px (New category's preview card). */
+  size?: "sm" | "md" | "lg";
+}) {
   return (
     <span
       aria-hidden
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-[10px]",
-        size === "md" ? "size-10" : "size-9",
+        "flex shrink-0 items-center justify-center",
+        size === "lg" ? "size-14 rounded-[16px]" : size === "md" ? "size-10 rounded-[10px]" : "size-9 rounded-[10px]",
         COLORS[color] ?? "bg-track text-text-2",
       )}
     >
-      <CategoryIcon icon={icon} size={size === "md" ? 22 : 20} />
+      <CategoryIcon icon={icon} size={size === "lg" ? 28 : size === "md" ? 22 : 20} />
     </span>
   );
 }
