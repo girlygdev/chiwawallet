@@ -11,8 +11,6 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const RATE = /^\d{1,3}(\.\d{1,2})?$/;
 const RATE_MESSAGE = "Enter a rate from 0 to 100, like 3.5.";
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-
 export const debtSchema = z
   .object({
     name: z.string().trim().min(1, "Name this debt, like Credit card.").max(40, "Keep it to 40 characters or fewer."),
@@ -55,12 +53,10 @@ export const debtSchema = z
 
     // The payments must cover the total, and the last one must be above ₱0:
     // the schedule makes the last payment whatever is left (lib/debts.ts).
-    if (payment * n < v.total) {
-      issue(
-        "payment",
-        `${plural(n, "payment")} of ${formatPeso(payment)} only cover ${formatPeso(payment * n)} of ${formatPeso(v.total)}.`,
-      );
-    } else if (payment * (n - 1) >= v.total) {
+    // Payments that don't add up to the total are fine: the last one takes
+    // the difference, and the form says so in yellow (debts.md §4 "Check",
+    // lastPaymentNote()). Only a last payment of ₱0 or less is refused.
+    if (payment * (n - 1) >= v.total) {
       const needed = Math.ceil(v.total / payment);
       issue(
         "payment",
@@ -87,6 +83,19 @@ export const debtSchema = z
 
 export type DebtFormInput = z.input<typeof debtSchema>;
 export type DebtValues = z.output<typeof debtSchema>;
+
+/**
+ * New debt's yellow check line (debts.md §4), when the payments don't add up
+ * to the total: "Payments add up to ₱14,000, ₱1,000 less than the total. The
+ * last payment will be ₱6,000." Null when they match (or for one payment).
+ */
+export function lastPaymentNote(total: number, numPayments: number, payment: number): string | null {
+  const sum = payment * numPayments;
+  if (numPayments < 2 || sum === total) return null;
+  const difference = Math.abs(total - sum);
+  const last = total - payment * (numPayments - 1);
+  return `Payments add up to ${formatPeso(sum)}, ${formatPeso(difference)} ${sum < total ? "less" : "more"} than the total. The last payment will be ${formatPeso(last)}.`;
+}
 
 /**
  * "Each payment" fills in total ÷ number of payments (debts.md §4), rounded up

@@ -47,7 +47,9 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
   - Withdraw is disabled for locked pots ("₱48,500 · locked, deposits only").
   - Activity's Savings filter and the "To savings" total include it.
   - Done when: adding and withdrawing update the pot's balance and Activity.
-- [ ] **4f. Debts screen** (`debts.md`).
+- [ ] **4f. Debts screen** (`debts.md`). Two sessions:
+  - [x] **4f-1. The page.** Done Nov 24: Total owed hero, desktop stat cards, active debt cards with the next payment and schedule, PAID OFF, empty state. No separate details page: each card holds its schedule on every size.
+  - [ ] **4f-2. New and Edit debt sheet with the schedule preview, and Delete (mark paid off or delete).**
   - List with amount left; New and Edit debt (installments or one-time, with a schedule preview); optional interest rate, display only.
   - Details at `/debts/details?id=…`. On mobile, the card expands in place (fix #4). The mobile summary card is white, not Deep Green (fix #1).
   - Delete: level 2. "Mark it paid off" or "Delete it (paid outside the app)".
@@ -75,3 +77,7 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
 ## Out of Week 4
 
 Plan items and "Planned in N upcoming paydays" (Week 5); pot progress on the Dashboard, debt status and Due this period (Week 6); push reminders (v1.1).
+
+## Open (for Week 5)
+
+- **Which category do planned debt payments use?** Mark paid creates a `debt_payment` that counts as **Needs** (debts.md §5), but there's no Needs debt category; Extra debt payment (a system category) is Savings & debt payoff. Options: a new system category "Debt payment" (Needs), or the debt's own category picked in New debt. Decide before Mark paid.

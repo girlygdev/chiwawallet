@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import { dateInMonth } from "@/lib/periods";
+import { dateInMonth, getPeriod, type PaySchedule } from "@/lib/periods";
 
 // Debt math (debts.md §1, week-4-tasks.md 4b): pure functions, no React.
 // "Left" is worked out from the debt's payments, never stored (mvp-brief.md).
@@ -95,4 +95,102 @@ export function debtProgress(
     debtFreeBy: schedule[schedule.length - 1].due,
     payments,
   };
+}
+
+// ---------------------------------------------------------------------------
+// The Debts screen (debts.md §1–3, task 4f)
+// ---------------------------------------------------------------------------
+
+/**
+ * Which payday pays a payment (debts.md §1): the payday that starts the
+ * period containing the due date. Nov 25 → the Nov 15 payday; Dec 5 → Nov 30.
+ */
+export function paydayFor(due: string, schedule: PaySchedule): string {
+  return getPeriod(due, schedule).start;
+}
+
+/** Finished: marked paid off ("Mark it paid off"), or nothing left. */
+export function isPaidOff(debt: { total_amount: number; paid: number; paid_off_at: string | null }): boolean {
+  return debt.paid_off_at != null || debt.paid >= debt.total_amount;
+}
+
+type SummaryDebt = DebtTerms & { name: string; paid: number; paid_off_at: string | null };
+
+export type DebtsSummary = {
+  /** "Total owed": what's left across active debts. */
+  totalOwed: number;
+  /** The hero bar: "₱4,000 of ₱12,000 paid" across active debts. */
+  activeTotal: number;
+  activePaid: number;
+  /** Unpaid payments due in the current period. */
+  dueThisPeriod: number;
+  /** The earliest of those, for "SPayLater · Nov 25". */
+  nextDue: { name: string; date: string } | null;
+  /** The last due date across active debts, if every payment is made. */
+  debtFreeBy: string | null;
+  /** Every payment ever, finished debts included. */
+  paidSoFar: number;
+  activeCount: number;
+  paidOffCount: number;
+};
+
+/** The Debts page's numbers (debts.md §1–3). */
+export function debtsSummary(
+  debts: SummaryDebt[],
+  today: string,
+  period: { start: string; end: string },
+): DebtsSummary {
+  const summary: DebtsSummary = {
+    totalOwed: 0,
+    activeTotal: 0,
+    activePaid: 0,
+    dueThisPeriod: 0,
+    nextDue: null,
+    debtFreeBy: null,
+    paidSoFar: 0,
+    activeCount: 0,
+    paidOffCount: 0,
+  };
+  for (const debt of debts) {
+    summary.paidSoFar += debt.paid;
+    if (isPaidOff(debt)) {
+      summary.paidOffCount += 1;
+      continue;
+    }
+    const progress = debtProgress(debt, debt.paid, today, period);
+    summary.activeCount += 1;
+    summary.totalOwed += progress.left;
+    summary.activeTotal += debt.total_amount;
+    summary.activePaid += Math.min(debt.paid, debt.total_amount);
+    for (const p of progress.payments) {
+      if (p.status !== "due") continue;
+      summary.dueThisPeriod += p.amount;
+      if (!summary.nextDue || p.due < summary.nextDue.date) summary.nextDue = { name: debt.name, date: p.due };
+    }
+    if (!summary.debtFreeBy || progress.debtFreeBy > summary.debtFreeBy) summary.debtFreeBy = progress.debtFreeBy;
+  }
+  return summary;
+}
+
+/** A payment's status in words (debts.md §6): "Paid", "Due in 5 days", "Planned", "Late · 3 days". */
+export function paymentStatusText(
+  payment: { status: PaymentStatus; due: string; daysLate?: number },
+  today: string,
+): string {
+  switch (payment.status) {
+    case "paid":
+      return "Paid";
+    case "planned":
+      return "Planned";
+    case "late": {
+      const days = payment.daysLate ?? 0;
+      return `Late · ${days} ${days === 1 ? "day" : "days"}`;
+    }
+    case "due": {
+      const days = differenceInCalendarDays(parseISO(payment.due), parseISO(today));
+      if (days <= 0) return "Due today";
+      if (days === 1) return "Due tomorrow";
+      return `Due in ${days} days`;
+    }
+  }
 }

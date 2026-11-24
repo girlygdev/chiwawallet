@@ -2,6 +2,33 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 4 · 4f-1 Debts page
+- **What:** `/debts` replaces its placeholder:
+  - **Hero:** "Total owed", "Debt-free by Dec 25 if you keep the plan", and a "₱4,000 of ₱12,000 paid" bar.
+  - **Desktop stat cards:** Due this period ("SPayLater · Nov 25"), Debt-free by, and Paid off so far ("incl. 1 finished debt").
+  - **ACTIVE cards:**
+    - Name, "3 payments · 3.5% interest · Shopee", "₱8,000 left of ₱12,000".
+    - The next payment ("Next: ₱4,000 due Nov 25", or "Late: … was due Nov 18").
+    - The schedule as an ordered list: "Payment 2 of 3", "Nov 25 · planned in Nov 15 payday", the amount, and its status in words (Paid, Due in 5 days, Planned, Late · 3 days).
+    - An Edit link.
+  - **PAID OFF:** three rows, then "Show N more".
+  - **The group note** about Needs and Savings & debt payoff.
+  - **Empty state.**
+- **Files:**
+  - `src/app/(app)/debts/page.tsx`
+  - `src/lib/debts.ts`: `paydayFor`, `isPaidOff`, `debtsSummary`, `paymentStatusText`
+  - `src/lib/validation/debt.ts`: `lastPaymentNote`, and the "only cover" check removed
+  - Tests, `docs/week-4-tasks.md`
+- **Decisions:**
+  - **Fixed a spec mismatch from 4b.** debts.md §4 says payments that don't add up to the total get a *yellow warning*, and the last payment takes the difference. 4b had made the form *refuse* them. Now only a last payment of ₱0 or less is refused, and `lastPaymentNote()` gives the spec's line ("Payments add up to ₱13,500, ₱1,500 less than the total. The last payment will be ₱6,000.") for 4f-2's form.
+  - **No separate details page:** each card holds the schedule on every screen size (fix #4 for mobile, used on desktop too).
+  - **Late is the error tone** (`bad-bg` / `bad-fg`), not the destructive red, which is only for delete buttons (CLAUDE.md).
+  - **Paid off** = marked (`paid_off_at`) or nothing left.
+  - **Due this period** = unpaid payments due in the current period, from the schedule (plan items replace this in Week 5).
+  - **Mark paid and Pay extra wait for Week 5.** They need plan items, and planned payments need a Needs category we don't have yet. Open question added to `week-4-tasks.md`.
+- **Tests:** 7 new unit tests (388 pass), checked against the spec's numbers (₱8,000 owed, ₱14,000 paid off so far, debt-free Dec 25). Lint, typecheck and the build pass. Not browser-checked.
+- **Next:** 4f-2, New and Edit debt with the schedule preview, and Delete.
+
 ## 2026-11-24 · Week 4 · 4e Savings tab
 - **What:** The add sheet's third tab, **Savings**:
   - **Add to pot / Withdraw**, the amount, and **Which pot?** cards ("₱6,000 of ₱20,000"). Locked pots say "· locked, deposits only" and are disabled for Withdraw.

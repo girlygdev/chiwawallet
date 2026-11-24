@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { debtPaid, debtProgress, debtSchedule } from "@/lib/debts";
+import {
+  debtPaid,
+  debtProgress,
+  debtSchedule,
+  debtsSummary,
+  isPaidOff,
+  paydayFor,
+  paymentStatusText,
+} from "@/lib/debts";
 
 const spayLater = {
   total_amount: 1_200_000,
@@ -99,5 +107,85 @@ describe("debtProgress", () => {
   it("is paid off at ₱0 left, and never goes below ₱0", () => {
     expect(debtProgress(spayLater, 1_200_000, "2026-11-20", period)).toMatchObject({ left: 0, paidOff: true, paymentsMade: 3 });
     expect(debtProgress(spayLater, 1_300_000, "2026-11-20", period)).toMatchObject({ left: 0, paidOff: true });
+  });
+});
+
+const twiceAMonth = { frequency: "semi_monthly" as const, payDay1: 15, payDay2: 30 };
+
+describe("paydayFor", () => {
+  it("is the payday of the period that contains the due date (debts.md §1)", () => {
+    expect(paydayFor("2026-11-25", twiceAMonth)).toBe("2026-11-15");
+    expect(paydayFor("2026-12-05", twiceAMonth)).toBe("2026-11-30");
+  });
+});
+
+describe("debtsSummary", () => {
+  // debts.md §1–3: SPayLater (₱12,000 in 3, one paid) and finished shoes (₱10,000).
+  const debts = [
+    {
+      name: "SPayLater",
+      total_amount: 1_200_000,
+      payment_type: "installments" as const,
+      num_payments: 3,
+      payment_amount: 400_000,
+      first_due_date: "2026-10-25",
+      paid: 400_000,
+      paid_off_at: null,
+    },
+    {
+      name: "Shoes installment",
+      total_amount: 1_000_000,
+      payment_type: "one_time" as const,
+      num_payments: 1,
+      payment_amount: 1_000_000,
+      first_due_date: "2026-10-30",
+      paid: 1_000_000,
+      paid_off_at: null,
+    },
+  ];
+
+  it("works out the page's numbers", () => {
+    expect(debtsSummary(debts, "2026-11-20", period)).toEqual({
+      totalOwed: 800_000,
+      activeTotal: 1_200_000,
+      activePaid: 400_000,
+      dueThisPeriod: 400_000,
+      nextDue: { name: "SPayLater", date: "2026-11-25" },
+      debtFreeBy: "2026-12-25",
+      paidSoFar: 1_400_000,
+      activeCount: 1,
+      paidOffCount: 1,
+    });
+  });
+
+  it("a debt marked paid off counts as finished even with money left", () => {
+    const marked = [{ ...debts[0], paid_off_at: "2026-11-20T00:00:00Z" }];
+    expect(debtsSummary(marked, "2026-11-20", period)).toMatchObject({ totalOwed: 0, activeCount: 0, paidOffCount: 1, debtFreeBy: null });
+  });
+
+  it("is all zeros with no debts", () => {
+    expect(debtsSummary([], "2026-11-20", period)).toMatchObject({ totalOwed: 0, nextDue: null, debtFreeBy: null });
+  });
+});
+
+describe("isPaidOff", () => {
+  it("is paid off when marked, or when nothing is left", () => {
+    expect(isPaidOff({ total_amount: 100, paid: 100, paid_off_at: null })).toBe(true);
+    expect(isPaidOff({ total_amount: 100, paid: 50, paid_off_at: "2026-11-20T00:00:00Z" })).toBe(true);
+    expect(isPaidOff({ total_amount: 100, paid: 50, paid_off_at: null })).toBe(false);
+  });
+});
+
+describe("paymentStatusText", () => {
+  it("says the status in words (debts.md §6)", () => {
+    const at = (status: "paid" | "due" | "planned" | "late", due: string, daysLate?: number) =>
+      paymentStatusText({ status, due, daysLate }, "2026-11-20");
+    expect(at("paid", "2026-10-25")).toBe("Paid");
+    expect(at("due", "2026-11-25")).toBe("Due in 5 days");
+    expect(at("due", "2026-11-21")).toBe("Due tomorrow");
+    expect(at("due", "2026-11-20")).toBe("Due today");
+    expect(at("planned", "2026-12-25")).toBe("Planned");
+    expect(at("late", "2026-11-17", 3)).toBe("Late · 3 days");
+    expect(at("late", "2026-11-19", 1)).toBe("Late · 1 day");
   });
 });

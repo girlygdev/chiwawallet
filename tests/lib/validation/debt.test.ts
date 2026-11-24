@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { debtSchema, suggestedPayment } from "@/lib/validation/debt";
+import { debtSchema, lastPaymentNote, suggestedPayment } from "@/lib/validation/debt";
 
 const valid = {
   name: "SPayLater",
@@ -54,13 +54,13 @@ describe("debtSchema", () => {
     expect(errorsFor({ interestRate: "3.555" }).interestRate).toBe("Enter a rate from 0 to 100, like 3.5.");
   });
 
-  it("the payments must cover the total, with something left for the last one", () => {
-    // 3 × ₱3,000 = ₱9,000 doesn't cover ₱12,000.
-    expect(errorsFor({ payment: "3,000" }).payment).toBe("3 payments of ₱3,000 only cover ₱9,000 of ₱12,000.");
+  it("payments that don't add up are fine (the last one takes the difference), but the last can't be ₱0", () => {
+    // 3 × ₱3,000 = ₱9,000 of ₱12,000: the last payment becomes ₱6,000 (debts.md §4 "Check").
+    expect(errorsFor({ payment: "3,000" })).toEqual({});
+    // Uneven the other way: ₱4,000, ₱4,000, then ₱3,000.
+    expect(errorsFor({ total: "11,000" })).toEqual({});
     // 2 × ₱6,000 already covers ₱12,000, so a 3rd payment would be ₱0.
     expect(errorsFor({ payment: "6,000" }).payment).toBe("₱12,000 is paid off after 2 payments of ₱6,000. Use 2 payments.");
-    // Uneven is fine: ₱4,000, ₱4,000, then ₱3,000.
-    expect(errorsFor({ total: "11,000" })).toEqual({});
   });
 });
 
@@ -68,5 +68,21 @@ describe("suggestedPayment", () => {
   it("is the total ÷ payments, rounded up to the peso", () => {
     expect(suggestedPayment(1_200_000, 3)).toBe(400_000);
     expect(suggestedPayment(1_000_000, 3)).toBe(333_400);
+  });
+});
+
+describe("lastPaymentNote", () => {
+  it("says what the last payment becomes when the payments don't add up (debts.md §4)", () => {
+    expect(lastPaymentNote(1_500_000, 3, 450_000)).toBe(
+      "Payments add up to ₱13,500, ₱1,500 less than the total. The last payment will be ₱6,000.",
+    );
+    expect(lastPaymentNote(1_100_000, 3, 400_000)).toBe(
+      "Payments add up to ₱12,000, ₱1,000 more than the total. The last payment will be ₱3,000.",
+    );
+  });
+
+  it("is null when they match, or for one payment", () => {
+    expect(lastPaymentNote(1_200_000, 3, 400_000)).toBeNull();
+    expect(lastPaymentNote(500_000, 1, 500_000)).toBeNull();
   });
 });
