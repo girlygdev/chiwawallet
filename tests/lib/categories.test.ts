@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { categoryListSections, type ListCategory } from "@/lib/categories";
+import { categoryListSections, categoryUsage, type ListCategory } from "@/lib/categories";
+
+describe("categoryUsage", () => {
+  it("counts and totals live rows, and counts deleted ones separately", () => {
+    expect(
+      categoryUsage([
+        { amount: 18_000, deleted_at: null },
+        { amount: 25_050, deleted_at: null },
+        { amount: 99_900, deleted_at: "2026-11-21T03:00:00Z" },
+      ]),
+    ).toEqual({ count: 2, total: 43_050, deletedCount: 1, needsMove: true });
+  });
+
+  it("still needs a move when only deleted rows use it (Undo can bring them back)", () => {
+    expect(categoryUsage([{ amount: 18_000, deleted_at: "2026-11-21T03:00:00Z" }])).toEqual({
+      count: 0,
+      total: 0,
+      deletedCount: 1,
+      needsMove: true,
+    });
+  });
+
+  it("needs nothing for an unused category", () => {
+    expect(categoryUsage([])).toEqual({ count: 0, total: 0, deletedCount: 0, needsMove: false });
+  });
+});
 
 const cat = (name: string, budget_group: string | null, extra: Partial<ListCategory> = {}): ListCategory => ({
   id: name,

@@ -12,6 +12,29 @@ export type ListCategory = {
   system_key: string | null;
 };
 
+/** What the Delete category dialog says is linked (delete-pattern.md §4). */
+export type CategoryUsage = {
+  /** Live transactions using the category. */
+  count: number;
+  /** Their amounts added up, in centavos. */
+  total: number;
+  /** Soft-deleted ones, which Undo can bring back. */
+  deletedCount: number;
+  /** Any row at all (live or deleted) means picking where they move to. */
+  needsMove: boolean;
+};
+
+/** `rows`: every transaction with this category, deleted ones included. */
+export function categoryUsage(rows: { amount: number; deleted_at: string | null }[]): CategoryUsage {
+  const live = rows.filter((r) => r.deleted_at == null);
+  return {
+    count: live.length,
+    total: live.reduce((sum, r) => sum + r.amount, 0),
+    deletedCount: rows.length - live.length,
+    needsMove: rows.length > 0,
+  };
+}
+
 export type ListSection<T> = { key: BudgetGroup | "income"; categories: T[] };
 
 const ORDER: ListSection<unknown>["key"][] = ["needs", "wants", "savings_debt", "income"];

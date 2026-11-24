@@ -6,7 +6,9 @@ import { CategoryPageForm } from "@/components/categories/category-form";
 import { BackToCategories } from "@/components/categories/category-list";
 import { PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
-import { CATEGORIES_HREF } from "@/lib/categories";
+import { DeleteCategory } from "@/components/categories/delete-category-dialog";
+import { CATEGORIES_HREF, categoryUsage } from "@/lib/categories";
+import type { BudgetGroup } from "@/lib/transactions";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { updateCategory } from "../actions";
@@ -14,7 +16,7 @@ import { updateCategory } from "../actions";
 export const metadata: Metadata = { title: "Edit category · Chiwawallet" };
 
 // Edit category (more-and-categories.md §3): New category's form, filled in.
-// The Delete category link (level 2) comes in 3h-2. The id is a query string
+// Below it, Delete category (level 2, 3h-2). The id is a query string
 // (/settings/categories/edit?id=…), not a [id] segment: the app shell reads
 // the path, which a dynamic segment would stop the build from prerendering.
 export default function EditCategoryPage({ searchParams }: { searchParams: Promise<{ id?: string | string[] }> }) {
@@ -39,26 +41,51 @@ async function EditCategoryForm({ searchParams }: { searchParams: Promise<{ id?:
   if (typeof id !== "string" || !z.uuid().safeParse(id).success) notFound();
   const { budget } = await requireAppUser();
   const supabase = await createClient();
-  const { data: category, error } = await supabase
-    .from("categories")
-    .select("id, name, kind, budget_group, system_key, icon, color")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(`Couldn't load the category: ${error.message}`, { cause: error });
+  // All the user's categories (the delete dialog's "Move them to" choices)
+  // and every transaction using this one, deleted ones included (3h-2).
+  const [categories, rows] = await Promise.all([
+    supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color"),
+    supabase.from("transactions").select("amount, deleted_at").eq("category_id", id),
+  ]);
+  for (const result of [categories, rows]) {
+    if (result.error) throw new Error(`Couldn't load the category: ${result.error.message}`, { cause: result.error });
+  }
+  const category = categories.data!.find((c) => c.id === id);
   // Missing, someone else's (RLS hides it), or a locked system or income
   // category, which the list never links to.
   if (!category || category.system_key != null || category.kind !== "expense" || category.budget_group == null) {
     notFound();
   }
 
+  const targets = { needs: budget.needs_pct, wants: budget.wants_pct, savings_debt: budget.savings_debt_pct };
+  const group = category.budget_group as BudgetGroup;
+  // The same rules as delete_category(): same kind, not system, not itself.
+  const destinations = categories.data!.filter(
+    (c) => c.id !== category.id && c.system_key == null && c.kind === category.kind,
+  );
+
   return (
-    <div className="w-full max-w-xl">
+    <div className="flex w-full max-w-xl flex-col gap-3">
       <CategoryPageForm
-        targets={{ needs: budget.needs_pct, wants: budget.wants_pct, savings_debt: budget.savings_debt_pct }}
-        category={{ ...category, budget_group: category.budget_group }}
+        targets={targets}
+        category={{ ...category, budget_group: group }}
         // Binds the id on the server, so the client only sends the fields.
         onSave={updateCategory.bind(null, category.id)}
+      />
+      <DeleteCategory
+        category={{
+          id: category.id,
+          name: category.name,
+          icon: category.icon,
+          color: category.color,
+          group,
+          groupLine: `${GROUP_NAMES[group]} · ${targets[group]}% target`,
+        }}
+        usage={categoryUsage(rows.data!)}
+        destinations={destinations}
       />
     </div>
   );
 }
+
+const GROUP_NAMES: Record<BudgetGroup, string> = { needs: "Needs", wants: "Wants", savings_debt: "Savings & debt payoff" };

@@ -2,6 +2,21 @@
 
 Newest entry first.
 
+## 2026-11-24 · Week 3 · 3h-2 Delete a category (level 2)
+- **What:** Edit category has a **Delete category** link. Its dialog shows the category, says what uses it ("12 transactions (₱3,400) use Fun."), and when anything does, requires **Move them to** (a select grouped by Needs / Wants / Savings & debt payoff). It shows the effect: "₱3,400 moves to Food and counts as Needs." Then **Delete category** or **Keep it**, and back to the list.
+- **Files:**
+  - New: `supabase/migrations/20261124093000_delete_category.sql`, `src/components/categories/delete-category-dialog.tsx`, `tests/db/delete-category.test.ts`
+  - Edited: `src/app/(app)/settings/categories/actions.ts` (`deleteCategory`), `edit/page.tsx`, `src/lib/categories.ts` (`categoryUsage`), `tests/lib/categories.test.ts`, `src/lib/supabase/types.ts` (the new function, added by hand)
+- **Decisions:**
+  - **`delete_category(target_category, move_to)`** is `security invoker`, so RLS and the column grants still apply. It moves the transactions, then deletes, in one call (one database transaction). It refuses system categories (42501), a missing category (P0002), and a missing or bad destination (22023): itself, a system category, another kind, or someone else's.
+  - **Soft-deleted transactions move too:** they still point at the category, and Undo can bring them back. If only deleted ones use it, the dialog says so and still asks where they go.
+  - **Destinations:** the user's other non-system categories of the same kind (Savings pot and Extra debt payment are left out).
+  - **No undo** (level 2); the required choice is the safety net. No toast: the toast lives in the add sheet.
+  - **Types:** the local generator formats the whole file differently, so only the `delete_category` entry was added by hand. Regenerate from live after the migration is applied there.
+- **Tests:** 3 new unit tests (`categoryUsage`) and 8 new database tests (unused delete, move with a soft-deleted row, bad destinations change nothing, system category, already gone, user A vs B, logged out). 289 unit and 146 database tests pass, plus lint, typecheck and the build. Not browser-checked.
+- **Live:** the migration is applied to **local only**. It needs the owner's go to apply to live before this is pushed.
+- **Next:** 3h-3, the New category tile in the picker.
+
 ## 2026-11-24 · Week 3 · 3h-1 Category list, New and Edit category
 - **What:** Users can see, add and edit their categories.
   - **Category list** (`/settings/categories`): Needs, Wants, Savings & debt payoff (each with the budget's target), then Income categories, plus a dashed **+ New category** button. Each row has the icon tile and name and opens Edit. System rows show a lock and what they're for, and aren't links.

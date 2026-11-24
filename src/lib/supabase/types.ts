@@ -365,6 +365,10 @@ export type Database = {
         Args: { target_user: string }
         Returns: undefined
       }
+      delete_category: {
+        Args: { move_to?: string; target_category: string }
+        Returns: number
+      }
       record_consent: {
         Args: { name: string; version: string }
         Returns: undefined

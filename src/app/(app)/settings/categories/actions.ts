@@ -62,6 +62,34 @@ export async function updateCategory(id: string, input: CategoryFormInput): Prom
   return { ok: true, id };
 }
 
+/**
+ * Deletes a category (delete-pattern.md level 2). If transactions use it,
+ * `moveTo` is required: delete_category() moves them there and deletes the
+ * category in one database transaction, so neither happens without the other.
+ */
+export async function deleteCategory(id: string, moveTo: string | null): Promise<CategoryResult & { moveError?: string }> {
+  await requireAppUser();
+  if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
+  if (moveTo != null && !z.uuid().safeParse(moveTo).success) return { moveError: MOVE_MESSAGE };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_category", { target_category: id, move_to: moveTo ?? undefined });
+  if (!error) return { ok: true };
+  switch (error.code) {
+    case "P0002": // gone, or not this user's
+      return { formError: GONE };
+    case "22023": // no destination, or not an allowed one
+      return { moveError: MOVE_MESSAGE };
+    case "23503": // a transaction was added between the move and the delete
+      return { formError: "Something new uses this category. Try again." };
+    default:
+      console.error("categories: couldn't delete category", error.code, error.message);
+      return { formError: SOMETHING_WRONG };
+  }
+}
+
+const MOVE_MESSAGE = "Pick a category to move them to.";
+
 function toRow(values: CategoryValues) {
   return { name: values.name, budget_group: values.budgetGroup, icon: values.icon, color: values.color };
 }
