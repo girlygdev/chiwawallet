@@ -1,4 +1,4 @@
-import { addDays, format, parseISO, subDays } from "date-fns";
+import { addDays, addMonths, format, parseISO, subDays } from "date-fns";
 import { billDueDates, type BillFrequency, splitHalves } from "@/lib/bills";
 import { type DebtTerms, debtSchedule, paydayFor } from "@/lib/debts";
 import { isActiveOn } from "@/lib/income";
@@ -154,6 +154,39 @@ export function generatePlan(period: Period, schedule: PaySchedule, sources: Pla
     }
   }
   return items;
+}
+
+// ---------------------------------------------------------------------------
+// Which periods can be opened (plan.md §2, owner Nov 25)
+// ---------------------------------------------------------------------------
+
+/**
+ * The periods the Plan can open, oldest first: one before the current one
+ * (never before `firstStart`, the budget's first period), the current one,
+ * and every period starting within 3 months of today. `firstStart` is empty
+ * when no period exists yet.
+ */
+export function plannablePeriods(today: string, schedule: PaySchedule, firstStart: string | null): Period[] {
+  const current = getPeriod(today, schedule);
+  const periods: Period[] = [];
+  const previous = getPeriod(shift(current.start, -1), schedule);
+  if (firstStart != null && previous.start >= firstStart) periods.push(previous);
+
+  const last = format(addMonths(parseISO(today), 3), ISO_DATE);
+  // The day after a period ends is the next one's first day.
+  for (let period = current; period.start <= last; period = getPeriod(shift(period.end, 1), schedule)) {
+    periods.push(period);
+  }
+  return periods;
+}
+
+/**
+ * The start of the period to open for `/plan?start=…`: the one asked for if
+ * it's plannable, otherwise the current period. `requested` is whatever came
+ * in the URL, so it may be missing, repeated or not a date.
+ */
+export function resolvePlanStart(requested: unknown, periods: Period[], currentStart: string): string {
+  return typeof requested === "string" && periods.some((p) => p.start === requested) ? requested : currentStart;
 }
 
 // ---------------------------------------------------------------------------

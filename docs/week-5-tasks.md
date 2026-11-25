@@ -30,7 +30,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
   - `planSummary()`: Money for this period, Planned (income items excluded), Not assigned yet, each group's total, and the planned split vs the budget's targets (debt payments count as Needs).
   - Zod schemas in `src/lib/validation/plan-item.ts`.
   - Done when: Vitest cases pass for a 15th period, a 30th period, a split bill, a pot that only contributes on the 30th, a quarterly bill, an income source that ends, a debt installment, weekly and monthly budgets, and the starter plan rounding.
-- [ ] **5c. Opening a period.**
+- [x] **5c. Opening a period.** Done Nov 25: `add_plan_items()` (`20261125110000_add_plan_items.sql`), `plannablePeriods()` and `resolvePlanStart()` in `lib/plan.ts`, `openPlanPeriod()` in `lib/plan-periods.ts`, and a temporary `/plan` list that 5d replaces. Generates on every open of a period that hasn't ended, so new bills show up; past periods never generate.
   - Open any period by its start date (`/plan?start=…`): create the `budget_periods` row if needed (like `getOrCreatePeriod()`), then insert its generated items once.
   - Safe from two tabs at once: the unique keys from 5a plus SQL's bare `on conflict do nothing`. The API's `upsert({ ignoreDuplicates })` only targets the primary key and fails on the partial keys (found in 5a), so this needs a small SQL function (a migration), for example `add_plan_items(period, items)`.
   - Only periods from one before the current one to 3 months ahead can be opened; anything else falls back to the current period.

@@ -6,6 +6,8 @@ import {
   payingPeriodStart,
   planSection,
   planSummary,
+  plannablePeriods,
+  resolvePlanStart,
   starterPlan,
 } from "@/lib/plan";
 
@@ -302,5 +304,48 @@ describe("planSummary", () => {
     expect(s).toMatchObject({ moneyForPeriod: 0, planned: 500_000, notAssigned: -500_000 });
     expect(s.split.needs.share).toBe(0);
     expect(s.split.notAssignedShare).toBe(0);
+  });
+});
+
+describe("plannablePeriods (5c)", () => {
+  const starts = (periods: Period[]) => periods.map((p) => p.start);
+
+  it("runs from the current period to the last one starting within 3 months", () => {
+    // Today Nov 25: up to Feb 25. Feb 15 starts in time; Feb 28 doesn't.
+    expect(starts(plannablePeriods("2026-11-25", SEMI, "2026-11-15"))).toEqual([
+      "2026-11-15", "2026-11-30", "2026-12-15", "2026-12-30", "2027-01-15", "2027-01-30", "2027-02-15",
+    ]);
+  });
+
+  it("starts one period back, but never before the first period", () => {
+    expect(starts(plannablePeriods("2026-11-25", SEMI, "2026-10-01")).slice(0, 2)).toEqual(["2026-10-30", "2026-11-15"]);
+    expect(starts(plannablePeriods("2026-11-25", SEMI, "2026-11-15"))[0]).toBe("2026-11-15");
+    // No first period yet: start from the current one.
+    expect(starts(plannablePeriods("2026-11-25", SEMI, null))[0]).toBe("2026-11-15");
+  });
+
+  it("works for weekly and monthly budgets", () => {
+    const weekly = plannablePeriods("2026-11-25", WEEKLY, "2026-01-02");
+    expect(weekly[0]).toEqual({ start: "2026-11-13", end: "2026-11-19", paySlot: "every" });
+    expect(starts(weekly).at(-1)).toBe("2027-02-19");
+    expect(weekly).toHaveLength(15);
+    expect(starts(plannablePeriods("2026-11-25", MONTHLY, "2026-01-01"))).toEqual([
+      "2026-10-01", "2026-11-01", "2026-12-01", "2027-01-01", "2027-02-01",
+    ]);
+  });
+});
+
+describe("resolvePlanStart (5c)", () => {
+  const periods = plannablePeriods("2026-11-25", SEMI, "2026-10-01");
+
+  it("opens the period asked for when it's one of the plannable ones", () => {
+    expect(resolvePlanStart("2027-02-15", periods, "2026-11-15")).toBe("2027-02-15");
+    expect(resolvePlanStart("2026-10-30", periods, "2026-11-15")).toBe("2026-10-30");
+  });
+
+  it("falls back to the current period otherwise", () => {
+    for (const asked of [undefined, "", "2026-11-16", "2027-02-28", "2026-10-15", "not-a-date", ["2026-11-30"]]) {
+      expect(resolvePlanStart(asked, periods, "2026-11-15")).toBe("2026-11-15");
+    }
   });
 });

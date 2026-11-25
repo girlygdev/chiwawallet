@@ -2,6 +2,34 @@
 
 Newest entry first.
 
+## 2026-11-25 · Week 5 · 5c Opening a period
+- **What:** `/plan?start=…` opens any period from one back to 3 months ahead, creating it the first time and adding its generated items. For now the page shows a period picker and a plain list of items; 5d replaces it with the real screen.
+- **Files:**
+  - New:
+    - `supabase/migrations/20261125110000_add_plan_items.sql`: `add_plan_items(target_period, items)`.
+    - `src/lib/plan-periods.ts`: `openPlanPeriod()`.
+    - `tests/db/add-plan-items.test.ts`
+  - Edited:
+    - `src/lib/plan.ts`: `plannablePeriods()`, `resolvePlanStart()`.
+    - `tests/lib/plan.test.ts`
+    - `src/app/(app)/plan/page.tsx` (temporary list)
+    - `src/lib/supabase/types.ts` (by hand)
+    - `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 25, Claude's recommendations):**
+  - **`add_plan_items()`:**
+    - Runs as the caller, so RLS, the column permissions and the same-owner keys apply.
+    - Always inserts `recurring` items and skips duplicates with a bare `on conflict do nothing`.
+    - Returns how many it added.
+  - **Generation:**
+    - Runs on every open of a period that hasn't ended, so a bill added later appears in plans already open. Items you deleted stay deleted.
+    - Past periods never generate.
+  - **Plannable periods:**
+    - One back (never before the budget's first period) to the last one starting within 3 months of today.
+    - Anything else in `?start=` opens the current period.
+- **Tests:** written first. 9 new database tests (269 pass) and 5 new unit tests (434 pass). Lint, typecheck and the build pass. Not checked in a browser: `.env.local` points at live, so the dev server would write test periods there.
+- **Live:** applied Nov 25 (dry run, owner's go, `db push --linked`) before pushing the code, since `/plan` calls `add_plan_items()`. `types.ts` regenerated from live matched the hand edit. Not browser-checked: open `/plan` on your phone after the deploy.
+- **Next:** 5d-1, the Plan screen (picker, summary and groups).
+
 ## 2026-11-25 · Week 5 · 5b Plan math, tests first
 - **What:** Pure functions for the plan:
   - `generatePlan()`: a period's recurring items from income sources, bills, debts, pots and spending budgets.

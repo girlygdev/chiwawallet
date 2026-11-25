@@ -667,6 +667,10 @@ export type Database = {
         Returns: undefined
       }
       add_default_pots: { Args: { target_user: string }; Returns: undefined }
+      add_plan_items: {
+        Args: { items: Json; target_period: string }
+        Returns: number
+      }
       delete_category: {
         Args: { move_to?: string; target_category: string }
         Returns: number
