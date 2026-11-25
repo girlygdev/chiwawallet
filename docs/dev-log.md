@@ -2,6 +2,33 @@
 
 Newest entry first.
 
+## 2026-11-25 · Week 5 · 5d-1 Plan screen: picker, summary and groups
+- **What:** The real mobile Plan screen replaces 5c's temporary list:
+  - a period picker (PAST, NOW, NEXT, AHEAD chips)
+  - the summary card (Money for this period, a planned bar, Planned and Not assigned yet)
+  - sections for MONEY IN (with Carried in), BILLS, DEBT PAYMENTS, SAVINGS, SPENDING BUDGETS and ONE-OFF ITEMS
+- **Files:**
+  - New: `src/components/plan/period-picker.tsx`, `plan-summary.tsx`, `plan-groups.tsx`.
+  - Edited:
+    - `src/lib/plan.ts`: `periodIncome()`, `incomeStatus()`, `planItemDetail()`.
+    - `tests/lib/plan.test.ts`
+    - `src/lib/plan-periods.ts`: `openPlanPeriod()` loads its sources once (for generating and for the detail lines) and returns the rows, income, carry-in and summary.
+    - `src/app/(app)/plan/page.tsx`
+    - `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 25, Claude's recommendations):**
+  - Spending budgets show the planned amount only. Spent, left and the bar come with planned vs actual (Week 6).
+  - Group headings show the group total. "₱1,700 of ₱2,700 paid" comes with ticking (Week 6).
+  - Tick circles are drawn but `aria-hidden`, not buttons, until Mark paid exists (Week 6).
+  - Carry-in and received income use the Dashboard's `dashboardNumbers()`, so the current period matches the Dashboard. Future periods use expected income, and their carry-in shows "—". Ended periods count only the income that came in.
+  - The chip for the period being shown gets the Deep Green look and `aria-current`. The current period is always labelled NOW.
+  - Too much planned shows a yellow "You've planned ₱500 more than this period has" note, not red.
+- **Tests:** written first, 13 new unit tests (447 pass) and 269 database tests. Lint, typecheck and the build pass. Not checked in a browser, for the same reason as 5c.
+- **Skipped (later tasks):**
+  - The "Add one-off item" button (5f) and the Plan options menu (5e)
+  - The desktop table and the empty plan (5d-2)
+  - Assign the ₱8,800 and the "I got paid" pill (Week 6)
+- **Next:** 5d-2, the desktop table and the empty state.
+
 ## 2026-11-25 · Week 5 · 5c Opening a period
 - **What:** `/plan?start=…` opens any period from one back to 3 months ahead, creating it the first time and adding its generated items. For now the page shows a period picker and a plain list of items; 5d replaces it with the real screen.
 - **Files:**

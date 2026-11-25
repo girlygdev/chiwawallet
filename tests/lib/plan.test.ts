@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
   generatePlan,
+  incomeStatus,
+  periodIncome,
+  planItemDetail,
   type PlanSources,
   payingPeriodStart,
   planSection,
@@ -347,5 +350,103 @@ describe("resolvePlanStart (5c)", () => {
     for (const asked of [undefined, "", "2026-11-16", "2027-02-28", "2026-10-15", "not-a-date", ["2026-11-30"]]) {
       expect(resolvePlanStart(asked, periods, "2026-11-15")).toBe("2026-11-15");
     }
+  });
+});
+
+// 5d-1: the Plan screen's income and detail lines (plan.md §1, §3).
+
+describe("periodIncome (5d-1)", () => {
+  const items = [
+    { income_source_id: "salary", planned_amount: 2_500_000 },
+    { income_source_id: "sideline", planned_amount: 500_000 },
+  ];
+
+  it("counts what came in, plus what's still expected from sources not paid yet", () => {
+    // Salary came in at ₱24,800 (a deduction); the sideline hasn't arrived.
+    expect(periodIncome({ received: 2_480_000, items, receivedIds: new Set(["salary"]), ended: false })).toBe(2_980_000);
+  });
+
+  it("is the expected income when nothing has come in yet", () => {
+    expect(periodIncome({ received: 0, items, receivedIds: new Set(), ended: false })).toBe(3_000_000);
+  });
+
+  it("counts one-time income on top of the expected pay", () => {
+    expect(periodIncome({ received: 100_000, items, receivedIds: new Set(), ended: false })).toBe(3_100_000);
+  });
+
+  it("counts only what came in once the period has ended", () => {
+    expect(periodIncome({ received: 2_480_000, items, receivedIds: new Set(["salary"]), ended: true })).toBe(2_480_000);
+  });
+
+  it("treats an income item with no source as still expected", () => {
+    const loose = [{ income_source_id: null, planned_amount: 200_000 }];
+    expect(periodIncome({ received: 0, items: loose, receivedIds: new Set(), ended: false })).toBe(200_000);
+  });
+});
+
+describe("incomeStatus (5d-1)", () => {
+  it("says Received, Expected today, or Expected on the payday", () => {
+    expect(incomeStatus(true, "2026-11-15", "2026-11-20")).toEqual({ text: "Received", received: true });
+    expect(incomeStatus(false, "2026-11-15", "2026-11-15")).toEqual({ text: "Expected today", received: false });
+    expect(incomeStatus(false, "2026-11-30", "2026-11-20")).toEqual({ text: "Expected Nov 30", received: false });
+    // Late pay still names the payday.
+    expect(incomeStatus(false, "2026-11-15", "2026-11-20")).toEqual({ text: "Expected Nov 15", received: false });
+  });
+});
+
+describe("planItemDetail (5d-1)", () => {
+  const base = { origin: "recurring" as const, income_source_id: null, bill_id: null, pot_id: null, debt_id: null, needed_by: null };
+  const ctx = { period: NOV_15, schedule: SEMI };
+
+  it("gives a bill its due date this period pays, even after the period ends", () => {
+    const item = { ...base, bill_id: "b", group: "needs" as const };
+    expect(planItemDetail(item, { ...ctx, bill: bill("b", 22, "payday_1") })).toBe("Due Nov 22");
+    // Due Dec 10, paid from the 15th → set aside on Nov 15.
+    expect(planItemDetail(item, { ...ctx, bill: bill("b", 10, "payday_1") })).toBe("Due Dec 10");
+  });
+
+  it("says when a bill is split or not monthly", () => {
+    const item = { ...base, bill_id: "b", group: "needs" as const };
+    expect(planItemDetail(item, { ...ctx, bill: bill("b", 10, "split") })).toBe("Split · half each payday · Due Dec 10");
+    const quarterly = bill("b", 20, "payday_1", { frequency: "quarterly", first_due_month: 11 });
+    expect(planItemDetail(item, { ...ctx, bill: quarterly })).toBe("Quarterly · Due Nov 20");
+    const yearly = bill("b", 20, "payday_1", { frequency: "yearly", first_due_month: 11 });
+    expect(planItemDetail(item, { ...ctx, bill: yearly })).toBe("Yearly · Due Nov 20");
+  });
+
+  it("falls back to a plain line when the bill isn't due this period any more", () => {
+    const item = { ...base, bill_id: "b", group: "needs" as const };
+    expect(planItemDetail(item, { ...ctx, bill: bill("b", 5, "payday_2") })).toBe("Recurring bill");
+    expect(planItemDetail(item, ctx)).toBe("Recurring bill");
+  });
+
+  it("numbers a debt installment and dates a one-time debt", () => {
+    const item = { ...base, debt_id: "d", group: "needs" as const };
+    // Payments Nov 25, Dec 25, Jan 25: Dec 25 is paid from Dec 15.
+    expect(planItemDetail(item, { ...ctx, period: DEC_15, debt: debt("d") })).toBe("Payment 2 of 3 · Due Dec 25");
+    const once = debt("d", { payment_type: "one_time", num_payments: null, payment_amount: null, first_due_date: "2026-11-20" });
+    expect(planItemDetail(item, { ...ctx, debt: once })).toBe("Due Nov 20");
+  });
+
+  it("calls a planned debt or pot item that isn't recurring an extra", () => {
+    expect(planItemDetail({ ...base, origin: "one_off", debt_id: "d", group: "savings_debt" }, ctx)).toBe("Extra payment");
+    expect(planItemDetail({ ...base, origin: "assigned", pot_id: "p", group: "savings_debt" }, ctx)).toBe("Extra to savings");
+  });
+
+  it("says which payday a pot contribution lands on", () => {
+    const item = { ...base, pot_id: "p", group: "savings_debt" as const };
+    expect(planItemDetail(item, { ...ctx, pot: { pay_slot: "payday_1" } })).toBe("Every 15th");
+    expect(planItemDetail(item, { ...ctx, period: NOV_30, pot: { pay_slot: "payday_2" } })).toBe("Every 30th");
+    expect(planItemDetail(item, { ...ctx, pot: { pay_slot: "every" } })).toBe("Every payday");
+    expect(planItemDetail(item, { period: P("2026-11-20", "2026-11-26", "every"), schedule: WEEKLY, pot: { pay_slot: "every" } })).toBe(
+      "Every payday",
+    );
+  });
+
+  it("gives spending budgets their group and one-offs their Needed by date", () => {
+    expect(planItemDetail({ ...base, group: "wants" }, ctx)).toBe("Wants");
+    expect(planItemDetail({ ...base, origin: "starter", group: "savings_debt" }, ctx)).toBe("Savings & debt");
+    expect(planItemDetail({ ...base, origin: "one_off", group: "wants", needed_by: "2026-12-05" }, ctx)).toBe("Needed by Dec 5");
+    expect(planItemDetail({ ...base, origin: "one_off", group: "wants" }, ctx)).toBe("One-off");
   });
 });

@@ -1,27 +1,30 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
+import { PeriodPicker } from "@/components/plan/period-picker";
+import { PlanGroups } from "@/components/plan/plan-groups";
+import { PlanSummary } from "@/components/plan/plan-summary";
 import { PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
-import { formatPeso } from "@/lib/money";
-import { formatPeriodRange, todayInManila } from "@/lib/periods";
+import { Skeleton, SkeletonRegion } from "@/components/skeleton";
+import { todayInManila } from "@/lib/periods";
 import { openPlanPeriod } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Plan · Chiwawallet" };
 
-// TEMPORARY (5c): opens a period and lists its items, so generation can be
-// checked on a phone. 5d replaces this with the real Plan screen (plan.md).
-// The period is a query string (/plan?start=2026-11-30), not a [periodId]
-// segment: a dynamic segment breaks the build, and a future period doesn't
-// need to exist before you open it.
+// The Plan (plan.md §1–3, week-5-tasks.md 5d-1): the period picker, the
+// summary card and the group sections. The period is a query string
+// (/plan?start=2026-11-30), not a [periodId] segment: a dynamic segment
+// breaks the build, and a future period doesn't need to exist before you
+// open it. Still to come: editing (5e), the desktop table and the empty
+// plan (5d-2), the Plan options menu (5e), ticking items paid (Week 6).
 export default function PlanPage({ searchParams }: { searchParams: Promise<{ start?: string | string[] }> }) {
   return (
     <PageShell>
       <PageHeader title="Plan" mobile="title" />
       {/* Cache Components: the query string and the login are both request data. */}
-      <Suspense>
+      <Suspense fallback={<PlanSkeleton />}>
         <PlanContent searchParams={searchParams} />
       </Suspense>
     </PageShell>
@@ -32,41 +35,35 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
   const { start } = await searchParams;
   const { budget } = await requireAppUser();
   const supabase = await createClient();
-  const { period, periods, currentStart, items } = await openPlanPeriod(
-    supabase,
-    budget,
-    start,
-    todayInManila(new Date()),
-  );
+  const plan = await openPlanPeriod(supabase, budget, start, todayInManila(new Date()));
 
   return (
-    <div className="flex flex-col gap-4">
-      <nav aria-label="Payday periods" className="flex gap-2 overflow-x-auto pb-1">
-        {periods.map((p) => (
-          <Link
-            key={p.start}
-            href={`/plan?start=${p.start}`}
-            aria-current={p.start === period.start_date ? "true" : undefined}
-            className="flex min-h-11 shrink-0 items-center rounded-md border border-line px-3 text-sm font-bold text-ink aria-[current]:bg-green-600 aria-[current]:text-white"
-          >
-            {p.start === currentStart ? "Now · " : ""}
-            {formatPeriodRange(p.start, p.end)}
-          </Link>
-        ))}
-      </nav>
-
-      {items.length === 0 ? (
-        <p className="text-text-3">Nothing planned in this period yet.</p>
-      ) : (
-        <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-surface">
-          {items.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <span className="font-bold text-ink">{item.name}</span>
-              <span className="font-display text-ink">{formatPeso(item.planned_amount)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="flex flex-col gap-5 md:max-w-2xl">
+      <PeriodPicker periods={plan.periods} selected={plan.period.start_date} current={plan.currentStart} />
+      <PlanSummary summary={plan.summary} income={plan.income} carriedIn={plan.carriedIn} />
+      <PlanGroups
+        items={plan.items}
+        income={plan.income}
+        carriedIn={plan.carriedIn}
+        previous={plan.previous}
+        summary={plan.summary}
+      />
     </div>
+  );
+}
+
+// Skeleton blocks the size of the real content (app-shell.md §5 "Loading").
+function PlanSkeleton() {
+  return (
+    <SkeletonRegion className="flex flex-col gap-5 md:max-w-2xl">
+      <div className="flex gap-2 overflow-hidden">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-14 w-24 shrink-0 rounded-[14px]" />
+        ))}
+      </div>
+      <Skeleton className="h-[190px] rounded-[22px]" />
+      <Skeleton className="h-[140px] rounded-2xl" />
+      <Skeleton className="h-[200px] rounded-2xl" />
+    </SkeletonRegion>
   );
 }

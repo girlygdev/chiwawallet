@@ -1,17 +1,46 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addDays, format, parseISO } from "date-fns";
 import type { BillFrequency } from "@/lib/bills";
 import { type BudgetPeriod, getOrCreatePeriod } from "@/lib/budget-periods";
 import type { Budget } from "@/lib/current-budget";
 import { type DebtTerms, debtPaid } from "@/lib/debts";
-import { getPeriod, type Period, type PaySchedule, type PaySlot, scheduleFromBudget } from "@/lib/periods";
-import { generatePlan, type PlanSources, plannablePeriods, resolvePlanStart } from "@/lib/plan";
+import { receivedSourceIds } from "@/lib/income";
+import { dashboardNumbers } from "@/lib/money";
+import { getPeriod, type Period, type PaySlot, scheduleFromBudget } from "@/lib/periods";
+import {
+  generatePlan,
+  incomeStatus,
+  type PlanOrigin,
+  type PlanSection,
+  type PlanSources,
+  type PlanSummary,
+  periodIncome,
+  planItemDetail,
+  planSection,
+  planSummary,
+  plannablePeriods,
+  resolvePlanStart,
+} from "@/lib/plan";
 import type { Database, Tables } from "@/lib/supabase/types";
+import type { BudgetGroup } from "@/lib/transactions";
 
-// Opening a period on the Plan (week-5-tasks.md 5c). Server only: it reads
-// and writes with the logged-in user's client, so RLS limits everything to
-// their own rows.
+// Opening a period on the Plan (week-5-tasks.md 5c, 5d-1). Server only: it
+// reads and writes with the logged-in user's client, so RLS limits
+// everything to their own rows. All the Plan's numbers are worked out here
+// with lib/plan.ts, so the components only lay them out.
 
 export type PlanItem = Tables<"plan_items">;
+
+/** A plan item ready to show: its section, group and detail line. */
+export type PlanRow = PlanItem & {
+  section: PlanSection;
+  /** The category's group, or a starter item's own; empty for income. */
+  group: BudgetGroup | null;
+  /** "Due Dec 10", "Every 15th"; for income, "Received" or "Expected Nov 30". */
+  detail: string;
+  /** Income rows only: whether the pay came in. */
+  received: boolean;
+};
 
 export type OpenedPlan = {
   /** The period shown, created if it didn't exist yet. */
@@ -20,8 +49,15 @@ export type OpenedPlan = {
   periods: Period[];
   /** The current period's start, for the "Now" chip. */
   currentStart: string;
-  /** The period's live items, oldest first. */
-  items: PlanItem[];
+  /** The period's live items, in generation order (oldest first). */
+  items: PlanRow[];
+  /** Received income, plus what's still expected while the period is open. */
+  income: number;
+  /** Cash at the start of the period; empty for future periods (plan.md §1: "—"). */
+  carriedIn: number | null;
+  /** The period before, for "Left over from Oct 30 – Nov 14". */
+  previous: Period;
+  summary: PlanSummary;
 };
 
 type Client = SupabaseClient<Database>;
@@ -29,6 +65,8 @@ type Client = SupabaseClient<Database>;
 const fail = (what: string, error: { message: string }): never => {
   throw new Error(`Couldn't ${what}: ${error.message}`, { cause: error });
 };
+
+const dayBefore = (date: string) => format(addDays(parseISO(date), -1), "yyyy-MM-dd");
 
 /**
  * Opens the period `/plan?start=…` asks for (or the current one), creating it
@@ -54,25 +92,85 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
   const currentStart = getPeriod(today, schedule).start;
   const start = resolvePlanStart(requested, periods, currentStart);
 
-  const period = await getOrCreatePeriod(supabase, budget, start);
-  if (period.end_date >= today) {
-    await addGeneratedItems(supabase, budget, period, schedule);
+  const row = await getOrCreatePeriod(supabase, budget, start);
+  const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
+  const ended = row.end_date < today;
+  const future = row.start_date > today;
+
+  const [sources, money] = await Promise.all([loadSources(supabase, budget), loadMoney(supabase, row, future)]);
+
+  if (!ended) {
+    const generated = generatePlan(period, schedule, sources);
+    if (generated.length > 0) {
+      const { error } = await supabase.rpc("add_plan_items", { target_period: row.id, items: generated });
+      if (error) fail("add the plan's items", error);
+    }
   }
 
   const { data: items, error } = await supabase
     .from("plan_items")
     .select("*")
-    .eq("period_id", period.id)
+    .eq("period_id", row.id)
     .is("deleted_at", null)
     .order("created_at")
     .order("id");
   if (error) fail("load the plan", error);
 
-  return { period, periods, currentStart, items: items! };
+  // Carry-in and what came in, the Dashboard's way. A future period has no
+  // transactions and its carry-in isn't known until the one before closes.
+  const numbers = future ? null : dashboardNumbers(budget.opening_balance, money.earlier, money.period);
+  const receivedIds = future
+    ? new Set<string>()
+    : receivedSourceIds(money.period, { start: period.start, paySlot: period.paySlot, first_pay_received: row.first_pay_received }, sources.incomeSources, schedule);
+
+  const groupOf = new Map(sources.categoryGroups);
+  const rows: PlanRow[] = items!.map((item) => {
+    const group = ((item.category_id ? groupOf.get(item.category_id) : item.budget_group) ?? null) as BudgetGroup | null;
+    // The generated types say `string` for origin; its check constraint allows only these.
+    const shaped = { ...item, origin: item.origin as PlanOrigin, group };
+    const section = planSection(shaped);
+    if (section === "income") {
+      const received = item.income_source_id != null && receivedIds.has(item.income_source_id);
+      return { ...item, section, group, received, detail: incomeStatus(received, period.start, today).text };
+    }
+    const detail = planItemDetail(shaped, {
+      period,
+      schedule,
+      bill: sources.bills.find((b) => b.id === item.bill_id),
+      pot: sources.pots.find((p) => p.id === item.pot_id),
+      debt: sources.debts.find((d) => d.id === item.debt_id),
+    });
+    return { ...item, section, group, received: false, detail };
+  });
+
+  const income = periodIncome({
+    received: numbers?.income ?? 0,
+    items: rows.filter((r) => r.section === "income"),
+    receivedIds,
+    ended,
+  });
+  const carriedIn = numbers?.carryIn ?? null;
+  const summary = planSummary({
+    items: rows.map((r) => ({ ...r, origin: r.origin as PlanOrigin })),
+    income,
+    carriedIn: carriedIn ?? 0,
+    targets: budget,
+  });
+
+  return {
+    period: row,
+    periods,
+    currentStart,
+    items: rows,
+    income,
+    carriedIn,
+    previous: getPeriod(dayBefore(period.start), schedule),
+    summary,
+  };
 }
 
-/** Runs generatePlan() for the period and adds whatever isn't there yet. */
-async function addGeneratedItems(supabase: Client, budget: Budget, row: BudgetPeriod, schedule: PaySchedule) {
+/** Everything generatePlan() and the detail lines are made from. */
+async function loadSources(supabase: Client, budget: Budget) {
   const [sources, bills, pots, debts, payments, categories] = await Promise.all([
     supabase.from("income_sources").select("id, name, amount, pay_slot, start_date, end_date").eq("budget_id", budget.id),
     supabase
@@ -90,7 +188,7 @@ async function addGeneratedItems(supabase: Client, budget: Budget, row: BudgetPe
       .eq("type", "debt_payment")
       .not("debt_id", "is", null)
       .is("deleted_at", null),
-    supabase.from("categories").select("id, name, kind, system_key, default_budget"),
+    supabase.from("categories").select("id, name, kind, system_key, default_budget, budget_group"),
   ]);
   for (const result of [sources, bills, pots, debts, payments, categories]) {
     if (result.error) fail("load what the plan is made from", result.error);
@@ -103,7 +201,7 @@ async function addGeneratedItems(supabase: Client, budget: Budget, row: BudgetPe
     return id;
   };
 
-  const planSources: PlanSources = {
+  return {
     categories: { income: systemId("income"), savingsPot: systemId("savings_pot"), debtPayment: systemId("debt_payment") },
     incomeSources: sources.data!,
     // The check constraints allow only these values.
@@ -115,12 +213,30 @@ async function addGeneratedItems(supabase: Client, budget: Budget, row: BudgetPe
       paid: debtPaid(payments.data!.filter((p) => p.debt_id === d.id)),
     })),
     spending: categories.data!,
+    /** Each category's group (empty for income), for the sections and the split. */
+    categoryGroups: categories.data!.map((c) => [c.id, c.budget_group] as const),
+  } satisfies PlanSources & { categoryGroups: unknown };
+}
+
+type MoneyRows = Parameters<typeof dashboardNumbers>[1];
+
+/** The period's transactions and every earlier one, for income and carry-in (not needed for future periods). */
+async function loadMoney(supabase: Client, row: BudgetPeriod, future: boolean) {
+  if (future) return { period: [], earlier: [] };
+  const [period, earlier] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select("type, amount, deleted_at, income_source_id")
+      .eq("period_id", row.id)
+      .is("deleted_at", null),
+    supabase.from("transactions").select("type, amount, deleted_at").lt("date", row.start_date).is("deleted_at", null),
+  ]);
+  for (const result of [period, earlier]) {
+    if (result.error) fail("load this period's money", result.error);
+  }
+  // The generated types say `string` for type; its check constraint allows only the four types.
+  return {
+    period: period.data as (MoneyRows[number] & { income_source_id: string | null })[],
+    earlier: earlier.data as MoneyRows,
   };
-
-  const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
-  const items = generatePlan(period, schedule, planSources);
-  if (items.length === 0) return;
-
-  const { error } = await supabase.rpc("add_plan_items", { target_period: row.id, items });
-  if (error) fail("add the plan's items", error);
 }

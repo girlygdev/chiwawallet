@@ -36,7 +36,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
   - Only periods from one before the current one to 3 months ahead can be opened; anything else falls back to the current period.
   - Done when: opening a period three months ahead creates it with the right items, and opening it again adds nothing.
 - [ ] **5d. Plan screen** (`plan.md` §1–5). Likely two sessions:
-  - [ ] **5d-1. Picker, summary and groups.** Period picker (one past, now, future up to 3 months; chips are links, the current one has `aria-current`), summary card, MONEY IN, BILLS, DEBT PAYMENTS, SAVINGS, SPENDING BUDGETS and ONE-OFF ITEMS. Tick circles are display only (Week 6). Past periods read-only with a "Closed" tag once closed (Week 6).
+  - [x] **5d-1. Picker, summary and groups.** Done Nov 25: `periodIncome()`, `incomeStatus()` and `planItemDetail()` in `lib/plan.ts`; `components/plan/`. Spending budgets show the planned amount only and headings show group totals until planned vs actual (Week 6); the "I got paid" pill moved to Week 6 with ticking. Period picker (one past, now, future up to 3 months; chips are links, the current one has `aria-current`), summary card, MONEY IN, BILLS, DEBT PAYMENTS, SAVINGS, SPENDING BUDGETS and ONE-OFF ITEMS. Tick circles are display only (Week 6). Past periods read-only with a "Closed" tag once closed (Week 6).
   - [ ] **5d-2. Desktop table and empty state.** Stat cards, the plan table, the Planned split of income card. Empty plan with the starter plan card and the "Or build it yourself" rows. No Copy last period's plan, no Give leftover a job side card (Week 6).
   - Done when: your real current and next periods show the right items and totals.
 - [ ] **5e. Edit and delete items; starter plan.**

@@ -1,0 +1,67 @@
+import { formatPeso } from "@/lib/money";
+import type { PlanSummary as Summary } from "@/lib/plan";
+
+// The Plan's summary card (plan.md §3), the page's one sticker element:
+// Money for this period, a bar of how much is planned, and the Planned and
+// Not assigned yet key. All numbers come from planSummary().
+export function PlanSummary({
+  summary,
+  income,
+  carriedIn,
+}: {
+  summary: Summary;
+  income: number;
+  /** Empty for future periods: their carry-in isn't known yet. */
+  carriedIn: number | null;
+}) {
+  const { moneyForPeriod, planned, notAssigned } = summary;
+  const percent = moneyForPeriod > 0 ? Math.min(100, Math.round((planned / moneyForPeriod) * 100)) : planned > 0 ? 100 : 0;
+
+  return (
+    <section
+      aria-labelledby="plan-summary-title"
+      className="flex flex-col gap-3 rounded-[22px] border-2 border-sticker bg-surface p-[18px] shadow-sticker"
+    >
+      <div className="flex flex-col gap-0.5">
+        <h2 id="plan-summary-title" className="text-sm font-bold text-text-2">
+          Money for this period
+        </h2>
+        <p className="font-display text-[26px] leading-tight font-semibold text-ink">{formatPeso(moneyForPeriod)}</p>
+        <p className="text-[13px] text-text-3">
+          {carriedIn == null
+            ? `${formatPeso(income)} expected · carry-in not known yet`
+            : `${formatPeso(income)} income + ${formatPeso(carriedIn)} carried in`}
+        </p>
+      </div>
+
+      {/* The key below says the same in words, so the bar is decorative. */}
+      <div aria-hidden className="h-3 overflow-hidden rounded-full bg-mint">
+        <div className="h-full rounded-full bg-green-500" style={{ width: `${percent}%` }} />
+      </div>
+
+      <dl className="flex flex-col gap-1.5 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="flex items-center gap-2 font-bold text-text-2">
+            <span aria-hidden className="size-3 rounded-[3px] bg-green-500" />
+            Planned
+          </dt>
+          <dd className="font-extrabold text-ink">{formatPeso(planned)}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="flex items-center gap-2 font-bold text-text-2">
+            <span aria-hidden className="size-3 rounded-[3px] border-[1.5px] border-line-dash bg-mint" />
+            Not assigned yet
+          </dt>
+          <dd className="font-extrabold text-ink">{formatPeso(notAssigned)}</dd>
+        </div>
+      </dl>
+
+      {/* Too much planned: say it in words, in the warning colours (red is for deletes only). */}
+      {notAssigned < 0 && (
+        <p className="rounded-[12px] bg-warn-bg px-3 py-2 text-[13px] font-bold text-warn-fg">
+          You&apos;ve planned {formatPeso(-notAssigned)} more than this period has.
+        </p>
+      )}
+    </section>
+  );
+}

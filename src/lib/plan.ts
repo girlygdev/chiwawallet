@@ -1,8 +1,8 @@
 import { addDays, addMonths, format, parseISO, subDays } from "date-fns";
-import { billDueDates, type BillFrequency, splitHalves } from "@/lib/bills";
+import { billDueDates, type BillFrequency, type BillTiming, splitHalves } from "@/lib/bills";
 import { type DebtTerms, debtSchedule, paydayFor } from "@/lib/debts";
 import { isActiveOn } from "@/lib/income";
-import { getPeriod, type PaySchedule, type Period, type PaySlot } from "@/lib/periods";
+import { formatShortDate, getPeriod, type PaySchedule, type Period, type PaySlot, paydayLabel } from "@/lib/periods";
 import type { BudgetGroup } from "@/lib/transactions";
 
 // Plan math (plan.md §1 and §5, week-5-tasks.md 5b): pure functions, no
@@ -301,4 +301,94 @@ export function planSummary({
       notAssignedShare: share(Math.max(0, income - planned)),
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// The Plan screen's rows (plan.md §1 and §3, week-5-tasks.md 5d-1)
+// ---------------------------------------------------------------------------
+
+/**
+ * This period's income for "Money for this period": what has come in (all
+ * income, one-time included) plus the income items whose source hasn't paid
+ * yet, at their planned amount ("received, or expected if not yet in").
+ * Once the period has ended, only what came in counts.
+ */
+export function periodIncome({
+  received,
+  items,
+  receivedIds,
+  ended,
+}: {
+  received: number;
+  items: { income_source_id: string | null; planned_amount: number }[];
+  receivedIds: Set<string>;
+  ended: boolean;
+}): number {
+  if (ended) return received;
+  const stillExpected = items
+    .filter((i) => i.income_source_id == null || !receivedIds.has(i.income_source_id))
+    .reduce((sum, i) => sum + i.planned_amount, 0);
+  return received + stillExpected;
+}
+
+/** An income row's tag: "Received", "Expected today" or "Expected Nov 30" (the payday). */
+export function incomeStatus(received: boolean, payday: string, today: string): { text: string; received: boolean } {
+  if (received) return { text: "Received", received };
+  return { text: payday === today ? "Expected today" : `Expected ${formatShortDate(payday)}`, received };
+}
+
+export type DetailContext = {
+  period: Period;
+  schedule: PaySchedule;
+  /** The item's bill, pot or debt, when it has one. */
+  bill?: (BillTiming & { pay_slot: string }) | null;
+  pot?: { pay_slot: string } | null;
+  debt?: DebtTerms | null;
+};
+
+const GROUP_NAMES: Record<BudgetGroup, string> = { needs: "Needs", wants: "Wants", savings_debt: "Savings & debt" };
+
+/**
+ * A tick row's detail line (plan.md §3 "Detail lines"): "Due Dec 10",
+ * "Split · half each payday · Due Dec 10", "Payment 2 of 3 · Due Dec 25",
+ * "Every 15th", "Needed by Dec 5". Spending budgets get their group.
+ */
+export function planItemDetail(item: SectionItem & { needed_by: string | null }, ctx: DetailContext): string {
+  const { period, schedule } = ctx;
+  const recurring = item.origin === "recurring";
+
+  switch (planSection(item)) {
+    case "bills": {
+      const bill = ctx.bill;
+      if (!bill) return "Recurring bill";
+      const split = bill.pay_slot === "split" && schedule.frequency === "semi_monthly";
+      // The due date this period pays, by the same rule as generatePlan().
+      const due = billDueDates(bill, period.start, shift(period.end, 31)).find((d) =>
+        (split ? ["payday_1", "payday_2"] : [bill.pay_slot]).some((slot) => payingPeriodStart(d, slot, schedule) === period.start),
+      );
+      if (!due) return "Recurring bill";
+      const prefix = split ? "Split · half each payday · " : bill.frequency === "monthly" ? "" : `${bill.frequency === "quarterly" ? "Quarterly" : "Yearly"} · `;
+      return `${prefix}Due ${formatShortDate(due)}`;
+    }
+    case "debts": {
+      if (!recurring) return "Extra payment";
+      const schedulePayments = ctx.debt ? debtSchedule(ctx.debt) : [];
+      const payment = schedulePayments.find((p) => paydayFor(p.due, schedule) === period.start);
+      if (!payment) return "Debt payment";
+      const due = `Due ${formatShortDate(payment.due)}`;
+      return schedulePayments.length > 1 ? `Payment ${payment.number} of ${schedulePayments.length} · ${due}` : due;
+    }
+    case "savings": {
+      if (!recurring) return "Extra to savings";
+      const slot = ctx.pot?.pay_slot;
+      if (!slot || slot === "every" || schedule.frequency !== "semi_monthly") return "Every payday";
+      return `Every ${paydayLabel(schedule, slot as PaySlot)}`;
+    }
+    case "spending":
+      return GROUP_NAMES[item.group!];
+    case "one_off":
+      return item.needed_by ? `Needed by ${formatShortDate(item.needed_by)}` : "One-off";
+    case "income":
+      return "";
+  }
 }
