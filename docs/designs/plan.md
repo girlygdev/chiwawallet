@@ -13,7 +13,15 @@ The Plan page is where each payday's money gets a job: income in, then bills, de
 
 The frame is in [`app-shell.md`](app-shell.md), tokens in [`style-guide.md`](style-guide.md), and the formulas Plan shares with the Dashboard in [`dashboard.md`](dashboard.md).
 
-Routes: `/plan` (the current period), `/plan/[periodId]`, `/plan/[periodId]/assign`.
+Routes: `/plan` (the current period), `/plan?start=2026-11-30` (any period, by its start date), `/plan/assign?start=…`. Query strings, not `[periodId]`: a dynamic segment breaks the build, and a future period doesn't need to exist before you open it.
+
+> **Decided Nov 25 (owner):**
+> - The picker shows one past period and future periods up to 3 months ahead (not just three).
+> - Plan items have no note: tapping a row edits its name and amount (and "Needed by" for one-off items).
+> - **Copy last period's plan** is v1.1 (`V1.1.md`): drop the desktop button and the menu item for now.
+> - **Give leftover a job** (§7) and ticking items paid are Week 6. In Week 5 the tick circles are display only.
+> - Installment and one-time debt payments due in the period are added automatically; "When I can" debts never are.
+> - Starter items have no category: they carry a `budget_group` instead. Spending budgets are copied from `categories.default_budget` with origin `recurring`.
 
 ## 1. The numbers
 

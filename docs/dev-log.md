@@ -2,6 +2,25 @@
 
 Newest entry first.
 
+## 2026-11-25 · Week 5 (planning) · Plan generation tasks
+- **What:** Broke the brief's Week 5 into tasks 5a–5i in `docs/week-5-tasks.md`.
+- **Files:** `docs/week-5-tasks.md` (new), `docs/mvp-brief.md` (data model, Week 5 and 6 checklists), `docs/designs/plan.md` (Decided Nov 25 note, routes), `docs/plan-review-2026-11-19.md` (3.9, 3.10, 5.3), `docs/V1.1.md`.
+- **Decisions (owner, Nov 25, all Claude's recommendations):**
+  - A nullable `budget_group` on `plan_items` for starter items (3.9).
+  - Spending-budget copies use origin `recurring` (3.10).
+  - `/plan?start=…` instead of `[periodId]`.
+  - Debt installments are auto-planned; "When I can" debts never are.
+  - The picker reaches 3 months ahead.
+  - Copy last period's plan goes to v1.1; Give leftover a job goes to Week 6.
+  - Plan items have no note.
+- **Open:** how 5h spots hand-edited items (settle in 5a).
+- **Next:** 5a `plan_items` migration.
+
+## 2026-11-25 · Week 4 · Live check done
+- **What:** The owner entered their real bills, pots and debts on their phone (4h). Week 4 is done; the brief's Week 4 boxes are ticked.
+- **Files:** `docs/week-4-tasks.md`, `docs/mvp-brief.md`.
+- **Tests:** owner's check on live.
+
 ## 2026-11-24 · Week 4 · "When I can" on live
 - **What:** Applied `20261124170000_flexible_debts.sql` to live (`db push --linked`, after a dry run that listed only it; owner's go). Then pushed `main`: the date-field fix and "When I can". Migration first, because the new code reads and writes `target_date`.
 - **Files:** none changed. `types.ts` regenerated from live matched the hand edits exactly.

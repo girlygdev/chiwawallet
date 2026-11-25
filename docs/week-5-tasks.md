@@ -1,0 +1,79 @@
+# Week 5 tasks
+
+The Week 5 checklist in `mvp-brief.md` broken into one-session tasks. Tick tasks here as they're done; tick the brief's checkbox when its whole group is done.
+
+**Week 5 is done when:** tests pass for generated 15th and 30th plans, and you can open and edit a period three months ahead.
+
+Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard.md` (shared formulas), `delete-pattern.md` (level 1), `more-and-categories.md` (Budget per payday), `bills.md`, `savings.md`, `debts.md` (where they say "Week 5"). Decisions: `docs/plan-review-2026-11-19.md` (3.9, 3.10, 5.3) and "Decisions" below.
+
+## Tasks
+
+- [ ] **5a. Migration: `plan_items`.**
+  - Columns from the brief, plus `budget_group` (3.9): nullable, required when `category_id` is empty, empty otherwise. Only `starter` items may have no category.
+  - `origin` check: `recurring`, `one_off`, `starter`, `assigned`. `planned_amount > 0`. `deleted_at` for soft delete.
+  - Same-owner links like `transactions` (`(id, user_id)` keys). Period link `on delete cascade`; category `on delete no action` (moved by `delete_category()`); income source, bill, pot and debt `on delete set null` (3.6).
+  - A unique key so generation can't add the same recurring item twice (for example period + bill + half, period + pot, period + debt payment number, period + income source, period + category for spending budgets).
+  - `transactions.plan_item_id` foreign key (`on delete set null`).
+  - `delete_category()` also moves plan items and counts them in the dialog.
+  - Deleting a bill, pot, debt or income source removes its **unpaid items in current and future periods**; paid and past items keep their history (brief: "only future plan items are removed").
+  - **RLS** with user A can't read or write user B's rows tests in `tests/db/`.
+  - **Live:** dry run, then the owner's go. Regenerate types.
+  - Done when: `npm run test:db` passes.
+- [ ] **5b. `generatePlan()` and plan math, tests first.** Pure functions in `src/lib/plan.ts`:
+  - `generatePlan(period, budget, sources)` returns the items for one period:
+    - Income sources for that pay slot, active in the period (start and end dates).
+    - Bills due in the period's months for its slot. Split bills are two halves (`splitHalves()`, odd centavo on payday 1). Quarterly and yearly bills only in their months.
+    - Pot contributions for that slot (`every` pots each payday); none when the contribution is ₱0.
+    - Installment and one-time debt payments whose due date's payday is this period (`paydayFor()`). Never "When I can" debts or paid-off debts.
+    - Spending budgets from `categories.default_budget`, origin `recurring` (3.10).
+  - `starterPlan(income, budget)`: three items with the budget's `needs_pct`, `wants_pct`, `savings_debt_pct` of this payday's **income** (not carry-in). Rounding keeps the three summing to the income.
+  - `planSummary()`: Money for this period, Planned (income items excluded), Not assigned yet, each group's total, and the planned split vs the budget's targets (debt payments count as Needs).
+  - Zod schemas in `src/lib/validation/plan-item.ts`.
+  - Done when: Vitest cases pass for a 15th period, a 30th period, a split bill, a pot that only contributes on the 30th, a quarterly bill, an income source that ends, a debt installment, weekly and monthly budgets, and the starter plan rounding.
+- [ ] **5c. Opening a period.**
+  - Open any period by its start date (`/plan?start=…`): create the `budget_periods` row if needed (like `getOrCreatePeriod()`), then insert its generated items once.
+  - Safe from two tabs at once: the unique key from 5a plus insert-ignore-duplicates.
+  - Only periods from one before the current one to 3 months ahead can be opened; anything else falls back to the current period.
+  - Done when: opening a period three months ahead creates it with the right items, and opening it again adds nothing.
+- [ ] **5d. Plan screen** (`plan.md` §1–5). Likely two sessions:
+  - [ ] **5d-1. Picker, summary and groups.** Period picker (one past, now, future up to 3 months; chips are links, the current one has `aria-current`), summary card, MONEY IN, BILLS, DEBT PAYMENTS, SAVINGS, SPENDING BUDGETS and ONE-OFF ITEMS. Tick circles are display only (Week 6). Past periods read-only with a "Closed" tag once closed (Week 6).
+  - [ ] **5d-2. Desktop table and empty state.** Stat cards, the plan table, the Planned split of income card. Empty plan with the starter plan card and the "Or build it yourself" rows. No Copy last period's plan, no Give leftover a job side card (Week 6).
+  - Done when: your real current and next periods show the right items and totals.
+- [ ] **5e. Edit and delete items; starter plan.**
+  - Tapping a row edits its name and amount (and "Needed by" for one-off items). Items linked to a bill, pot or debt keep the link; only this period changes.
+  - Delete is level 1: soft delete with an undo toast.
+  - **Use this starter plan** creates the three `starter` items; the Plan options menu offers it too (Edit spending budgets, Use starter plan, Period settings).
+  - Done when: editing and deleting an item updates the summary, and Undo brings it back.
+- [ ] **5f. Add one-off item** (`plan.md` §6).
+  - Sheet on mobile, dialog on desktop. Fields: What is it for?, Amount, Needed by (optional), Which payday pays for it? (period cards up to 3 months ahead), Category.
+  - Smart default from Needed by: "Suggested: the payday just before Dec 5."
+  - Impact box: "Nov 30 – Dec 14 not assigned: ₱23,200 → ₱20,700", yellow when it goes below ₱0.
+  - Done when: a one-off added to a future period shows there with the right totals.
+- [ ] **5g. Debt payments and spending budgets.**
+  - Plan a debt payment in any period: an extra amount on any active debt (including "When I can"), origin `one_off` with `debt_id`, counting as Savings & debt payoff.
+  - **Budget per payday** on New and Edit category (`default_budget`), and the simple **Set a budget** sheet (`plan.md` fix #2): category, amount, and "every payday" (saves `default_budget`) or "this period only" (a plan item).
+  - Done when: a debt payment planned two periods ahead and a Food budget both show in their periods.
+- [ ] **5h. Wire-up.**
+  - Saving a bill, pot, income source, debt or category budget updates its **unpaid, unedited** items in current and future periods that are already open, and adds it to those periods if new (`bills.md`, `savings.md` "Update future paydays only?").
+  - The add sheet's "budget left" impact line for categories with a planned amount (plan review, Week 3 scope).
+  - Bills and Savings: "Planned in N upcoming paydays" and "Due this period" from plan items.
+  - Done when: changing a bill's amount shows in next period's plan.
+- [ ] **5i. Live check.** Push, then plan your next three months on your phone.
+
+## Decisions (owner, Nov 25)
+
+- Starter items have no category; plan items get a nullable `budget_group`, required only when there's no category (3.9).
+- Spending budgets copied from `categories.default_budget` use origin `recurring` (3.10).
+- Plan URLs use a query string: `/plan?start=2026-11-30`, not `/plan/[periodId]`.
+- `generatePlan` adds installment and one-time debt payments due in the period automatically; "When I can" debts are planned by hand only.
+- The picker reaches 3 months ahead (about 6 periods on a twice-a-month budget), plus one past period.
+- Copy last period's plan moved to `V1.1.md` (5.3). Give leftover a job moved to Week 6.
+- Plan items have no note; edit name and amount only.
+
+## Open (settle in 5a or 5h)
+
+- How 5h knows an item was edited by hand (so a bill change doesn't overwrite it): compare to the old bill amount, or an `edited` flag? Settle in 5a, since a flag is a column.
+
+## Out of Week 5
+
+Mark paid and the tick circles, planned vs actual, carry-over and closing a period, Give leftover a job, the Transfer tab (Week 6); Dashboard due this period and pot progress (Week 7).

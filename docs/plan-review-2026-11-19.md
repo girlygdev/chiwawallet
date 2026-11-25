@@ -35,8 +35,8 @@ Changes to the brief's data model need the owner's OK (CLAUDE.md).
 | 3.6 | 3–4 | links to pots, bills, debts, income sources | Level 2 deletes are hard deletes, but past history stays (`delete-pattern.md`) | Foreign keys `on delete set null`; history rows fall back to the category name | **Decided Nov 20:** as suggested. Category links are `on delete restrict` instead: a category delete moves its rows first |
 | 3.7 | 4 | `recurring_bills` | Quarterly and yearly bills need a first due month (`bills.md` §4) | `first_due_month` | **Decided Nov 24:** add `first_due_month` (1–12), used only for quarterly and yearly bills |
 | 3.8 | 4 | `savings_pots` | `pay_slot = split` for pots | Drop split for pots (`savings.md` fix #5) | **Decided Nov 24:** drop split; pots use `payday_1`, `payday_2` or `every` |
-| 3.9 | 5 | `plan_items` | Starter plan items (Needs, Wants, Savings & debt) have no category | A `group` column on `plan_items` | open |
-| 3.10 | 5 | `plan_items` | Origin for copies of `categories.default_budget` | `recurring` (`plan.md` fix #3) | open |
+| 3.9 | 5 | `plan_items` | Starter plan items (Needs, Wants, Savings & debt) have no category | A `group` column on `plan_items` | **Decided Nov 25:** a nullable `budget_group` on `plan_items`, required only when the item has no category (starter items) |
+| 3.10 | 5 | `plan_items` | Origin for copies of `categories.default_budget` | `recurring` (`plan.md` fix #3) | **Decided Nov 25:** `recurring`, linked by `category_id` |
 | 3.11 | 2 or 7 | — | Dismissing the dashboard's Get started checklist | Browser storage; no column | **Decided Nov 19:** as suggested |
 | 3.13 | 2 | `budgets` / `profiles` | Week start appears twice: onboarding saves `profiles.week_start`, and weekly budgets need a payday | Weekly periods use `budgets.pay_weekday`; `profiles.week_start` only sets how calendars display | **Decided Nov 19** |
 | 3.14 | 2 | `budget_periods` | Signing up mid-period: "Has your Nov 15 pay already arrived?" must be saved before `transactions` exists (`onboarding.md` fix #1) | `first_pay_received` (boolean, default false); Week 3 turns it into a received income transaction | **Decided Nov 19. Changed Nov 20:** no income transaction, because the opening balance already includes that pay and it would count twice. The first period just shows the source as "Received" |
@@ -69,7 +69,7 @@ The specs cover about 25 screens in mobile and desktop versions, plus empty stat
 | --- | --- | --- | --- |
 | 5.1 | "Search all periods" and the "N" keyboard shortcut | `activity.md` | **Decided Nov 20:** moved to `V1.1.md` |
 | 5.2 | Swipe gestures on transaction rows (Edit and Delete buttons stay) | `activity.md` | **Decided Nov 20:** moved to `V1.1.md` |
-| 5.3 | Copy last period's plan | `plan.md` fix #5 | open |
+| 5.3 | Copy last period's plan | `plan.md` fix #5 | **Decided Nov 25:** moved to `V1.1.md` |
 | 5.4 | "Wins" on the rollover screen (show the plain numbers) | `payday-rollover.md` | open |
 | 5.5 | Desktop-only live previews (onboarding, New debt schedule) | `onboarding.md`, `debts.md` | **Decided Nov 19:** keep all three onboarding previews (owner); New debt schedule still open |
 | 5.6 | Rebuilding future periods when paydays change (see 4.8) | `settings.md` | open |

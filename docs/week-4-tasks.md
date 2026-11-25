@@ -58,7 +58,7 @@ Specs: `docs/designs/bills.md`, `savings.md`, `debts.md`, `activity.md` (the add
   - More › Money detail lines: "3 recurring", "3 pots · ₱67,500 saved", "1 debt · ₱8,000 left".
   - Dashboard: transfers to pots count in Money out (decided in 3f). Activity keeps showing them as To savings.
   - Done when: the Dashboard and Activity agree.
-- [ ] **4h. Live check.** Push, then enter your real bills, pots and debts on your phone.
+- [x] **4h. Live check.** Done Nov 25 (owner). Push, then enter your real bills, pots and debts on your phone.
 
 ## Decisions (owner, Nov 24)
 

@@ -190,10 +190,10 @@ Every table has `user_id` and an RLS policy. Amounts are `bigint` centavos.
 | recurring_bills | budget_id, name, amount, amount_varies (false), category_id, frequency (monthly / quarterly / yearly), due_day, first_due_month (1–12, quarterly and yearly only; decided Nov 24), pay_slot (payday_1 / payday_2 / split), remind (on) | plan items, transactions |
 | savings_pots | name, icon, color, target_amount (optional), target_date (optional), starting_balance, planned_contribution, pay_slot (payday_1 / payday_2 / every; no split, decided Nov 24), is_locked | plan items, transactions |
 | debts | name, lender (optional), total_amount, payment_type (installments / one_time / flexible, "When I can", added Nov 24), num_payments, payment_amount, first_due_date (all three empty for flexible), target_date (optional, flexible only: "Aim to pay off by", 1st of the month), interest_rate (optional, display only), paid_off_at | plan items, transactions |
-| plan_items | period_id, name, category_id, planned_amount, origin (recurring / one_off / starter / assigned), needed_by (optional), income_source_id, bill_id, pot_id, debt_id, paid_at, deleted_at | period, transactions |
+| plan_items | period_id, name, category_id (empty only for starter items), budget_group (needs / wants / savings_debt; only when there's no category, decided Nov 25), planned_amount, origin (recurring / one_off / starter / assigned), needed_by (optional), income_source_id, bill_id, pot_id, debt_id, paid_at, deleted_at | period, transactions |
 | transactions | period_id, category_id, type (income / expense / savings / debt_payment), amount (above zero; only savings can be negative, meaning a pot withdrawal), date, note, income_source_id, plan_item_id, pot_id, debt_id, deleted_at | period, plan item |
 
-Opening a period, current or future, generates its plan items from income sources, bills (split ones become two halves) and pot contributions for that payday. You then add one-off items and debt payments. Pot and debt balances are calculated from transactions, not stored, so they can't drift out of sync. The three target percentages live on each budget and must add up to 100 (enforce with a database check). The MVP hides them and always uses 50/30/20; in v1.1, picking a model just fills in those numbers.
+Opening a period, current or future, generates its plan items from income sources, bills (split ones become two halves), pot contributions for that payday, installment and one-time debt payments due in it (decided Nov 25; never "When I can" debts) and spending budgets from `categories.default_budget` (origin `recurring`). You then add one-off items and extra debt payments. Pot and debt balances are calculated from transactions, not stored, so they can't drift out of sync. The three target percentages live on each budget and must add up to 100 (enforce with a database check). The MVP hides them and always uses 50/30/20; in v1.1, picking a model just fills in those numbers.
 
 **Baseline rules for every table** (frozen Nov 17, 2026; change only when building proves a field is missing):
 
@@ -268,19 +268,19 @@ Each task fits in one session and ends with something you can check. Deploy from
 
 **Done when:** you can enter all your current bills, pots and debts and they list correctly.
 
-- [ ] `recurring_bills` table; Bills screen with due day and paid from payday 1, 2 or split
-- [ ] `savings_pots` table; Savings screen with target, starting balance, planned contribution, pay slot, locked flag; the add sheet's Savings tab (add to or withdraw from a pot)
-- [ ] `debts` table; Debts screen with amount, due date and optional interest rate
-- [ ] Zod schemas and RLS for all three tables
+- [x] `recurring_bills` table; Bills screen with due day and paid from payday 1, 2 or split
+- [x] `savings_pots` table; Savings screen with target, starting balance, planned contribution, pay slot, locked flag; the add sheet's Savings tab (add to or withdraw from a pot)
+- [x] `debts` table; Debts screen with amount, due date and optional interest rate
+- [x] Zod schemas and RLS for all three tables
 
 ### Week 5: Plan generation
 
 **Done when:** tests pass for generated 15th and 30th plans, and you can open and edit a period three months ahead.
 
 - [ ] `plan_items` table + RLS
-- [ ] Pure function `generatePlan(period, budget)` that builds items from income sources, bills (split = two halves) and pot contributions for that pay slot
+- [ ] Pure function `generatePlan(period, budget)` that builds items from income sources, bills (split = two halves), pot contributions for that pay slot, scheduled debt payments due in the period and spending budgets (decided Nov 25)
 - [ ] Vitest cases: a 15th period, a 30th period, a split bill, a pot that only contributes on the 30th
-- [ ] Plan screen with a period picker (previous, current, future)
+- [ ] Plan screen with a period picker (one previous, current, and future periods up to 3 months ahead)
 - [ ] Add, edit and delete one-off items; plan debt payments in any period; one-tap 50/30/20 starter plan for new users (uses the budget's needs_pct, wants_pct and savings_debt_pct)
 
 ### Week 6: Plan vs actual and carry-over
@@ -290,6 +290,7 @@ Each task fits in one session and ends with something you can check. Deploy from
 - [ ] Mark paid on a plan item creates the matching transaction
 - [ ] The add sheet's Savings tab becomes **Transfer** (decided Nov 24): To a pot, From a pot, Pot to pot (net ₱0 to cash), and To a debt (a planned payment when one is due this period, otherwise an extra payment); plus Pay extra on Debts. Needs the locked "Debt payment" category (Needs) for planned payments; extra payments keep "Extra debt payment" (Savings & debt payoff)
 - [ ] Planned vs actual per item and per group on the Plan screen
+- [ ] Give leftover a job (`plan.md` §7): assign what's not assigned yet to pots and debts as `assigned` plan items (moved from Week 5, Nov 25)
 - [ ] Pure function for carry-over, with Vitest cases for surplus, overspend and zero
 - [ ] Close a period and carry the result into the next; first period starts from the opening balance
 
