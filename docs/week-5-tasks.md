@@ -8,7 +8,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
 
 ## Tasks
 
-- [x] **5a. Migration: `plan_items`.** Done Nov 25 (`20261125100000_plan_items.sql`, local; live after the owner's go). Also `edited` and the "Debt payment" system category (owner, Nov 25). One unique key per source per period (debt installments are monthly, so one per period); a recurring item whose source is deleted, or whose spending budget's category is moved, becomes a one-off.
+- [x] **5a. Migration: `plan_items`.** Done Nov 25 (`20261125100000_plan_items.sql`, local and live; types regenerated). Also `edited` and the "Debt payment" system category (owner, Nov 25). One unique key per source per period (debt installments are monthly, so one per period); a recurring item whose source is deleted, or whose spending budget's category is moved, becomes a one-off.
   - Columns from the brief, plus `budget_group` (3.9): nullable, required when `category_id` is empty, empty otherwise. Only `starter` items may have no category.
   - `origin` check: `recurring`, `one_off`, `starter`, `assigned`. `planned_amount > 0`. `deleted_at` for soft delete.
   - Same-owner links like `transactions` (`(id, user_id)` keys). Period link `on delete cascade`; category `on delete no action` (moved by `delete_category()`); income source, bill, pot and debt `on delete set null` (3.6).
@@ -19,14 +19,14 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
   - **RLS** with user A can't read or write user B's rows tests in `tests/db/`.
   - **Live:** dry run, then the owner's go. Regenerate types.
   - Done when: `npm run test:db` passes.
-- [ ] **5b. `generatePlan()` and plan math, tests first.** Pure functions in `src/lib/plan.ts`:
-  - `generatePlan(period, budget, sources)` returns the items for one period:
+- [x] **5b. `generatePlan()` and plan math, tests first.** Done Nov 25: `generatePlan()`, `payingPeriodStart()`, `starterPlan()`, `planSection()`, `planSummary()` and `validation/plan-item.ts`. Pure functions in `src/lib/plan.ts`:
+  - `generatePlan(period, schedule, sources)` returns the items for one period:
     - Income sources for that pay slot, active in the period (start and end dates).
-    - Bills due in the period's months for its slot. Split bills are two halves (`splitHalves()`, odd centavo on payday 1). Quarterly and yearly bills only in their months.
+    - Bills: the period pays a due date when it's the latest period of the bill's payday starting on or before it (owner, Nov 25: due Dec 10, paid from the 15th → Nov 15). Split bills are two halves (`splitHalves()`, odd centavo on payday 2). Quarterly and yearly bills only when due.
     - Pot contributions for that slot (`every` pots each payday); none when the contribution is ₱0.
     - Installment and one-time debt payments whose due date's payday is this period (`paydayFor()`). Never "When I can" debts or paid-off debts.
     - Spending budgets from `categories.default_budget`, origin `recurring` (3.10).
-  - `starterPlan(income, budget)`: three items with the budget's `needs_pct`, `wants_pct`, `savings_debt_pct` of this payday's **income** (not carry-in). Rounding keeps the three summing to the income.
+  - `starterPlan(income, budget)`: three items ("Needs", "Wants", "Savings & debt") with the budget's `needs_pct`, `wants_pct`, `savings_debt_pct` of this payday's **income** (not carry-in). Needs and Wants round down to whole pesos; Savings & debt gets the rest (owner, Nov 25).
   - `planSummary()`: Money for this period, Planned (income items excluded), Not assigned yet, each group's total, and the planned split vs the budget's targets (debt payments count as Needs).
   - Zod schemas in `src/lib/validation/plan-item.ts`.
   - Done when: Vitest cases pass for a 15th period, a 30th period, a split bill, a pot that only contributes on the 30th, a quarterly bill, an income source that ends, a debt installment, weekly and monthly budgets, and the starter plan rounding.

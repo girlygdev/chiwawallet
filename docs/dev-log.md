@@ -2,6 +2,24 @@
 
 Newest entry first.
 
+## 2026-11-25 · Week 5 · 5b Plan math, tests first
+- **What:** Pure functions for the plan:
+  - `generatePlan()`: a period's recurring items from income sources, bills, debts, pots and spending budgets.
+  - `payingPeriodStart()`: which payday pays a bill.
+  - `starterPlan()`, `planSection()` and `planSummary()`.
+  - Zod schemas for Add one-off item and Edit item.
+- **Files:**
+  - New: `src/lib/plan.ts`, `src/lib/validation/plan-item.ts`, `tests/lib/plan.test.ts`, `tests/lib/validation/plan-item.test.ts`
+  - Edited: `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 25, Claude's recommendations):**
+  - **A bill is paid by the latest period of its payday that starts on or before the due date.** Due Dec 10, paid from the 15th, goes in the Nov 15 plan. On weekly and monthly budgets it's the period containing the due date, like debts.
+  - **Starter plan:** "Needs", "Wants", "Savings & debt". Needs and Wants round down to whole pesos, and Savings & debt gets the rest, so the three add up to the income.
+  - **Debt items** are what's left of each scheduled payment after what's been paid, oldest payment first.
+  - **Sections:** an item linked to nothing and not recurring or starter is a one-off; an extra debt payment shows under Debt payments. The 50/30/20 split uses each item's category group.
+- **Tests:** written first, then the code. 32 new unit tests (429 pass). Lint and typecheck pass.
+- **AI notes:** I wrongly wrote that `splitHalves()` gives the odd centavo to payday 1; it gives it to payday 2. Fixed in the task list.
+- **Next:** 5c, opening a period (needs the `add_plan_items()` SQL function, a migration).
+
 ## 2026-11-25 · Week 5 · 5a `plan_items` migration
 - **What:** The `plan_items` table, the "Debt payment" system category, and `transactions.plan_item_id`.
 - **Files:**
@@ -21,7 +39,7 @@ Newest entry first.
   - **Permissions:** users can't change `origin`, the links or `paid_at` (Mark paid, Week 6), and can't hard-delete. `transactions.plan_item_id` has its foreign key but no column permission until Week 6.
 - **Tests:** 36 new database tests (260 pass) and 1 new unit test (397 pass). Lint and typecheck pass. `.env.test.local` is missing on this machine, so the database tests ran with the local URL and key passed inline.
 - **AI notes:** The API's `upsert({ ignoreDuplicates })` only skips duplicates of the primary key, not partial unique keys. 5c needs a small SQL function with a bare `on conflict do nothing`.
-- **Live:** local only until the owner's go (dry run first).
+- **Live:** applied Nov 25 (`db push --linked`, after a dry run that listed only it; owner's go), then pushed `main`. `types.ts` regenerated from live matched the hand edits exactly. The CLI on this machine is now linked to the live project.
 - **Next:** push 5a live, then 5b `generatePlan()`.
 
 ## 2026-11-25 · Week 5 (planning) · Plan generation tasks
