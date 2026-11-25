@@ -2,6 +2,28 @@
 
 Newest entry first.
 
+## 2026-11-25 · Week 5 · 5a `plan_items` migration
+- **What:** The `plan_items` table, the "Debt payment" system category, and `transactions.plan_item_id`.
+- **Files:**
+  - New: `supabase/migrations/20261125100000_plan_items.sql`, `tests/db/plan-items.test.ts`
+  - Edited:
+    - `src/lib/supabase/types.ts` (by hand)
+    - `src/lib/categories.ts`, `src/components/categories/delete-category-dialog.tsx` and `src/app/(app)/settings/categories/edit/page.tsx`: the delete dialog counts plan items ("2 bills, 3 plan items and 12 transactions use Fun.").
+    - `src/components/categories/category-list.tsx`: the detail line for Debt payment.
+    - `tests/lib/categories.test.ts`, `tests/db/categories.test.ts` (20 default categories)
+    - `docs/week-5-tasks.md`, `docs/mvp-brief.md`
+- **Decisions (owner, Nov 25, Claude's recommendations):**
+  - **`edited`** (default false), set by 5e's Edit, so 5h's sync skips hand-edited items.
+  - **"Debt payment"** (Needs, `debt_payment`) is added now, not in Week 6: generated debt items need a category. Existing accounts that already have their own "Debt payment" get "Planned debt payment".
+  - **Generation keys:** one recurring item per period per income source, bill, pot or debt, and one per category for spending budgets. They count soft-deleted rows, so an item you delete never comes back. The starter plan is once per period (live rows only).
+  - **Detaching:** a recurring item whose source is deleted, or whose spending budget's category is moved by `delete_category()`, becomes a `one_off`. Without this, a past Meralco item would clash with a Bills spending budget once Meralco is deleted.
+  - **Deleting a bill, pot, debt or income source** soft-deletes its unpaid items in periods that end today (Manila) or later. It runs as the table owner, because deleting an account cascades into bills as the Auth service.
+  - **Permissions:** users can't change `origin`, the links or `paid_at` (Mark paid, Week 6), and can't hard-delete. `transactions.plan_item_id` has its foreign key but no column permission until Week 6.
+- **Tests:** 36 new database tests (260 pass) and 1 new unit test (397 pass). Lint and typecheck pass. `.env.test.local` is missing on this machine, so the database tests ran with the local URL and key passed inline.
+- **AI notes:** The API's `upsert({ ignoreDuplicates })` only skips duplicates of the primary key, not partial unique keys. 5c needs a small SQL function with a bare `on conflict do nothing`.
+- **Live:** local only until the owner's go (dry run first).
+- **Next:** push 5a live, then 5b `generatePlan()`.
+
 ## 2026-11-25 · Week 5 (planning) · Plan generation tasks
 - **What:** Broke the brief's Week 5 into tasks 5a–5i in `docs/week-5-tasks.md`.
 - **Files:** `docs/week-5-tasks.md` (new), `docs/mvp-brief.md` (data model, Week 5 and 6 checklists), `docs/designs/plan.md` (Decided Nov 25 note, routes), `docs/plan-review-2026-11-19.md` (3.9, 3.10, 5.3), `docs/V1.1.md`.

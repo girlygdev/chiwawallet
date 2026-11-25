@@ -22,19 +22,26 @@ export type CategoryUsage = {
   deletedCount: number;
   /** Recurring bills using the category (4a-1); they move too. */
   billCount: number;
-  /** Any row at all (live or deleted transactions, or bills) means picking where they move to. */
+  /** Plan items using the category (5a), deleted ones included; they move too. */
+  planItemCount: number;
+  /** Any row at all (live or deleted transactions, bills or plan items) means picking where they move to. */
   needsMove: boolean;
 };
 
 /** `rows`: every transaction with this category, deleted ones included. */
-export function categoryUsage(rows: { amount: number; deleted_at: string | null }[], billCount = 0): CategoryUsage {
+export function categoryUsage(
+  rows: { amount: number; deleted_at: string | null }[],
+  billCount = 0,
+  planItemCount = 0,
+): CategoryUsage {
   const live = rows.filter((r) => r.deleted_at == null);
   return {
     count: live.length,
     total: live.reduce((sum, r) => sum + r.amount, 0),
     deletedCount: rows.length - live.length,
     billCount,
-    needsMove: rows.length > 0 || billCount > 0,
+    planItemCount,
+    needsMove: rows.length > 0 || billCount > 0 || planItemCount > 0,
   };
 }
 

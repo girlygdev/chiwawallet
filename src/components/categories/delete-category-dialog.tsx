@@ -28,6 +28,9 @@ const GROUP_NAMES: Record<string, string> = {
 };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+// "a", "a and b", "a, b and c".
+const listWords = (words: string[]) =>
+  words.length > 1 ? `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}` : (words[0] ?? "");
 
 /**
  * Edit category's "Delete category" link and its level 2 dialog
@@ -68,15 +71,16 @@ export function DeleteCategory({
   };
 
   // What uses it, in words (delete-pattern.md §2: say what's linked):
-  // "2 bills and 12 transactions (₱3,400) use Fun."
+  // "2 bills, 3 plan items and 12 transactions (₱3,400) use Fun."
   const inUse = [
     usage.billCount > 0 && plural(usage.billCount, "bill"),
+    usage.planItemCount > 0 && plural(usage.planItemCount, "plan item"),
     usage.count > 0 && `${plural(usage.count, "transaction")} (${formatPeso(usage.total)})`,
   ].filter(Boolean);
   const linked =
     inUse.length > 0
       ? // "1 bill uses Fun." but "2 bills use Fun." and "1 bill and 1 transaction use Fun."
-        `${inUse.join(" and ")} ${usage.count + usage.billCount === 1 ? "uses" : "use"} ${category.name}.`
+        `${listWords(inUse as string[])} ${usage.count + usage.billCount + usage.planItemCount === 1 ? "uses" : "use"} ${category.name}.`
       : usage.deletedCount > 0
         ? `No transactions use ${category.name} now, but ${plural(usage.deletedCount, "recently deleted one")} still do.`
         : `Nothing uses ${category.name} yet.`;
@@ -154,6 +158,7 @@ export function DeleteCategory({
             </li>
           )}
           {usage.billCount > 0 && <li>Its bills move there too.</li>}
+          {usage.planItemCount > 0 && <li>Its plan items move there too.</li>}
           {usage.count + usage.deletedCount > 0 && <li>Past transactions stay in Activity under the new category.</li>}
         </ul>
       </ConfirmDelete>

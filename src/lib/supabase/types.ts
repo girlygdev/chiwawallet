@@ -292,6 +292,112 @@ export type Database = {
           },
         ]
       }
+      plan_items: {
+        Row: {
+          bill_id: string | null
+          budget_group: string | null
+          category_id: string | null
+          created_at: string
+          debt_id: string | null
+          deleted_at: string | null
+          edited: boolean
+          id: string
+          income_source_id: string | null
+          name: string
+          needed_by: string | null
+          origin: string
+          paid_at: string | null
+          period_id: string
+          planned_amount: number
+          pot_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bill_id?: string | null
+          budget_group?: string | null
+          category_id?: string | null
+          created_at?: string
+          debt_id?: string | null
+          deleted_at?: string | null
+          edited?: boolean
+          id?: string
+          income_source_id?: string | null
+          name: string
+          needed_by?: string | null
+          origin: string
+          paid_at?: string | null
+          period_id: string
+          planned_amount: number
+          pot_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          bill_id?: string | null
+          budget_group?: string | null
+          category_id?: string | null
+          created_at?: string
+          debt_id?: string | null
+          deleted_at?: string | null
+          edited?: boolean
+          id?: string
+          income_source_id?: string | null
+          name?: string
+          needed_by?: string | null
+          origin?: string
+          paid_at?: string | null
+          period_id?: string
+          planned_amount?: number
+          pot_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_items_bill_fkey"
+            columns: ["bill_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_bills"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "plan_items_category_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "plan_items_debt_fkey"
+            columns: ["debt_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "debts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "plan_items_income_source_fkey"
+            columns: ["income_source_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "income_sources"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "plan_items_period_fkey"
+            columns: ["period_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "budget_periods"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "plan_items_pot_fkey"
+            columns: ["pot_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "savings_pots"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           bill_reminders: boolean
@@ -466,6 +572,7 @@ export type Database = {
           income_source_id: string | null
           note: string | null
           period_id: string
+          plan_item_id: string | null
           pot_id: string | null
           type: string
           updated_at: string
@@ -482,6 +589,7 @@ export type Database = {
           income_source_id?: string | null
           note?: string | null
           period_id: string
+          plan_item_id?: string | null
           pot_id?: string | null
           type: string
           updated_at?: string
@@ -498,6 +606,7 @@ export type Database = {
           income_source_id?: string | null
           note?: string | null
           period_id?: string
+          plan_item_id?: string | null
           pot_id?: string | null
           type?: string
           updated_at?: string
@@ -530,6 +639,13 @@ export type Database = {
             columns: ["period_id", "user_id"]
             isOneToOne: false
             referencedRelation: "budget_periods"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "transactions_plan_item_fkey"
+            columns: ["plan_item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "plan_items"
             referencedColumns: ["id", "user_id"]
           },
           {

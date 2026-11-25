@@ -8,7 +8,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
 
 ## Tasks
 
-- [ ] **5a. Migration: `plan_items`.**
+- [x] **5a. Migration: `plan_items`.** Done Nov 25 (`20261125100000_plan_items.sql`, local; live after the owner's go). Also `edited` and the "Debt payment" system category (owner, Nov 25). One unique key per source per period (debt installments are monthly, so one per period); a recurring item whose source is deleted, or whose spending budget's category is moved, becomes a one-off.
   - Columns from the brief, plus `budget_group` (3.9): nullable, required when `category_id` is empty, empty otherwise. Only `starter` items may have no category.
   - `origin` check: `recurring`, `one_off`, `starter`, `assigned`. `planned_amount > 0`. `deleted_at` for soft delete.
   - Same-owner links like `transactions` (`(id, user_id)` keys). Period link `on delete cascade`; category `on delete no action` (moved by `delete_category()`); income source, bill, pot and debt `on delete set null` (3.6).
@@ -32,7 +32,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
   - Done when: Vitest cases pass for a 15th period, a 30th period, a split bill, a pot that only contributes on the 30th, a quarterly bill, an income source that ends, a debt installment, weekly and monthly budgets, and the starter plan rounding.
 - [ ] **5c. Opening a period.**
   - Open any period by its start date (`/plan?start=…`): create the `budget_periods` row if needed (like `getOrCreatePeriod()`), then insert its generated items once.
-  - Safe from two tabs at once: the unique key from 5a plus insert-ignore-duplicates.
+  - Safe from two tabs at once: the unique keys from 5a plus SQL's bare `on conflict do nothing`. The API's `upsert({ ignoreDuplicates })` only targets the primary key and fails on the partial keys (found in 5a), so this needs a small SQL function (a migration), for example `add_plan_items(period, items)`.
   - Only periods from one before the current one to 3 months ahead can be opened; anything else falls back to the current period.
   - Done when: opening a period three months ahead creates it with the right items, and opening it again adds nothing.
 - [ ] **5d. Plan screen** (`plan.md` §1–5). Likely two sessions:
@@ -70,9 +70,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
 - Copy last period's plan moved to `V1.1.md` (5.3). Give leftover a job moved to Week 6.
 - Plan items have no note; edit name and amount only.
 
-## Open (settle in 5a or 5h)
-
-- How 5h knows an item was edited by hand (so a bill change doesn't overwrite it): compare to the old bill amount, or an `edited` flag? Settle in 5a, since a flag is a column.
+- **Decided in 5a:** an `edited` flag on plan items, set by 5e's Edit, so 5h's sync skips hand-edited items. The locked "Debt payment" category (Needs) is added in 5a, not Week 6, because generated debt items need it.
 
 ## Out of Week 5
 

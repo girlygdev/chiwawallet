@@ -18,6 +18,7 @@ const SYSTEM_DETAIL: Record<string, string> = {
   income: "Used for pay and other money in",
   savings_pot: "Used when you move money to a pot",
   extra_debt: "Used for extra debt payments",
+  debt_payment: "Used for planned debt payments",
 };
 
 const HEADING = "text-[13px] font-extrabold tracking-wide text-text-3 uppercase";

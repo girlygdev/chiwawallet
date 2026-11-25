@@ -9,11 +9,29 @@ describe("categoryUsage", () => {
         { amount: 25_050, deleted_at: null },
         { amount: 99_900, deleted_at: "2026-11-21T03:00:00Z" },
       ]),
-    ).toEqual({ count: 2, total: 43_050, deletedCount: 1, billCount: 0, needsMove: true });
+    ).toEqual({ count: 2, total: 43_050, deletedCount: 1, billCount: 0, planItemCount: 0, needsMove: true });
   });
 
   it("needs a move when only bills use it (4a-1)", () => {
-    expect(categoryUsage([], 2)).toEqual({ count: 0, total: 0, deletedCount: 0, billCount: 2, needsMove: true });
+    expect(categoryUsage([], 2)).toEqual({
+      count: 0,
+      total: 0,
+      deletedCount: 0,
+      billCount: 2,
+      planItemCount: 0,
+      needsMove: true,
+    });
+  });
+
+  it("needs a move when only plan items use it (5a)", () => {
+    expect(categoryUsage([], 0, 3)).toEqual({
+      count: 0,
+      total: 0,
+      deletedCount: 0,
+      billCount: 0,
+      planItemCount: 3,
+      needsMove: true,
+    });
   });
 
   it("still needs a move when only deleted rows use it (Undo can bring them back)", () => {
@@ -22,12 +40,20 @@ describe("categoryUsage", () => {
       total: 0,
       deletedCount: 1,
       billCount: 0,
+      planItemCount: 0,
       needsMove: true,
     });
   });
 
   it("needs nothing for an unused category", () => {
-    expect(categoryUsage([])).toEqual({ count: 0, total: 0, deletedCount: 0, billCount: 0, needsMove: false });
+    expect(categoryUsage([])).toEqual({
+      count: 0,
+      total: 0,
+      deletedCount: 0,
+      billCount: 0,
+      planItemCount: 0,
+      needsMove: false,
+    });
   });
 });
 

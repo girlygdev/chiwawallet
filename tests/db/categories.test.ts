@@ -25,13 +25,13 @@ async function systemCategory(user: TestUser, key: string) {
 }
 
 describe("categories: defaults at sign-up", () => {
-  it("gives a new user the 19 default categories", async () => {
+  it("gives a new user the 20 default categories", async () => {
     const user = await signUpUser();
     const { data } = await user.client
       .from("categories")
       .select("name, kind, budget_group, system_key, user_id, default_budget");
 
-    expect(data).toHaveLength(19);
+    expect(data).toHaveLength(20);
     expect(data!.every((c) => c.user_id === user.id && c.default_budget === null)).toBe(true);
 
     const names = (group: string | null) =>
@@ -50,9 +50,11 @@ describe("categories: defaults at sign-up", () => {
         { name: "Income", kind: "income", budget_group: null, system_key: "income" },
         { name: "Savings pot", kind: "expense", budget_group: "savings_debt", system_key: "savings_pot" },
         { name: "Extra debt payment", kind: "expense", budget_group: "savings_debt", system_key: "extra_debt" },
+        // Planned debt payments count as Needs (5a, owner Nov 25).
+        { name: "Debt payment", kind: "expense", budget_group: "needs", system_key: "debt_payment" },
       ]),
     );
-    expect(system).toHaveLength(3);
+    expect(system).toHaveLength(4);
   });
 
   it("still creates the profile", async () => {

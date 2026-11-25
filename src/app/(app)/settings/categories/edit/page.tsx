@@ -44,13 +44,15 @@ async function EditCategoryForm({ searchParams }: { searchParams: Promise<{ id?:
   const supabase = await createClient();
   // All the user's categories (the delete dialog's "Move them to" choices)
   // and every transaction using this one, deleted ones included (3h-2).
-  const [categories, rows, bills] = await Promise.all([
+  const [categories, rows, bills, planItems] = await Promise.all([
     supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color"),
     supabase.from("transactions").select("amount, deleted_at").eq("category_id", id),
-    // Bills move with the transactions (4a-1); only the count is needed.
+    // Bills and plan items move with the transactions (4a-1, 5a); only the
+    // counts are needed. Plan items include deleted ones, which move too.
     supabase.from("recurring_bills").select("id", { count: "exact", head: true }).eq("category_id", id),
+    supabase.from("plan_items").select("id", { count: "exact", head: true }).eq("category_id", id),
   ]);
-  for (const result of [categories, rows, bills]) {
+  for (const result of [categories, rows, bills, planItems]) {
     if (result.error) throw new Error(`Couldn't load the category: ${result.error.message}`, { cause: result.error });
   }
   const category = categories.data!.find((c) => c.id === id);
@@ -84,7 +86,7 @@ async function EditCategoryForm({ searchParams }: { searchParams: Promise<{ id?:
           group,
           groupLine: `${GROUP_NAMES[group]} · ${targets[group]}% target`,
         }}
-        usage={categoryUsage(rows.data!, bills.count ?? 0)}
+        usage={categoryUsage(rows.data!, bills.count ?? 0, planItems.count ?? 0)}
         destinations={destinations}
       />
     </div>
