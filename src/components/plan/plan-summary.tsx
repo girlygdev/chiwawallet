@@ -1,6 +1,13 @@
 import { formatPeso } from "@/lib/money";
 import type { PlanSummary as Summary } from "@/lib/plan";
 
+/** "₱25,000 income + ₱5,000 carried in", or for a future period "₱33,000 expected · carry-in not known yet". */
+export function incomeLine(income: number, carriedIn: number | null): string {
+  return carriedIn == null
+    ? `${formatPeso(income)} expected · carry-in not known yet`
+    : `${formatPeso(income)} income + ${formatPeso(carriedIn)} carried in`;
+}
+
 // The Plan's summary card (plan.md §3), the page's one sticker element:
 // Money for this period, a bar of how much is planned, and the Planned and
 // Not assigned yet key. All numbers come from planSummary().
@@ -8,13 +15,35 @@ export function PlanSummary({
   summary,
   income,
   carriedIn,
+  empty = false,
 }: {
   summary: Summary;
   income: number;
   /** Empty for future periods: their carry-in isn't known yet. */
   carriedIn: number | null;
+  /** Nothing planned but income: the plain version (plan.md §5). */
+  empty?: boolean;
 }) {
   const { moneyForPeriod, planned, notAssigned } = summary;
+
+  // The empty plan (§5): a plain card, since the starter card is that area's sticker.
+  if (empty) {
+    return (
+      <section aria-labelledby="plan-summary-title" className="flex flex-col gap-2 rounded-2xl border-[1.5px] border-line bg-surface p-[18px]">
+        <div className="flex flex-col gap-0.5">
+          <h2 id="plan-summary-title" className="text-sm font-bold text-text-2">
+            Money for this period
+          </h2>
+          <p className="font-display text-[26px] leading-tight font-semibold text-ink">{formatPeso(moneyForPeriod)}</p>
+          <p className="text-[13px] text-text-3">incl. {formatPeso(income)} {carriedIn == null ? "expected" : "income"}</p>
+        </div>
+        <p className="text-sm text-text-2">
+          <span className="font-extrabold text-ink">Planned: {formatPeso(planned)}</span>, {formatPeso(notAssigned)} not
+          assigned
+        </p>
+      </section>
+    );
+  }
   const percent = moneyForPeriod > 0 ? Math.min(100, Math.round((planned / moneyForPeriod) * 100)) : planned > 0 ? 100 : 0;
 
   return (
@@ -28,9 +57,7 @@ export function PlanSummary({
         </h2>
         <p className="font-display text-[26px] leading-tight font-semibold text-ink">{formatPeso(moneyForPeriod)}</p>
         <p className="text-[13px] text-text-3">
-          {carriedIn == null
-            ? `${formatPeso(income)} expected · carry-in not known yet`
-            : `${formatPeso(income)} income + ${formatPeso(carriedIn)} carried in`}
+          {incomeLine(income, carriedIn)}
         </p>
       </div>
 

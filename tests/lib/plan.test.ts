@@ -3,6 +3,9 @@ import type { Period, PaySchedule } from "@/lib/periods";
 import {
   generatePlan,
   incomeStatus,
+  isEmptyPlan,
+  planCounts,
+  planDone,
   periodIncome,
   planItemDetail,
   type PlanSources,
@@ -448,5 +451,42 @@ describe("planItemDetail (5d-1)", () => {
     expect(planItemDetail({ ...base, origin: "starter", group: "savings_debt" }, ctx)).toBe("Savings & debt");
     expect(planItemDetail({ ...base, origin: "one_off", group: "wants", needed_by: "2026-12-05" }, ctx)).toBe("Needed by Dec 5");
     expect(planItemDetail({ ...base, origin: "one_off", group: "wants" }, ctx)).toBe("One-off");
+  });
+});
+
+// 5d-2: the empty plan and the desktop stat cards (plan.md §4, §5).
+
+describe("isEmptyPlan (5d-2)", () => {
+  it("is empty when only income is planned, since income is always generated", () => {
+    expect(isEmptyPlan([])).toBe(true);
+    expect(isEmptyPlan([{ section: "income" }, { section: "income" }])).toBe(true);
+    expect(isEmptyPlan([{ section: "income" }, { section: "one_off" }])).toBe(false);
+  });
+});
+
+describe("planCounts (5d-2)", () => {
+  it("counts the items and groups, leaving out income", () => {
+    const items = [
+      { section: "income" as const },
+      { section: "bills" as const },
+      { section: "bills" as const },
+      { section: "savings" as const },
+    ];
+    expect(planCounts(items)).toBe("3 items in 2 groups");
+    expect(planCounts([{ section: "spending" }])).toBe("1 item in 1 group");
+    expect(planCounts([{ section: "income" }])).toBe("Nothing planned yet");
+  });
+});
+
+describe("planDone (5d-2)", () => {
+  it("is money out as a share of what's planned, rounded", () => {
+    expect(planDone(945_000, 2_120_000)).toBe("45% of plan done");
+    expect(planDone(0, 2_120_000)).toBe("0% of plan done");
+    // Spending more than the plan still says so.
+    expect(planDone(2_500_000, 2_000_000)).toBe("125% of plan done");
+  });
+
+  it("has nothing to compare with when nothing is planned", () => {
+    expect(planDone(50_000, 0)).toBe("Nothing planned to compare with");
   });
 });

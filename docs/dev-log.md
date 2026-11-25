@@ -2,6 +2,36 @@
 
 Newest entry first.
 
+## 2026-11-25 · Week 5 · 5d-2 Plan desktop table and empty state
+- **What:**
+  - **Desktop Plan:**
+    - the schedule as the header eyebrow
+    - stat cards: Money in, Planned, Not assigned yet, and Paid or spent (hidden for future periods)
+    - one plan table, with `rowgroup` headers and their totals
+    - the Planned split of income card
+  - **Empty plan:** shown when nothing but income is planned, with:
+    - a plain summary card
+    - the starter card with three tiles from `starterPlan()`
+    - MONEY IN
+    - OR BUILD IT YOURSELF
+  - **Also:** an **I got paid** pill on income that hasn't arrived (current and past periods), and "Starting balance · From setup" on the first period.
+- **Files:**
+  - New: `src/components/plan/plan-stats.tsx`, `plan-table.tsx`, `planned-split.tsx`, `empty-plan.tsx`.
+  - Edited:
+    - `src/lib/plan.ts`: `isEmptyPlan()`, `planCounts()`, `planDone()`.
+    - `tests/lib/plan.test.ts`
+    - `src/lib/plan-periods.ts`: adds `isFirst`, `future`, `moneyOut`, `starter` and `pay`.
+    - `src/components/plan/plan-groups.tsx`, `src/components/plan/plan-summary.tsx`, `src/app/(app)/plan/page.tsx`
+    - `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 25, Claude's recommendations):**
+  - The empty plan means "nothing but income", since income items are always generated.
+  - The "Use this starter plan" button comes in 5e, with the other item writes. The card shows the tiles until then.
+  - The table has ITEM, DETAILS and PLANNED only. ACTUAL and STATUS come with ticking (Week 6).
+  - Desktop chips keep the date range only. Per-chip stats would mean loading every period's items.
+  - Set a budget (5g) and Add one-off (5f) rows have no button yet. The Bill, Debt and Pot rows link to `?add=1` on their pages.
+- **Tests:** written first, 4 new unit tests (451 pass), plus 269 database tests. Lint, typecheck and the build pass. Not checked in a browser, for the same reason as 5c.
+- **Next:** 5e, editing and deleting items, and the starter plan.
+
 ## 2026-11-25 · Week 5 · 5d-1 Plan screen: picker, summary and groups
 - **What:** The real mobile Plan screen replaces 5c's temporary list:
   - a period picker (PAST, NOW, NEXT, AHEAD chips)
@@ -26,7 +56,7 @@ Newest entry first.
 - **Skipped (later tasks):**
   - The "Add one-off item" button (5f) and the Plan options menu (5e)
   - The desktop table and the empty plan (5d-2)
-  - Assign the ₱8,800 and the "I got paid" pill (Week 6)
+  - Assign the ₱8,800 (Week 6); the "I got paid" pill came in 5d-2
 - **Next:** 5d-2, the desktop table and the empty state.
 
 ## 2026-11-25 · Week 5 · 5c Opening a period

@@ -392,3 +392,31 @@ export function planItemDetail(item: SectionItem & { needed_by: string | null },
       return "";
   }
 }
+
+// ---------------------------------------------------------------------------
+// The empty plan and the desktop stat cards (plan.md §4, §5; 5d-2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether to show the empty plan (`PlanEmpty`): nothing planned but income.
+ * Income items are generated for every open period, so "no items at all"
+ * would almost never happen.
+ */
+export function isEmptyPlan(items: { section: PlanSection }[]): boolean {
+  return items.every((i) => i.section === "income");
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** The Planned stat card's line: "9 items in 4 groups" (income left out). */
+export function planCounts(items: { section: PlanSection }[]): string {
+  const planned = items.filter((i) => i.section !== "income");
+  if (planned.length === 0) return "Nothing planned yet";
+  return `${plural(planned.length, "item")} in ${plural(new Set(planned.map((i) => i.section)).size, "group")}`;
+}
+
+/** The Paid or spent card's line: money out so far as a share of what's planned. */
+export function planDone(moneyOut: number, planned: number): string {
+  if (planned <= 0) return "Nothing planned to compare with";
+  return `${Math.round((moneyOut / planned) * 100)}% of plan done`;
+}

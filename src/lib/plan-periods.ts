@@ -14,12 +14,14 @@ import {
   type PlanSection,
   type PlanSources,
   type PlanSummary,
+  type StarterItem,
   periodIncome,
   planItemDetail,
   planSection,
   planSummary,
   plannablePeriods,
   resolvePlanStart,
+  starterPlan,
 } from "@/lib/plan";
 import type { Database, Tables } from "@/lib/supabase/types";
 import type { BudgetGroup } from "@/lib/transactions";
@@ -58,6 +60,16 @@ export type OpenedPlan = {
   /** The period before, for "Left over from Oct 30 – Nov 14". */
   previous: Period;
   summary: PlanSummary;
+  /** The budget's first period: carry-in is the starting balance from setup. */
+  isFirst: boolean;
+  /** Starts after today: expected income only, no carry-in, nothing paid yet. */
+  future: boolean;
+  /** Money out so far (Paid or spent); empty for future periods. */
+  moneyOut: number | null;
+  /** The empty plan's starter tiles: the budget's split of this payday's expected pay (not the carry-in). */
+  starter: StarterItem[];
+  /** This payday's expected pay, for "a 50/30/20 split of your ₱25,000 pay". */
+  pay: number;
 };
 
 type Client = SupabaseClient<Database>;
@@ -150,6 +162,7 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     ended,
   });
   const carriedIn = numbers?.carryIn ?? null;
+  const pay = rows.filter((r) => r.section === "income").reduce((sum, r) => sum + r.planned_amount, 0);
   const summary = planSummary({
     items: rows.map((r) => ({ ...r, origin: r.origin as PlanOrigin })),
     income,
@@ -166,6 +179,12 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     carriedIn,
     previous: getPeriod(dayBefore(period.start), schedule),
     summary,
+    // No period before it existed when this one opened, or this is the oldest.
+    isFirst: first == null || row.start_date <= first.start_date,
+    future,
+    moneyOut: numbers?.moneyOut ?? null,
+    starter: starterPlan(pay, budget),
+    pay,
   };
 }
 
