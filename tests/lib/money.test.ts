@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dashboardNumbers, formatPeso, formatPesoInput, parsePesoInput, perDay, safeToSpend, stillDueTotal } from "@/lib/money";
+import { dashboardNumbers, formatPeso, formatPesoInput, parsePesoInput, perDay, safeToSpend, spentSplit, stillDueTotal } from "@/lib/money";
 import { cashOnHand, periodTotals } from "@/lib/transactions";
 
 describe("formatPesoInput: centavos → what an input shows", () => {
@@ -182,5 +182,62 @@ describe("Safe to spend (6c, dashboard.md §1)", () => {
 
   it("says how much over when Safe to spend is below ₱0", () => {
     expect(perDay(-120_000, "2026-11-20", "2026-11-29")).toEqual({ kind: "over", amount: 120_000 });
+  });
+});
+
+describe("spentSplit (7b, dashboard.md §5)", () => {
+  type Row = { type: "income" | "expense" | "savings" | "debt_payment"; amount: number; deleted_at: string | null; category_id: string };
+  const row = (type: Row["type"], amount: number, category_id: string, deleted_at: string | null = null): Row => ({ type, amount, deleted_at, category_id });
+  const groupOf = { food: "needs", rent: "needs", fun: "wants", pot: "savings_debt", debt: "needs", extra: "savings_debt", income: null } as const;
+  const targets = { needs_pct: 50, wants_pct: 30, savings_debt_pct: 20 };
+
+  const rows = [
+    row("income", 2_500_000, "income"),
+    row("expense", 500_000, "rent"),
+    row("expense", 110_000, "food"),
+    row("expense", 150_000, "fun"),
+    row("savings", 200_000, "pot"),
+    row("debt_payment", 400_000, "debt"), // scheduled: Needs
+    row("debt_payment", 100_000, "extra"), // extra: Savings & debt payoff
+    row("expense", 999_000, "fun", "2026-11-20T00:00:00Z"), // deleted
+  ];
+
+  it("splits money out so far by group: expenses and debt payments by category, transfers to pots as savings", () => {
+    const split = spentSplit(rows, groupOf, targets);
+    expect(split.base).toBe(1_460_000);
+    expect(split.groups.needs).toMatchObject({ amount: 1_010_000, pct: 69 });
+    expect(split.groups.wants).toMatchObject({ amount: 150_000, pct: 10 });
+    expect(split.groups.savings_debt).toMatchObject({ amount: 300_000, pct: 21 });
+  });
+
+  it("its base is the Dashboard's money out so far", () => {
+    expect(spentSplit(rows, groupOf, targets).base).toBe(dashboardNumbers(0, [], rows).moneyOut);
+  });
+
+  it("compares with the budget's targets in words", () => {
+    const { groups } = spentSplit(rows, groupOf, targets);
+    expect(groups.needs.compare).toBe("19 pts over 50%");
+    expect(groups.wants.compare).toBe("target 30%");
+    expect(groups.savings_debt.compare).toBe("above 20%");
+    expect(groups.needs.target).toBe(50);
+    // A different budget's targets.
+    expect(spentSplit(rows, groupOf, { needs_pct: 70, wants_pct: 10, savings_debt_pct: 20 }).groups.needs.compare).toBe("target 70%");
+  });
+
+  it("says 1 pt, not 1 pts", () => {
+    const split = spentSplit([row("expense", 510_000, "food"), row("expense", 490_000, "fun")], groupOf, targets);
+    expect(split.groups.needs.compare).toBe("1 pt over 50%");
+  });
+
+  it("withdrawals lower what went to savings, never below ₱0", () => {
+    const split = spentSplit([row("expense", 200_000, "food"), row("savings", 300_000, "pot"), row("savings", -500_000, "pot")], groupOf, targets);
+    expect(split.groups.savings_debt.amount).toBe(0);
+    expect(split.base).toBe(200_000);
+  });
+
+  it("stays hidden until money out reaches ₱1,000", () => {
+    expect(spentSplit([row("expense", 18_000, "fun")], groupOf, targets).show).toBe(false);
+    expect(spentSplit([row("expense", 100_000, "fun")], groupOf, targets).show).toBe(true);
+    expect(spentSplit([], groupOf, targets)).toMatchObject({ base: 0, show: false });
   });
 });

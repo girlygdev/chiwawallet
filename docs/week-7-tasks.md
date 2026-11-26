@@ -23,7 +23,7 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
     - **"See all"** goes to Savings.
   - Hidden until there's data, as §4 says.
   - Done when: an expense moves its Spending bar, and a deposit moves its pot card.
-- [ ] **7b. Dashboard: the 50/30/20 check, tests first** (`dashboard.md` §5).
+- [x] **7b. Dashboard: the 50/30/20 check, tests first** Done Nov 26 (checked in a browser on local Supabase). `spentSplit()` in `lib/money.ts`; `split-card.tsx`. Debt payments count by their category (owner, Nov 26). (`dashboard.md` §5).
   - **A pure function:** money out so far by group.
     - Expenses count by their category's group, and transfers to pots count as Savings & debt payoff.
     - A debt payment that pays a planned item counts as Needs; any payment beyond the plan counts as Savings & debt payoff.

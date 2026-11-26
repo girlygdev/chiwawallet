@@ -2,6 +2,31 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 7 · 7b Dashboard: the 50/30/20 check
+- **What:**
+  - **`spentSplit()`:** money out so far by group, on the same base as the Dashboard's "₱X out so far".
+    - Expenses and debt payments count by their category's group: Debt payment is Needs, Extra debt payment is Savings & debt payoff.
+    - Net transfers to pots count as Savings & debt payoff.
+    - Each group gets its share, its target and a comparison in words: "19 pts over 50%", "1 pt over 50%", "above 20%", "target 30%".
+  - **The card:**
+    - a 14px stacked bar, rows with "Target 50%" (mobile) or the comparison (desktop), and the footnote
+    - hidden until money out reaches ₱1,000
+    - placed after Savings pots
+- **Files:**
+  - New: `src/components/dashboard/split-card.tsx`.
+  - Edited:
+    - `src/lib/money.ts`
+    - `tests/lib/money.test.ts`
+    - `src/app/(app)/dashboard/page.tsx`: `category_id` on period rows, `budget_group` on categories
+    - `docs/week-7-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendation):** debt payments count by their category.
+- **Tests:** written first, 7 new unit tests (595 pass), including a check that the base equals `dashboardNumbers()`' money out. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - money out ₱16,455: Needs ₱8,455 (Groceries + Netflix + SPayLater) = 51%, Savings & debt payoff 49%
+  - mobile showed "Target 50%"; desktop showed "1 pt over 50%" and "above 20%"
+  - no console errors
+- **AI notes:** the browser showed "1 pts over 50%". Claude fixed the singular, with a test.
+- **Next:** 7c, the Dashboard's desktop layout.
+
 ## 2026-11-26 · Week 7 · 7a Dashboard: Spending and Savings pots
 - **What:**
   - **Spending:** the three category budgets with the biggest planned amounts. Each shows "₱3,880 / ₱3,300", the Plan's bar and "₱580 over", plus a "Plan" link.

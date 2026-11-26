@@ -3,7 +3,7 @@
 // centavos or back, so floating point never touches an amount.
 
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import { cashOnHand, periodTotals } from "@/lib/transactions";
+import { type BudgetGroup, cashOnHand, periodTotals } from "@/lib/transactions";
 
 // U+2212, the real minus sign used in the designs ("−₱180").
 const MINUS = "−";
@@ -145,4 +145,71 @@ export function perDay(
   if (safe < 0) return { kind: "over", amount: -safe };
   const days = Math.max(1, differenceInCalendarDays(parseISO(periodEnd), parseISO(today)) + 1);
   return { kind: "per_day", amount: Math.floor(safe / days / 100) * 100, days };
+}
+
+// ---------------------------------------------------------------------------
+// The Dashboard's 50/30/20 check (dashboard.md §5, task 7b)
+// ---------------------------------------------------------------------------
+
+/** Below this much money out, the card stays hidden (₱1,000: a coffee shouldn't read "100% Wants"). */
+const SPLIT_MINIMUM = 100_000;
+
+export type SpentGroup = {
+  amount: number;
+  /** 0–1 of money out so far. */
+  share: number;
+  /** The share as a whole percent. */
+  pct: number;
+  /** The budget's target percent. */
+  target: number;
+  /** Desktop: "11 pts over 50%", "above 20%", or "target 30%". */
+  compare: string;
+};
+
+/**
+ * What was spent this period by 50/30/20 group (dashboard.md §5), as a
+ * share of money out so far, the same base as the Dashboard's "₱X out so
+ * far". Expenses and debt payments count by their category's group:
+ * scheduled payments are in Debt payment (Needs) and extra ones in Extra
+ * debt payment (Savings & debt payoff), as Mark paid and Transfer file them.
+ * Transfers to pots count as Savings & debt payoff (net of withdrawals,
+ * never below ₱0). Over target is said in words, never by colour alone.
+ */
+export function spentSplit(
+  rows: { type: string; amount: number; deleted_at: string | null; category_id: string }[],
+  groupOf: Record<string, string | null>,
+  targets: { needs_pct: number; wants_pct: number; savings_debt_pct: number },
+): { base: number; show: boolean; groups: Record<BudgetGroup, SpentGroup> } {
+  const amounts: Record<BudgetGroup, number> = { needs: 0, wants: 0, savings_debt: 0 };
+  for (const r of rows) {
+    if (r.deleted_at != null || (r.type !== "expense" && r.type !== "debt_payment")) continue;
+    const group = groupOf[r.category_id];
+    if (group === "needs" || group === "wants" || group === "savings_debt") amounts[group] += r.amount;
+  }
+  // The same rows the Dashboard counts (periodTotals()): net transfers to pots.
+  amounts.savings_debt += Math.max(0, periodTotals(rows as Parameters<typeof periodTotals>[0]).toSavings);
+  const base = amounts.needs + amounts.wants + amounts.savings_debt;
+
+  const group = (key: BudgetGroup, target: number): SpentGroup => {
+    const share = base > 0 ? amounts[key] / base : 0;
+    const pct = Math.round(share * 100);
+    const compare =
+      key === "savings_debt"
+        ? pct > target
+          ? `above ${target}%`
+          : `target ${target}%`
+        : pct > target
+          ? `${pct - target} ${pct - target === 1 ? "pt" : "pts"} over ${target}%`
+          : `target ${target}%`;
+    return { amount: amounts[key], share, pct, target, compare };
+  };
+  return {
+    base,
+    show: base >= SPLIT_MINIMUM,
+    groups: {
+      needs: group("needs", targets.needs_pct),
+      wants: group("wants", targets.wants_pct),
+      savings_debt: group("savings_debt", targets.savings_debt_pct),
+    },
+  };
 }

@@ -5,6 +5,7 @@ import { CashCard } from "@/components/dashboard/cash-card";
 import { DueCard } from "@/components/dashboard/due-card";
 import { type PotCard, PotsCard } from "@/components/dashboard/pots-card";
 import { type SpendingRow, SpendingCard } from "@/components/dashboard/spending-card";
+import { SplitCard } from "@/components/dashboard/split-card";
 import { IncomeCard } from "@/components/dashboard/income-card";
 import { RecentActivity, type RecentRow } from "@/components/dashboard/recent-activity";
 import { PageHeader } from "@/components/shell/page-header";
@@ -13,7 +14,7 @@ import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import type { ActivityRow } from "@/lib/activity";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { duePay, expectedForPeriod, isActiveOn, receivedSourceIds } from "@/lib/income";
-import { dashboardNumbers, perDay, safeToSpend, stillDueTotal } from "@/lib/money";
+import { dashboardNumbers, perDay, safeToSpend, spentSplit, stillDueTotal } from "@/lib/money";
 import { dueList, topBudgets } from "@/lib/plan";
 import { closeEndedPeriodsOnVisit, openCurrentPlan } from "@/lib/plan-periods";
 import { potBalance, potCardLine } from "@/lib/pots";
@@ -39,8 +40,8 @@ const RECENT_ROWS = 4;
 // now with the spend bar and the pay prompt, income expected vs received, and
 // Recent activity. Its money in and money out match Activity's totals.
 // Safe to spend and Due this period come from the current period's plan
-// items (6c), then Spending and Savings pots (7a). The 50/30/20 check and
-// the desktop layout come next in Week 7.
+// items (6c), then Spending and Savings pots (7a) and the 50/30/20 check
+// (7b). The desktop layout comes next in Week 7.
 export default function DashboardPage() {
   return (
     <PageShell>
@@ -75,7 +76,7 @@ async function DashboardBody() {
       .order("created_at", { ascending: true }),
     supabase
       .from("transactions")
-      .select("type, amount, deleted_at, income_source_id")
+      .select("type, amount, deleted_at, income_source_id, category_id")
       .eq("period_id", row.id)
       .is("deleted_at", null),
     // Every earlier transaction, for carry-in (type and amount only).
@@ -109,7 +110,7 @@ async function DashboardBody() {
   // Spending (7a): the three biggest category budgets, with the Plan's bars.
   // Savings pots (7a): each pot's balance and its bar.
   const [categoryRows, potRows, savingRows] = await Promise.all([
-    supabase.from("categories").select("id, icon, color"),
+    supabase.from("categories").select("id, icon, color, budget_group"),
     supabase.from("savings_pots").select("id, name, starting_balance, target_amount, is_locked").order("created_at").order("name"),
     supabase.from("transactions").select("pot_id, amount, deleted_at").eq("type", "savings").not("pot_id", "is", null).is("deleted_at", null),
   ]);
@@ -126,6 +127,12 @@ async function DashboardBody() {
     spent: i.spent ?? 0,
     bar: i.bar!,
   }));
+  // The 50/30/20 check (7b): what was spent so far by group.
+  const split = spentSplit(
+    periodRows.data as Parameters<typeof spentSplit>[0],
+    Object.fromEntries(categoryRows.data!.map((c) => [c.id, c.budget_group])),
+    budget,
+  );
   const pots: PotCard[] = potRows.data!.map((p) => {
     const balance = potBalance(p, savingRows.data!.filter((r) => r.pot_id === p.id));
     return { id: p.id, name: p.name, balance, line: potCardLine(balance, p.target_amount, p.is_locked) };
@@ -201,6 +208,8 @@ async function DashboardBody() {
           {/* Hidden until there's something to show (dashboard.md §4). */}
           {spending.length > 0 && <SpendingCard rows={spending} planHref={`/plan?start=${period.start}`} />}
           {pots.length > 0 && <PotsCard pots={pots} />}
+          {/* Hidden until money out reaches ₱1,000 (dashboard.md §5). */}
+          {split.show && <SplitCard groups={split.groups} />}
           <IncomeCard
             received={numbers.income}
             expected={expectedForPeriod(sources.data!, schedule, period)}
