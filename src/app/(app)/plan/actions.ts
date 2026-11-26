@@ -5,8 +5,16 @@ import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { debtLeft, debtPaid } from "@/lib/debts";
 import { formatPeso, parsePesoInput } from "@/lib/money";
 import { scheduleFromBudget, todayInManila } from "@/lib/periods";
-import { missingStarterItems, type PlanOrigin, paidOnDate, planSection, plannablePeriods, starterPlan } from "@/lib/plan";
-import { loadAssignData, openPlanPeriod, syncOpenPeriods } from "@/lib/plan-periods";
+import {
+  coverFromPot,
+  missingStarterItems,
+  type PlanOrigin,
+  paidOnDate,
+  planSection,
+  plannablePeriods,
+  starterPlan,
+} from "@/lib/plan";
+import { closePeriod, loadAssignData, loadPaydayData, openPlanPeriod, syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import type { BudgetGroup } from "@/lib/transactions";
@@ -498,6 +506,83 @@ export async function assignLeftover(input: AssignInput): Promise<{ ok?: true; i
     .select("id");
   if (error) return fail("assign leftover", error);
   return { ok: true, ids: data.map((r) => r.id), total };
+}
+
+const closeChoiceSchema = z.object({
+  start: z.iso.date(),
+  choice: z.enum(["carry", "pot", "debt", "split"]),
+  /** Cover it from a pot (an overspend): which pot. */
+  potId: z.uuid().optional(),
+});
+
+/**
+ * The payday screen's confirm (payday-rollover.md §4, 6h-2): applies the
+ * choice for the waiting period `start`, then closes it (closePeriod()).
+ * - Move it to a pot: a deposit of the leftover, dated the period's last day.
+ * - Pay off a debt early: an extra payment of up to what's owed; the rest carries.
+ * - Cover it from a pot (an overspend): a withdrawal of up to the pot's balance.
+ * - Carry, and Split it myself (Give leftover a job on the new period): nothing more.
+ * Live numbers come from loadPaydayData(), never the browser. If closing
+ * fails after the transaction saved, the transaction is soft-deleted again.
+ * Already closed (another tab): nothing to do.
+ */
+export async function closeWithChoice(input: z.input<typeof closeChoiceSchema>): Promise<{ ok?: true; currentStart?: string; formError?: string }> {
+  const { budget } = await requireAppUser();
+  const parsed = closeChoiceSchema.safeParse(input);
+  if (!parsed.success) return { formError: SOMETHING_WRONG };
+  const { start, choice, potId } = parsed.data;
+  const supabase = await createClient();
+  const today = todayInManila(new Date());
+
+  const { data: old, error } = await supabase
+    .from("budget_periods")
+    .select("id, start_date, end_date, closed_at")
+    .eq("budget_id", budget.id)
+    .eq("start_date", start)
+    .maybeSingle();
+  if (error) return fail("load period", error);
+  if (!old || old.end_date >= today) return { formError: SOMETHING_WRONG };
+  if (old.closed_at) return { ok: true };
+
+  const data = await loadPaydayData(supabase, budget, old, today);
+  const leftover = data.review.leftover;
+  const { data: categories, error: categoryError } = await supabase
+    .from("categories")
+    .select("id, system_key")
+    .in("system_key", ["savings_pot", "extra_debt"]);
+  if (categoryError) return fail("load categories", categoryError);
+  const categoryOf = (key: string) => categories.find((c) => c.system_key === key)?.id;
+
+  // The transaction the choice makes, if any.
+  let row: { category_id: string; type: "savings" | "debt_payment"; amount: number; pot_id?: string; debt_id?: string } | null = null;
+  if (choice === "pot" && leftover > 0 && data.pot) {
+    row = { category_id: categoryOf("savings_pot")!, type: "savings", amount: leftover, pot_id: data.pot.id };
+  } else if (choice === "debt" && leftover > 0 && data.debt) {
+    row = { category_id: categoryOf("extra_debt")!, type: "debt_payment", amount: Math.min(leftover, data.debt.left), debt_id: data.debt.id };
+  } else if (choice === "pot" && leftover < 0) {
+    const pot = data.coverPots.find((p) => p.id === potId);
+    if (!pot) return { formError: "Pick a pot to cover it from." };
+    const { covered } = coverFromPot(-leftover, pot.balance);
+    row = { category_id: categoryOf("savings_pot")!, type: "savings", amount: -covered, pot_id: pot.id };
+  }
+
+  let savedId: string | null = null;
+  if (row && row.amount !== 0) {
+    const { data: saved, error: saveError } = await supabase
+      .from("transactions")
+      .insert({ ...row, period_id: old.id, date: old.end_date })
+      .select("id")
+      .single();
+    if (saveError) return fail("apply the payday choice", saveError);
+    savedId = saved.id;
+  }
+  try {
+    await closePeriod(supabase, budget, old, choice);
+  } catch (closeError) {
+    if (savedId) await supabase.from("transactions").update({ deleted_at: new Date().toISOString() }).eq("id", savedId);
+    return fail("close the period", closeError as Error);
+  }
+  return { ok: true, currentStart: data.current.start };
 }
 
 /** Undo after Give leftover a job: soft-deletes the items it added. */

@@ -2,6 +2,49 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6h-2 The payday screen
+- **What:** `/payday?start=<the period that ended>` (payday-rollover.md). The Dashboard and the Plan redirect there when 6h-1 leaves a period waiting. The screen has:
+  - **The header:** the mascot, "IT'S PAYDAY", and "Nov 15 – 29 has started" (focused).
+  - **"How Oct 30 – Nov 14 went"** (Closed): the leftover or "₱2,000 over", "₱1,000 used of ₱5,000", and up to three true wins.
+  - **"What should happen to the ₱4,000?"**, with live effect lines: Carry, Move it to a pot, Pay off a debt early, Split it myself. When overspent: Carry, or Cover it from a pot, with a pot picker. ₱0 left over: no choices.
+  - **"Your new period is ready":** money in, carried in, money for the period, what's already planned, and Not assigned yet. These update with the choice.
+  - **Both buttons confirm** (`closeWithChoice`):
+    - the deposit, extra payment or withdrawal is dated the old period's last day
+    - then `closePeriod()` records `carried_in` and the choice
+    - a failed close undoes the transaction
+    - Split goes on to Give leftover a job for the new period
+  - **Old links** to a closed period go to the Dashboard.
+- **Files:**
+  - New:
+    - `src/app/(app)/payday/page.tsx`
+    - `src/components/payday/payday-screen.tsx`
+  - Edited:
+    - `src/lib/plan.ts`: `joinNames()`, `paydayWins()`, `leftoverChoices()`, `newPeriodMoney()`, `paydayPreview()`, `coverFromPot()`
+    - `tests/lib/plan.test.ts`
+    - `src/lib/plan-periods.ts`:
+      - `closePeriod()`, taken out of `closeEndedPeriods()`
+      - `awaiting` now has its start date
+      - `loadPaydayData()`; pots know `locked`
+    - `src/app/(app)/plan/actions.ts`: `closeWithChoice`
+    - `src/app/(app)/dashboard/page.tsx`, `src/app/(app)/plan/page.tsx` (the redirect)
+    - `tests/db/close-periods.test.ts`
+    - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - Split = Carry, then Give leftover a job on the new period.
+  - Move to a pot moves the whole leftover.
+  - "on time" only when it's true.
+  - The pot and debt follow 6f's rule.
+- **Tests:** written first, 11 new unit tests (583 pass) and 2 new database tests for closing with a choice's transaction (292 pass). Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase (the test user's Oct 30 – Nov 14 reopened):
+  - the Dashboard redirected, with focus on the h1
+  - ₱4,000 left over gave four options; the new-period card went from ₱29,000 to ₱25,000 when the debt was picked
+  - Pay off Tita Ana early saved ₱4,000 dated Nov 14 and closed with "debt", carrying ₱0
+  - ₱0 left over showed no choices, and Review my plan closed with Carry
+  - overspent (₱2,000 over): Cover from Emergency Fund ₱500 said "₱1,500 still comes out"; Carry left Nov 15 carrying −₱2,000
+  - the old link went to the Dashboard
+  - no console errors
+- **AI notes:** the browser script waited for `/`, but the root page forwards to `/dashboard`. The app was right.
+- **Next:** 6i, the Week 6 live check.
+
 ## 2026-11-26 · Week 6 · 6h-1 Closing a period
 - **What:** Dashboard and Plan visits close every period that has ended (payday-rollover.md §1), oldest first.
   - **Each one:** the next period (created if needed) gets `carried_in` = the leftover (6g's `carryOver()`, a record), then the period gets `closed_at` and `leftover_choice = "carry"`.

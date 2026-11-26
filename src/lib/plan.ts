@@ -1040,3 +1040,136 @@ export function periodsToClose(
   if (!askOnPayday || ended.length === 0) return { close: ended, awaiting: null };
   return { close: ended.slice(0, -1), awaiting: ended[ended.length - 1] };
 }
+
+// ---------------------------------------------------------------------------
+// The payday screen (payday-rollover.md §2–3, 6h-2)
+// ---------------------------------------------------------------------------
+
+/** "Emergency", "Emergency and Travel", "Emergency, Travel and Laptop". */
+export function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/**
+ * "How Nov 15 – 29 went": up to three wins, only true, positive facts
+ * (payday-rollover.md §3). "on time" only when every payment's date was on
+ * or before its due date (owner, Nov 26).
+ */
+export function paydayWins(facts: {
+  payments: { made: number; total: number; onTime: boolean };
+  spending: { planned: number; spent: number };
+  saved: { amount: number; pots: string[] };
+}): { title: string; detail: string }[] {
+  const wins: { title: string; detail: string }[] = [];
+  const { payments, spending, saved } = facts;
+  if (payments.total > 0 && payments.made === payments.total) {
+    wins.push({ title: `All ${payments.total} planned payments`, detail: payments.onTime ? "made on time" : "made" });
+  }
+  if (spending.planned > 0 && spending.spent < spending.planned) {
+    wins.push({ title: `${formatPeso(spending.planned - spending.spent)} under`, detail: "your spending plan" });
+  }
+  if (saved.amount > 0) {
+    wins.push({ title: `${formatPeso(saved.amount)} saved`, detail: saved.pots.length ? `to ${joinNames(saved.pots)}` : "to your pots" });
+  }
+  return wins;
+}
+
+export type LeftoverChoice = {
+  value: "carry" | "pot" | "debt" | "split";
+  label: string;
+  effect: string;
+  /** What leaves the new period's money (a deposit, a payment); 0 for carry and split. */
+  moved: number;
+};
+
+/**
+ * "What should happen to the ₱9,200?" (payday-rollover.md §3): the options
+ * with their effect lines. A surplus: carry (default), move it to the pot,
+ * pay the debt early (up to what's owed; the rest carries), or split it.
+ * An overspend: carry it, or cover it from a pot (picked on the screen; see
+ * coverFromPot()). Nothing left over: nothing to choose. The pot and debt
+ * options are left out without a pot or debt.
+ */
+export function leftoverChoices({
+  leftover,
+  expected,
+  pot,
+  debt,
+}: {
+  leftover: number;
+  /** The new period's expected income. */
+  expected: number;
+  pot: { name: string; balance: number; target: number | null } | null;
+  debt: { name: string; left: number } | null;
+}): LeftoverChoice[] {
+  if (leftover === 0) return [];
+  if (leftover < 0) {
+    return [
+      {
+        value: "carry",
+        label: "Carry it into this period",
+        effect: `It comes out of this payday: ${formatPeso(newPeriodMoney(expected, leftover, 0))} to work with`,
+        moved: 0,
+      },
+      ...(pot ? [{ value: "pot" as const, label: "Cover it from a pot", effect: "Cover it from a pot", moved: 0 }] : []),
+    ];
+  }
+  const choices: LeftoverChoice[] = [
+    {
+      value: "carry",
+      label: "Carry it into this period",
+      effect: `This period gets ${formatPeso(newPeriodMoney(expected, leftover, 0))} to work with`,
+      moved: 0,
+    },
+  ];
+  if (pot) {
+    const after = pot.balance + leftover;
+    const of = pot.target ? ` of ${formatPeso(pot.target)} (${Math.round((after / pot.target) * 100)}%)` : "";
+    choices.push({ value: "pot", label: `Move it to ${pot.name}`, effect: `${pot.name} would be ${formatPeso(after)}${of}`, moved: leftover });
+  }
+  if (debt && debt.left > 0) {
+    const paid = Math.min(leftover, debt.left);
+    const rest = leftover - paid;
+    choices.push({
+      value: "debt",
+      label: `Pay off ${debt.name} early`,
+      effect:
+        paid === debt.left
+          ? `Clears the last ${formatPeso(paid)}${rest > 0 ? `; ${formatPeso(rest)} still carries over` : ""}`
+          : `Pays ${formatPeso(paid)} off ${debt.name} early`,
+      moved: paid,
+    });
+  }
+  choices.push({ value: "split", label: "Split it myself", effect: "Choose how much goes where", moved: 0 });
+  return choices;
+}
+
+/**
+ * The new period's money after the choice: expected pay + what carries in.
+ * \`moved\`: what the choice takes out of the leftover (a deposit or payment);
+ * negative when a pot covers an overspend (a withdrawal brings money back).
+ */
+export function newPeriodMoney(expected: number, leftover: number, moved: number): number {
+  return expected + leftover - moved;
+}
+
+/** Cover an overspend from a pot: up to its balance; the rest still carries. */
+export function coverFromPot(over: number, balance: number): { covered: number; stillOver: number } {
+  const covered = Math.min(over, Math.max(0, balance));
+  return { covered, stillOver: over - covered };
+}
+
+/**
+ * "Your new period is ready" after the choice: what carries in, the money
+ * for the period, and what's not assigned yet (that money − already planned).
+ */
+export function paydayPreview(
+  expected: number,
+  leftover: number,
+  moved: number,
+  planned: number,
+): { carriedIn: number; money: number; notAssigned: number } {
+  const money = newPeriodMoney(expected, leftover, moved);
+  return { carriedIn: leftover - moved, money, notAssigned: money - planned };
+}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CashCard } from "@/components/dashboard/cash-card";
 import { DueCard } from "@/components/dashboard/due-card";
@@ -56,7 +57,9 @@ async function DashboardBody() {
 
   // Close any period that has ended (6h-1), then create this period's row
   // the first time it's opened (task 2c).
-  await closeEndedPeriodsOnVisit(supabase, budget, today);
+  const { awaiting } = await closeEndedPeriodsOnVisit(supabase, budget, today);
+  // A period waiting for its leftover choice: the payday screen first (6h-2).
+  if (awaiting) redirect(`/payday?start=${awaiting.start}`);
   const row = await getOrCreatePeriod(supabase, budget, today);
   const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
 

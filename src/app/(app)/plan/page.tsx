@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { BuildRows, StarterCard } from "@/components/plan/empty-plan";
 import { PeriodPicker } from "@/components/plan/period-picker";
@@ -50,7 +51,9 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
   const { budget } = await requireAppUser();
   const supabase = await createClient();
   // Close any period that has ended first (6h-1), so a closed one shows as closed.
-  await closeEndedPeriodsOnVisit(supabase, budget, todayInManila(new Date()));
+  const { awaiting } = await closeEndedPeriodsOnVisit(supabase, budget, todayInManila(new Date()));
+  // A period waiting for its leftover choice: the payday screen first (6h-2).
+  if (awaiting) redirect(`/payday?start=${awaiting.start}`);
   const plan = await openPlanPeriod(supabase, budget, start, todayInManila(new Date()));
   const period = { start: plan.period.start_date, end: plan.period.end_date };
   const empty = isEmptyPlan(plan.items);

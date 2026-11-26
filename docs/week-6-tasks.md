@@ -93,7 +93,7 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
   - A pure carry-over function in `lib/`, with Vitest cases for a surplus, an overspend and zero.
   - Also a three-period case: test data across three periods, closed one after another, gives the right carry-in for each.
   - It must agree with the Dashboard's carry-in (`dashboardNumbers()`). See open question 1.
-- [ ] **6h. Close a period: the payday screen** (`payday-rollover.md`). Likely two sessions:
+- [x] **6h. Close a period: the payday screen** (`payday-rollover.md`). Likely two sessions:
   - [x] **6h-1. Closing.** Done Nov 26 (checked in a browser on local Supabase). `periodsToClose()` in `lib/plan.ts`; `closeEndedPeriods()` and `closeEndedPeriodsOnVisit()` in `lib/plan-periods.ts`, run on Dashboard and Plan visits; the Plan's Closed tag.
     - Transactions in closed periods stay editable, and `carried_in` is a record (owner, Nov 26).
     - Known: a closed period with nothing planned still shows the empty-plan card.
@@ -101,7 +101,12 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
     - Several missed periods close in order with Carry.
     - With `ask_on_payday` off, it closes silently with Carry.
     - A closed period's Plan is read-only, with a "Closed" tag.
-  - [ ] **6h-2. The payday screen** (`/payday?start=…`):
+  - [x] **6h-2. The payday screen** (`/payday?start=…`). Done Nov 26 (checked in a browser on local Supabase).
+    - The code: `paydayWins()`, `leftoverChoices()`, `newPeriodMoney()`, `paydayPreview()` and `coverFromPot()` in `lib/plan.ts`; `closePeriod()` and `loadPaydayData()`; `closeWithChoice`; `components/payday/payday-screen.tsx`.
+    - The Dashboard and the Plan redirect to it when a period is waiting.
+    - Split it myself means Carry, then Give leftover a job on the new period (owner, Nov 26).
+    - Moving to a pot moves the whole leftover; covering from a pot takes up to its balance.
+    - "made on time" only when every payment was on time.
     - "How Nov 15 – 29 went", with true wins only
     - "What should happen to the ₱9,200?": Carry, Move it to a pot, Pay off a debt early, or Split it myself (opens 6f)
     - "Your new period is ready"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Budget } from "@/lib/current-budget";
-import { closeEndedPeriods } from "@/lib/plan-periods";
+import { closeEndedPeriods, closePeriod } from "@/lib/plan-periods";
 import { signUpUser, type TestUser } from "./helpers";
 
 // closeEndedPeriods() (6h-1) against local Supabase: test data across three
@@ -66,7 +66,7 @@ describe("closeEndedPeriods", () => {
   it("closes missed periods in order with Carry, each carrying its leftover; the latest waits", async () => {
     const s = await setUp();
     const result = await close(s);
-    expect(result.awaiting).toBe(s.ids[2]);
+    expect(result.awaiting).toEqual({ id: s.ids[2], start: "2027-02-15" });
     expect((await periods(s)).map(({ start_date, carried_in, leftover_choice, closed }) => ({ start_date, carried_in, leftover_choice, closed }))).toEqual([
       { start_date: "2027-01-15", carried_in: 0, leftover_choice: "carry", closed: true },
       { start_date: "2027-01-30", carried_in: 800_000, leftover_choice: "carry", closed: true },
@@ -105,5 +105,58 @@ describe("closeEndedPeriods", () => {
     // B runs it with A's budget row: RLS hides A's periods from B.
     await close(a, TODAY, b.client);
     expect((await periods(a)).every((p) => !p.closed)).toBe(true);
+  });
+});
+
+describe("closePeriod with a payday choice (6h-2)", () => {
+  // The choice's transaction is dated the period's last day, then the period
+  // closes: what carries is the leftover after it.
+  async function closeWith(s: Setup, row: Record<string, unknown> | null, choice: "carry" | "pot" | "debt") {
+    await close(s); // Jan 15 and Jan 30 close; Feb 15–27 waits (−₱3,000 carried in, ₱0 left)
+    const { data: categories } = await s.user.client.from("categories").select("id, system_key").not("system_key", "is", null);
+    const cat = Object.fromEntries(categories!.map((c) => [c.system_key, c.id]));
+    if (row) {
+      const { error } = await s.user.client.from("transactions").insert({
+        period_id: s.ids[2],
+        date: "2027-02-27",
+        ...row,
+        category_id: cat[row.type === "savings" ? "savings_pot" : "extra_debt"],
+      });
+      if (error) throw new Error(error.message);
+    }
+    await closePeriod(s.user.client as never, await budgetOf(s), { id: s.ids[2], start_date: "2027-02-15", end_date: "2027-02-27" }, choice);
+    return periods(s);
+  }
+
+  it("Move it to a pot: the deposit lowers what carries, and the choice is recorded", async () => {
+    const s = await setUp();
+    const { data: pot } = await s.user.client.from("savings_pots").select("id").eq("name", "Emergency Fund").single();
+    // Make Feb 15–27 a ₱2,000 surplus first, then move it to the pot.
+    await s.user.client.from("transactions").insert({
+      period_id: s.ids[2],
+      category_id: (await s.user.client.from("categories").select("id").eq("name", "Income").single()).data!.id,
+      type: "income",
+      amount: 200_000,
+      date: "2027-02-20",
+    });
+    const all = await closeWith(s, { type: "savings", amount: 200_000, pot_id: pot!.id }, "pot");
+    expect(all[2]).toMatchObject({ leftover_choice: "pot", closed: true });
+    expect(all[3]).toMatchObject({ start_date: "2027-02-28", carried_in: 0 });
+  });
+
+  it("Cover it from a pot: a withdrawal brings an overspend back to ₱0", async () => {
+    const s = await setUp();
+    const { data: pot } = await s.user.client.from("savings_pots").select("id").eq("name", "Emergency Fund").single();
+    // Fill the pot first (in Jan), then make Feb 15–27 ₱1,000 over.
+    await s.user.client.from("savings_pots").update({ starting_balance: 500_000 }).eq("id", pot!.id);
+    await s.user.client.from("transactions").insert({
+      period_id: s.ids[2],
+      category_id: (await s.user.client.from("categories").select("id").eq("name", "Bills").single()).data!.id,
+      type: "expense",
+      amount: 100_000,
+      date: "2027-02-21",
+    });
+    const all = await closeWith(s, { type: "savings", amount: -100_000, pot_id: pot!.id }, "pot");
+    expect(all[3]).toMatchObject({ carried_in: 0 });
   });
 });

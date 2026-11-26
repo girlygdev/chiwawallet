@@ -23,6 +23,7 @@ import {
   budgetBar,
   carryOver,
   debtAssignCap,
+  paydayWins,
   groupProgress,
   isTickable,
   itemDueOn,
@@ -38,7 +39,7 @@ import {
   starterPlan,
 } from "@/lib/plan";
 import type { Database, Tables } from "@/lib/supabase/types";
-import { type BudgetGroup, cashOnHand } from "@/lib/transactions";
+import { type BudgetGroup, cashOnHand, periodTotals } from "@/lib/transactions";
 
 // Opening a period on the Plan (week-5-tasks.md 5c, 5d-1). Server only: it
 // reads and writes with the logged-in user's client, so RLS limits
@@ -420,7 +421,7 @@ export async function openCurrentPlan(
 
 /** A place Give leftover a job can send money (6f): a pot or an active debt. */
 export type AssignDestination =
-  | { key: string; kind: "pot"; id: string; name: string; balance: number; target: number | null; cap: number | null }
+  | { key: string; kind: "pot"; id: string; name: string; balance: number; target: number | null; cap: number | null; locked: boolean }
   | { key: string; kind: "debt"; id: string; name: string; left: number; cap: number };
 
 /**
@@ -437,7 +438,7 @@ export async function loadAssignData(
   today: string,
 ): Promise<{ destinations: AssignDestination[]; next: string }> {
   const [pots, savings, periods] = await Promise.all([
-    supabase.from("savings_pots").select("id, name, starting_balance, target_amount").order("created_at"),
+    supabase.from("savings_pots").select("id, name, starting_balance, target_amount, is_locked").order("created_at"),
     supabase.from("transactions").select("pot_id, amount, deleted_at").eq("type", "savings").not("pot_id", "is", null).is("deleted_at", null),
     supabase.from("budget_periods").select("id").eq("budget_id", budget.id).gte("end_date", today),
   ]);
@@ -469,6 +470,7 @@ export async function loadAssignData(
         balance,
         target: p.target_amount,
         cap: potAssignCap(p.target_amount, balance, planned),
+        locked: p.is_locked,
       };
     }),
     ...plan.debts.map((d) => ({
@@ -495,68 +497,170 @@ export async function loadAssignData(
  * (`awaiting`; 6h-2). Running it again changes nothing: only periods with
  * no `closed_at` are touched. If step 2 fails, the next visit redoes both.
  */
-export async function closeEndedPeriods(supabase: Client, budget: Budget, today: string): Promise<{ awaiting: string | null }> {
+export async function closeEndedPeriods(
+  supabase: Client,
+  budget: Budget,
+  today: string,
+): Promise<{ awaiting: { id: string; start: string } | null }> {
   const { data: periods, error } = await supabase
     .from("budget_periods")
     .select("id, start_date, end_date, closed_at")
     .eq("budget_id", budget.id);
   if (error) fail("load periods", error);
   const { close, awaiting } = periodsToClose(periods!, today, budget.ask_on_payday);
-  if (close.length === 0 && awaiting == null) return { awaiting: null };
-
-  if (close.length > 0) {
-    // Every transaction up to the last period being closed, for the leftovers.
-    const lastEnd = periods!.filter((p) => close.includes(p.id)).reduce((end, p) => (p.end_date > end ? p.end_date : end), "");
-    const { data: rows, error: rowsError } = await supabase
-      .from("transactions")
-      .select("type, amount, deleted_at, date")
-      .lte("date", lastEnd)
-      .is("deleted_at", null);
-    if (rowsError) fail("load transactions to close periods", rowsError);
-    type Row = Parameters<typeof cashOnHand>[1][number] & { date: string };
-    // The generated types say `string` for type; its check constraint allows only the four.
-    const all = rows as Row[];
-
-    for (const id of close) {
-      const period = periods!.find((p) => p.id === id)!;
-      const carriedIn = cashOnHand(budget.opening_balance, all.filter((r) => r.date < period.start_date));
-      const { leftover } = carryOver(
-        carriedIn,
-        all.filter((r) => r.date >= period.start_date && r.date <= period.end_date),
-      );
-      const next = await getOrCreatePeriod(supabase, budget, dayAfter(period.end_date));
-      const { error: carryError } = await supabase.from("budget_periods").update({ carried_in: leftover }).eq("id", next.id);
-      if (carryError) fail("carry the leftover", carryError);
-      const { error: closeError } = await supabase
-        .from("budget_periods")
-        .update({ closed_at: new Date().toISOString(), leftover_choice: "carry" })
-        .eq("id", id)
-        .is("closed_at", null);
-      if (closeError) fail("close the period", closeError);
-    }
+  for (const id of close) {
+    await closePeriod(supabase, budget, periods!.find((p) => p.id === id)!, "carry");
   }
+  if (!awaiting) return { awaiting: null };
 
   // The waiting period's own carry-in, so its record is right too.
-  if (awaiting) {
-    const period = periods!.find((p) => p.id === awaiting)!;
-    const { data: rows, error: rowsError } = await supabase
+  const period = periods!.find((p) => p.id === awaiting)!;
+  const { data: rows, error: rowsError } = await supabase
+    .from("transactions")
+    .select("type, amount, deleted_at")
+    .lt("date", period.start_date)
+    .is("deleted_at", null);
+  if (rowsError) fail("load transactions", rowsError);
+  const carriedIn = cashOnHand(budget.opening_balance, rows as Parameters<typeof cashOnHand>[1]);
+  const { error: carryError } = await supabase.from("budget_periods").update({ carried_in: carriedIn }).eq("id", awaiting);
+  if (carryError) fail("record the carry-in", carryError);
+  return { awaiting: { id: awaiting, start: period.start_date } };
+}
+
+/**
+ * Closes one period (6h-1, 6h-2): the next period (created if needed)
+ * records the leftover as `carried_in`, worked out with carryOver() from
+ * every transaction up to the period's end (so a payday choice's deposit or
+ * payment, dated its last day, counts); then the period gets `closed_at`
+ * and its `leftover_choice`. Only if it isn't closed yet.
+ */
+export async function closePeriod(
+  supabase: Client,
+  budget: Budget,
+  period: { id: string; start_date: string; end_date: string },
+  choice: "carry" | "pot" | "debt" | "split",
+): Promise<void> {
+  const { data: rows, error } = await supabase
+    .from("transactions")
+    .select("type, amount, deleted_at, date")
+    .lte("date", period.end_date)
+    .is("deleted_at", null);
+  if (error) fail("load transactions to close the period", error);
+  type Row = Parameters<typeof cashOnHand>[1][number] & { date: string };
+  // The generated types say `string` for type; its check constraint allows only the four.
+  const all = rows as Row[];
+  const carriedIn = cashOnHand(budget.opening_balance, all.filter((r) => r.date < period.start_date));
+  const { leftover } = carryOver(carriedIn, all.filter((r) => r.date >= period.start_date));
+
+  const next = await getOrCreatePeriod(supabase, budget, dayAfter(period.end_date));
+  const { error: carryError } = await supabase.from("budget_periods").update({ carried_in: leftover }).eq("id", next.id);
+  if (carryError) fail("carry the leftover", carryError);
+  const { error: closeError } = await supabase
+    .from("budget_periods")
+    .update({ closed_at: new Date().toISOString(), leftover_choice: choice })
+    .eq("id", period.id)
+    .is("closed_at", null);
+  if (closeError) fail("close the period", closeError);
+}
+
+/** What the payday screen shows (payday-rollover.md §2–3, 6h-2). */
+export type PaydayData = {
+  old: { id: string; start: string; end: string };
+  /** The period that just started. */
+  current: { start: string; end: string; paySlot: PaySlot };
+  /** The old period's money, what it used, and its leftover (carryOver()). */
+  review: ReturnType<typeof carryOver>;
+  wins: { title: string; detail: string }[];
+  /** The new period's expected income, and its plan so far (excluding income). */
+  expected: number;
+  incomeRows: { name: string; amount: number; detail: string }[];
+  planned: number;
+  plannedRows: { name: string; detail: string; amount: number }[];
+  /** The leftover choices' pot and debt; pots that can cover an overspend. */
+  pot: { id: string; name: string; balance: number; target: number | null } | null;
+  debt: { id: string; name: string; left: number } | null;
+  coverPots: { id: string; name: string; balance: number }[];
+};
+
+/**
+ * Everything the payday screen needs for the waiting period `old`: how it
+ * went (leftover, wins), the pot and debt the choices offer, and the new
+ * period's preview (opened like the Plan, so it's generated and synced).
+ */
+export async function loadPaydayData(
+  supabase: Client,
+  budget: Budget,
+  old: { id: string; start_date: string; end_date: string },
+  today: string,
+): Promise<PaydayData> {
+  const [{ data: rows, error }, oldPlan, currentPlan] = await Promise.all([
+    supabase
       .from("transactions")
-      .select("type, amount, deleted_at")
-      .lt("date", period.start_date)
-      .is("deleted_at", null);
-    if (rowsError) fail("load transactions", rowsError);
-    const carriedIn = cashOnHand(budget.opening_balance, rows as Parameters<typeof cashOnHand>[1]);
-    const { error: carryError } = await supabase.from("budget_periods").update({ carried_in: carriedIn }).eq("id", awaiting);
-    if (carryError) fail("record the carry-in", carryError);
-  }
-  return { awaiting };
+      .select("type, amount, deleted_at, date, pot_id, pot:savings_pots(name)")
+      .lte("date", old.end_date)
+      .is("deleted_at", null),
+    openPlanPeriod(supabase, budget, old.start_date, today),
+    openPlanPeriod(supabase, budget, undefined, today),
+  ]);
+  if (error) fail("load transactions", error);
+  type Row = Parameters<typeof cashOnHand>[1][number] & { date: string; pot_id: string | null; pot: unknown };
+  // The generated types say `string` for type; its check constraint allows only the four.
+  const all = rows as Row[];
+  const inOld = all.filter((r) => r.date >= old.start_date);
+  const review = carryOver(cashOnHand(budget.opening_balance, all.filter((r) => r.date < old.start_date)), inOld);
+
+  // The wins: payments made (on time?), spending under plan, savings.
+  const ticked = oldPlan.period.start_date === old.start_date ? oldPlan.items.filter((i) => i.tickable) : [];
+  const paid = ticked.filter((i) => i.paid_at != null);
+  const spending = oldPlan.period.start_date === old.start_date ? oldPlan.items.filter((i) => i.section === "spending") : [];
+  const deposits = inOld.filter((r) => r.type === "savings" && r.amount > 0);
+  const wins = paydayWins({
+    payments: { made: paid.length, total: ticked.length, onTime: paid.every((i) => !i.dueOn || !i.paidOn || i.paidOn <= i.dueOn) },
+    spending: {
+      planned: spending.reduce((t, i) => t + i.planned_amount, 0),
+      spent: spending.reduce((t, i) => t + (i.actual ?? 0), 0),
+    },
+    saved: {
+      amount: periodTotals(inOld).toSavings,
+      pots: [...new Set(deposits.map((r) => (r.pot as { name: string } | null)?.name).filter((n): n is string => !!n))],
+    },
+  });
+
+  const { destinations } = await loadAssignData(supabase, budget, currentPlan, today);
+  const { pot, debt } = assignTargets(destinations);
+  const incomeRows = currentPlan.items.filter((i) => i.section === "income");
+  return {
+    old: { id: old.id, start: old.start_date, end: old.end_date },
+    current: {
+      start: currentPlan.period.start_date,
+      end: currentPlan.period.end_date,
+      paySlot: currentPlan.period.pay_slot as PaySlot,
+    },
+    review,
+    wins,
+    expected: currentPlan.pay,
+    incomeRows: incomeRows.map((i) => ({ name: i.name, amount: i.planned_amount, detail: i.detail })),
+    planned: currentPlan.summary.planned,
+    plannedRows: currentPlan.items
+      .filter((i) => i.section !== "income")
+      .map((i) => ({ name: i.name, detail: i.detail, amount: i.planned_amount })),
+    pot: pot && { id: pot.id, name: pot.name, balance: pot.balance, target: pot.target },
+    debt: debt && { id: debt.id, name: debt.name, left: debt.left },
+    coverPots: destinations
+      .filter((d): d is Extract<AssignDestination, { kind: "pot" }> => d.kind === "pot" && !d.locked && d.balance > 0)
+      .map((d) => ({ id: d.id, name: d.name, balance: d.balance })),
+  };
 }
 
 /**
  * closeEndedPeriods() for a page load: a failure is logged, never shown.
  * The page still works, and the next visit tries again.
  */
-export async function closeEndedPeriodsOnVisit(supabase: Client, budget: Budget, today: string): Promise<{ awaiting: string | null }> {
+export async function closeEndedPeriodsOnVisit(
+  supabase: Client,
+  budget: Budget,
+  today: string,
+): Promise<{ awaiting: { id: string; start: string } | null }> {
   try {
     return await closeEndedPeriods(supabase, budget, today);
   } catch (error) {

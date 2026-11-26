@@ -13,6 +13,7 @@ import {
   carryForward,
   carryOver,
   categoryBudgets,
+  coverFromPot,
   debtAssignCap,
   debtItemToPay,
   fitAssign,
@@ -23,10 +24,15 @@ import {
   incomeStatus,
   isEmptyPlan,
   isTickable,
+  joinNames,
+  leftoverChoices,
   itemDueOn,
   itemStatus,
   missingStarterItems,
+  newPeriodMoney,
   oneOffImpact,
+  paydayPreview,
+  paydayWins,
   paidOnDate,
   paidThisPeriod,
   planCounts,
@@ -1252,5 +1258,88 @@ describe("periodsToClose (6h-1)", () => {
 
   it("closes nothing that hasn't ended or is already closed, in any order given", () => {
     expect(periodsToClose([...periods].reverse(), "2026-11-20", true)).toEqual({ close: [], awaiting: null });
+  });
+});
+
+describe("the payday screen (6h-2)", () => {
+  it("joinNames lists pots like a sentence", () => {
+    expect(joinNames(["Emergency"])).toBe("Emergency");
+    expect(joinNames(["Emergency", "Travel"])).toBe("Emergency and Travel");
+    expect(joinNames(["Emergency", "Travel", "Laptop"])).toBe("Emergency, Travel and Laptop");
+  });
+
+  describe("paydayWins", () => {
+    const base = { payments: { made: 5, total: 5, onTime: true }, spending: { planned: 950_000, spent: 910_000 }, saved: { amount: 500_000, pots: ["Emergency", "Travel"] } };
+
+    it("shows up to three true, positive facts", () => {
+      expect(paydayWins(base)).toEqual([
+        { title: "All 5 planned payments", detail: "made on time" },
+        { title: "₱400 under", detail: "your spending plan" },
+        { title: "₱5,000 saved", detail: "to Emergency and Travel" },
+      ]);
+    });
+
+    it("says 'made' without 'on time' when one was late, and leaves out what isn't true", () => {
+      expect(
+        paydayWins({ payments: { made: 4, total: 5, onTime: true }, spending: { planned: 950_000, spent: 990_000 }, saved: { amount: 0, pots: [] } }),
+      ).toEqual([]);
+      expect(paydayWins({ ...base, payments: { made: 5, total: 5, onTime: false } })[0]).toEqual({
+        title: "All 5 planned payments",
+        detail: "made",
+      });
+    });
+
+    it("needs something planned to count payments or spending", () => {
+      expect(paydayWins({ payments: { made: 0, total: 0, onTime: true }, spending: { planned: 0, spent: 0 }, saved: { amount: 0, pots: [] } })).toEqual([]);
+    });
+  });
+
+  describe("leftoverChoices", () => {
+    const pot = { name: "Emergency", balance: 1_300_000, target: 3_000_000 };
+    const debt = { name: "SPayLater", left: 400_000 };
+
+    it("a surplus: carry, a pot, a debt, or split it, each with its effect", () => {
+      expect(leftoverChoices({ leftover: 920_000, expected: 3_300_000, pot, debt })).toEqual([
+        { value: "carry", label: "Carry it into this period", effect: "This period gets ₱42,200 to work with", moved: 0 },
+        { value: "pot", label: "Move it to Emergency", effect: "Emergency would be ₱22,200 of ₱30,000 (74%)", moved: 920_000 },
+        { value: "debt", label: "Pay off SPayLater early", effect: "Clears the last ₱4,000; ₱5,200 still carries over", moved: 400_000 },
+        { value: "split", label: "Split it myself", effect: "Choose how much goes where", moved: 0 },
+      ]);
+    });
+
+    it("a debt bigger than the leftover takes it all", () => {
+      const choices = leftoverChoices({ leftover: 300_000, expected: 2_500_000, pot: null, debt });
+      expect(choices.map((c) => c.value)).toEqual(["carry", "debt", "split"]);
+      expect(choices[1]).toMatchObject({ effect: "Pays ₱3,000 off SPayLater early", moved: 300_000 });
+    });
+
+    it("an overspend: carry it, or cover it from a pot", () => {
+      expect(leftoverChoices({ leftover: -120_000, expected: 2_500_000, pot, debt }).map((c) => [c.value, c.effect])).toEqual([
+        ["carry", "It comes out of this payday: ₱23,800 to work with"],
+        ["pot", "Cover it from a pot"],
+      ]);
+    });
+
+    it("nothing left over: nothing to choose", () => {
+      expect(leftoverChoices({ leftover: 0, expected: 2_500_000, pot, debt })).toEqual([]);
+    });
+  });
+
+  it("newPeriodMoney: expected pay plus what carries, after the choice", () => {
+    expect(newPeriodMoney(3_300_000, 920_000, 0)).toBe(4_220_000);
+    expect(newPeriodMoney(3_300_000, 920_000, 400_000)).toBe(3_820_000);
+    // Covering an overspend from a pot moves money back in (moved is negative).
+    expect(newPeriodMoney(2_500_000, -120_000, -120_000)).toBe(2_500_000);
+  });
+
+  it("paydayPreview: carried in, money and not assigned after the choice", () => {
+    // ₱25,000 + ₱8,000 expected, ₱9,200 left over, ₱19,000 already planned.
+    expect(paydayPreview(3_300_000, 920_000, 0, 1_900_000)).toEqual({ carriedIn: 920_000, money: 4_220_000, notAssigned: 2_320_000 });
+    expect(paydayPreview(3_300_000, 920_000, 400_000, 1_900_000)).toEqual({ carriedIn: 520_000, money: 3_820_000, notAssigned: 1_920_000 });
+  });
+
+  it("coverFromPot: up to the pot's balance; the rest still carries", () => {
+    expect(coverFromPot(120_000, 1_300_000)).toEqual({ covered: 120_000, stillOver: 0 });
+    expect(coverFromPot(120_000, 50_000)).toEqual({ covered: 50_000, stillOver: 70_000 });
   });
 });
