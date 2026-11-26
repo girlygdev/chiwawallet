@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { dashboardNumbers } from "@/lib/money";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
   assignEffect,
@@ -9,6 +10,8 @@ import {
   budgetImpact,
   budgetBar,
   budgetLeft,
+  carryForward,
+  carryOver,
   categoryBudgets,
   debtAssignCap,
   debtItemToPay,
@@ -1155,6 +1158,71 @@ describe("Give leftover a job (6f)", () => {
       expect(assignEffect({ kind: "debt", name: "SPayLater", left: 800_000 }, 400_000)).toBe("₱4,000 left after this");
       expect(assignEffect({ kind: "buffer", next: "Nov 30 – Dec 14" }, 180_000)).toBe("₱1,800 rolls into next period");
       expect(assignEffect({ kind: "pot", name: "Emergency", balance: 0, target: null }, 0)).toBe("No change");
+    });
+  });
+});
+
+describe("carry-over (6g)", () => {
+  type Row = { type: "income" | "expense" | "savings" | "debt_payment"; amount: number; deleted_at: string | null };
+  const row = (type: Row["type"], amount: number, deleted_at: string | null = null): Row => ({ type, amount, deleted_at });
+
+  it("a surplus carries into the next period", () => {
+    const rows = [row("income", 2_500_000), row("expense", 1_500_000), row("savings", 500_000), row("debt_payment", 400_000)];
+    expect(carryOver(500_000, rows)).toEqual({ money: 3_000_000, used: 2_400_000, leftover: 600_000, result: "surplus" });
+  });
+
+  it("an overspend carries in as a negative (it reduces the next period's money)", () => {
+    const rows = [row("income", 2_500_000), row("expense", 2_620_000)];
+    expect(carryOver(0, rows)).toEqual({ money: 2_500_000, used: 2_620_000, leftover: -120_000, result: "overspent" });
+  });
+
+  it("zero is zero", () => {
+    expect(carryOver(200_000, [row("expense", 200_000)])).toMatchObject({ leftover: 0, result: "zero" });
+    expect(carryOver(0, [])).toMatchObject({ leftover: 0, result: "zero" });
+  });
+
+  it("a pot withdrawal adds money; a deposit uses it; deleted rows don't count", () => {
+    expect(carryOver(0, [row("income", 1_000_000), row("savings", -300_000)])).toMatchObject({ money: 1_300_000, leftover: 1_300_000 });
+    expect(carryOver(0, [row("income", 1_000_000), row("expense", 900_000, "2026-11-20T00:00:00Z")])).toMatchObject({ leftover: 1_000_000 });
+  });
+
+  it("the payday choices: moving the leftover to a pot or a debt lowers what carries", () => {
+    const period = [row("income", 2_500_000), row("expense", 1_580_000)]; // ₱9,200 left
+    expect(carryOver(0, period).leftover).toBe(920_000);
+    // "Move it to Emergency pot": a deposit dated the period's last day.
+    expect(carryOver(0, [...period, row("savings", 920_000)]).leftover).toBe(0);
+    // "Pay off SPayLater early": ₱4,000 extra, ₱5,200 still carries.
+    expect(carryOver(0, [...period, row("debt_payment", 400_000)]).leftover).toBe(520_000);
+  });
+
+  it("three periods in a row: each carry-in is the last leftover, starting from the opening balance", () => {
+    const periods = [
+      [row("income", 2_500_000), row("expense", 2_000_000)], // ₱5,000 left
+      [row("income", 2_500_000), row("expense", 3_300_000)], // ₱5,000 + ₱25,000 − ₱33,000 = −₱3,000
+      [row("income", 2_500_000), row("expense", 2_200_000)], // −₱3,000 + ₱25,000 − ₱22,000 = ₱0
+    ];
+    expect(carryForward(0, periods)).toEqual([
+      { carriedIn: 0, leftover: 500_000, result: "surplus" },
+      { carriedIn: 500_000, leftover: -300_000, result: "overspent" },
+      { carriedIn: -300_000, leftover: 0, result: "zero" },
+    ]);
+    // A starting balance carries all the way through.
+    expect(carryForward(100_000, periods).map((p) => p.leftover)).toEqual([600_000, -200_000, 100_000]);
+  });
+
+  it("agrees with the Dashboard across three periods: carry-in, and leftover = cash now", () => {
+    const periods = [
+      [row("income", 2_500_000), row("expense", 1_800_000), row("savings", 300_000)],
+      [row("income", 2_500_000), row("expense", 2_900_000), row("savings", -100_000), row("debt_payment", 400_000)],
+      [row("income", 2_500_000), row("expense", 2_100_000, "2026-12-20T00:00:00Z"), row("expense", 500_000)],
+    ];
+    const opening = 500_000;
+    const chain = carryForward(opening, periods);
+    periods.forEach((rows, i) => {
+      const earlier = periods.slice(0, i).flat();
+      const dashboard = dashboardNumbers(opening, earlier, rows);
+      expect(chain[i].carriedIn).toBe(dashboard.carryIn);
+      expect(chain[i].leftover).toBe(dashboard.cashNow);
     });
   });
 });

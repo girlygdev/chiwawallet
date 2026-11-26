@@ -2,6 +2,27 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6g Carry-over math
+- **What:**
+  - **`carryOver(carriedIn, rows)`:** a period's money, what it used, its leftover (below ₱0 when overspent) and the result (surplus, overspent or zero).
+  - **`carryForward(openingBalance, periods)`:** chains it, so each period's carry-in is the last one's leftover, starting from the opening balance.
+  - **It shares the Dashboard's rules:** it's built on `periodTotals()`, so it counts money exactly as the Dashboard does.
+  - **The payday choices** (move to a pot, pay a debt early) are transactions on the old period's last day, so they lower what carries. Carry adds nothing.
+- **Files:** `src/lib/plan.ts`, `tests/lib/plan.test.ts`, `docs/week-6-tasks.md`.
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - An overspend carries in as a negative.
+  - The budget's `carry_over` setting stays on, with no screen for it.
+- **Tests:** written first, 7 new unit tests (568 pass):
+  - surplus, overspend and zero
+  - pot withdrawals and deposits
+  - deleted rows don't count
+  - the payday choices
+  - three periods in a row (surplus → overspent → zero), with and without an opening balance
+  - three periods checked against `dashboardNumbers()`: carry-in matches, and leftover equals cash now
+  - Lint, typecheck and the build pass.
+- **AI notes:** Claude's first three-period example was wrong (it expected ₱0 where −₱3,000 carries). Claude rewrote it so the numbers really give surplus, then overspent, then zero.
+- **Next:** 6h-1, closing a period.
+
 ## 2026-11-26 · Week 6 · 6f Give leftover a job
 - **What:** `/plan/assign?start=…` shares out Not assigned yet across pots and debts (plan.md §7).
   - **The Remaining card,** a sticker: some left (yellow), all assigned (Deep Green), or too much (danger), with a stacked bar.

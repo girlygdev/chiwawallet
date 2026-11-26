@@ -89,7 +89,7 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
     - **Limits:** a pot stops at its target, and a debt at what's owed.
   - **Saves:** one `assigned` plan item per destination above ₱0. The buffer saves nothing.
   - Done when: assigning ₱5,000 to Emergency and ₱2,000 to SPayLater shows both in the period, counted as Savings & debt payoff.
-- [ ] **6g. Carry-over math, tests first.**
+- [x] **6g. Carry-over math, tests first.** Done Nov 26. `carryOver()` and `carryForward()` in `lib/plan.ts`, built on `periodTotals()`. A three-period test checks each carry-in and leftover against `dashboardNumbers()`. An overspend carries as a negative; the budget's `carry_over` setting stays on, with no screen.
   - A pure carry-over function in `lib/`, with Vitest cases for a surplus, an overspend and zero.
   - Also a three-period case: test data across three periods, closed one after another, gives the right carry-in for each.
   - It must agree with the Dashboard's carry-in (`dashboardNumbers()`). See open question 1.

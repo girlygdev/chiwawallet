@@ -4,7 +4,7 @@ import { type DebtTerms, debtSchedule, paydayFor, reducedSchedule } from "@/lib/
 import { isActiveOn } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
 import { formatShortDate, getPeriod, type PaySchedule, type Period, type PaySlot, paydayLabel } from "@/lib/periods";
-import type { BudgetGroup } from "@/lib/transactions";
+import { type BudgetGroup, periodTotals } from "@/lib/transactions";
 
 // Plan math (plan.md §1 and §5, week-5-tasks.md 5b): pure functions, no
 // React, no database. Amounts are integer centavos; dates "YYYY-MM-DD".
@@ -966,4 +966,54 @@ export function assignEffect(
 export function fitAssign(amount: number, cap: number | null): number {
   const atLeastZero = Math.max(0, amount);
   return cap == null ? atLeastZero : Math.min(cap, atLeastZero);
+}
+
+// ---------------------------------------------------------------------------
+// Carry-over (mvp-brief.md "Carry-over", week-6-tasks.md 6g)
+// ---------------------------------------------------------------------------
+
+type MoneyRow = Parameters<typeof periodTotals>[0][number];
+
+export type CarryOver = {
+  /** Carried in + income + net withdrawals from pots. */
+  money: number;
+  /** Expenses + debt payments + net savings. */
+  used: number;
+  /** money − used: what carries into the next period. Below 0 when overspent. */
+  leftover: number;
+  result: "surplus" | "overspent" | "zero";
+};
+
+/**
+ * What a period leaves for the next (owner, Nov 26: carry-in is worked out
+ * from transactions, never stored): what it had, what it used, and what's
+ * left, which can be below ₱0 ("it reduces the new period's money"). Built
+ * on periodTotals(), so it counts money exactly as the Dashboard does: its
+ * leftover is the Dashboard's cash now. The payday choices are just
+ * transactions dated the old period's last day (a deposit to a pot, an
+ * extra debt payment), so they lower the leftover; Carry adds nothing.
+ */
+export function carryOver(carriedIn: number, rows: MoneyRow[]): CarryOver {
+  const { moneyIn, moneyOut, toSavings } = periodTotals(rows);
+  const money = carriedIn + moneyIn + Math.max(-toSavings, 0);
+  const used = moneyOut + Math.max(toSavings, 0);
+  const leftover = money - used;
+  return { money, used, leftover, result: leftover > 0 ? "surplus" : leftover < 0 ? "overspent" : "zero" };
+}
+
+/**
+ * Carry-over across periods in order: the first starts from the opening
+ * balance, and each next one from the last one's leftover.
+ */
+export function carryForward(
+  openingBalance: number,
+  periods: MoneyRow[][],
+): { carriedIn: number; leftover: number; result: CarryOver["result"] }[] {
+  let carriedIn = openingBalance;
+  return periods.map((rows) => {
+    const { leftover, result } = carryOver(carriedIn, rows);
+    const entry = { carriedIn, leftover, result };
+    carriedIn = leftover;
+    return entry;
+  });
 }
