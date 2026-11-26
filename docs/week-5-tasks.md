@@ -50,15 +50,15 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
   - Smart default from Needed by: "Suggested: the payday just before Dec 5."
   - Impact box: "Nov 30 – Dec 14 not assigned: ₱23,200 → ₱20,700", yellow when it goes below ₱0.
   - Done when: a one-off added to a future period shows there with the right totals.
-- [ ] **5g. Debt payments and spending budgets.** Split in two (owner, Nov 26).
+- [x] **5g. Debt payments and spending budgets.** Split in two (owner, Nov 26). Done Nov 26.
   - [x] **5g-1. Spending budgets.** Done Nov 26 (checked in a browser on local Supabase).
     - **Budget per payday** on New and Edit category (`default_budget`), starting with the current period. The category list shows "₱3,000 per payday".
     - The **Set a budget** sheet (`plan.md` fix #2, `?add=budget`): category, amount, and "Every payday" or "This period only".
       - "Every payday" saves `default_budget` and sets this period's item.
       - "This period only" sets just this period's item, marked `edited`.
       - Both make a `recurring` item, one per category per period.
-    - Migration `20261126100000_plan_items_insert_edited.sql` (insert `edited`): local only. **Live:** after the owner's go.
-  - [ ] **5g-2. Debt payments and the Plan options menu.**
+    - Migration `20261126100000_plan_items_insert_edited.sql` (insert `edited`): local and live (Nov 26).
+  - [x] **5g-2. Debt payments and the Plan options menu.** Done Nov 26 (checked in a browser on local Supabase). `debtLeft()` in `lib/debts.ts`, `debtPaymentSchema`, `addDebtPayment`; `components/plan/debt-payment-form.tsx`, `payday-picker.tsx`, `plan-options-menu.tsx`. The menu also offers Plan a debt payment; the empty plan's Debt payments row keeps "Add a debt".
     - Plan a debt payment in any period: an extra amount on any active debt (including "When I can"), origin `one_off` with `debt_id`, counting as Savings & debt payoff. Capped at what's left on the debt.
     - The **Plan options menu** (moved from 5e): Set a budget, Use starter plan, Edit spending budgets (Settings › Categories). Period settings isn't designed yet.
     - Share 5f's payday cards and impact box between Add one-off item and Plan a debt payment.

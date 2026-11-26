@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
+import { debtLeft, debtPaid } from "@/lib/debts";
+import { formatPeso } from "@/lib/money";
 import { scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { missingStarterItems, type PlanOrigin, planSection, plannablePeriods, starterPlan } from "@/lib/plan";
 import { openPlanPeriod } from "@/lib/plan-periods";
@@ -10,6 +12,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { BudgetGroup } from "@/lib/transactions";
 import { SOMETHING_WRONG, toFieldErrors } from "@/lib/validation/field-errors";
 import {
+  type DebtPaymentInput,
+  debtPaymentSchema,
   type EditPlanItemInput,
   editPlanItemSchema,
   type OneOffItemInput,
@@ -280,6 +284,73 @@ export async function setBudget(periodStart: string, input: SetBudgetInput): Pro
       });
   if (error) return fail("set budget", error);
   return { ok: true, saved: { name: category.data.name, amount } };
+}
+
+export type AddDebtPaymentResult = {
+  ok?: true;
+  saved?: { id: string; name: string; periodStart: string };
+  formError?: string;
+  fieldErrors?: Partial<Record<keyof DebtPaymentInput, string>>;
+};
+
+/**
+ * Plan a debt payment (5g-2): an extra payment on an active debt, paid from
+ * the chosen payday (the current period or up to 3 months ahead). A
+ * `one_off` item with `debt_id` and the Extra debt payment category, so it
+ * counts as Savings & debt payoff. It can't be more than what's left.
+ */
+export async function addDebtPayment(input: DebtPaymentInput): Promise<AddDebtPaymentResult> {
+  const { budget } = await requireAppUser();
+  const parsed = debtPaymentSchema.safeParse(input);
+  if (!parsed.success) return { fieldErrors: toFieldErrors<DebtPaymentInput>(parsed.error.issues) };
+  const values = parsed.data;
+
+  const offered = plannablePeriods(todayInManila(new Date()), scheduleFromBudget(budget), null);
+  if (!offered.some((p) => p.start === values.periodStart)) {
+    return { fieldErrors: { periodStart: "Pick which payday pays for it." } };
+  }
+
+  const supabase = await createClient();
+  const [debt, payments, category] = await Promise.all([
+    supabase.from("debts").select("name, total_amount, paid_off_at").eq("id", values.debtId).maybeSingle(),
+    supabase
+      .from("transactions")
+      .select("amount, deleted_at")
+      .eq("type", "debt_payment")
+      .eq("debt_id", values.debtId)
+      .is("deleted_at", null),
+    supabase.from("categories").select("id").eq("system_key", "extra_debt").maybeSingle(),
+  ]);
+  for (const result of [debt, payments, category]) {
+    if (result.error) return fail("load debt", result.error);
+  }
+  if (!category.data) return fail("find the Extra debt payment category", { message: "missing system category" });
+  // RLS hides other users' debts, so a missing one is gone or not theirs.
+  if (!debt.data) return { fieldErrors: { debtId: "Pick a debt." } };
+
+  const left = debtLeft({ ...debt.data, paid: debtPaid(payments.data!) });
+  if (left <= 0) return { fieldErrors: { debtId: `${debt.data.name} is paid off.` } };
+  if (values.amount > left) return { fieldErrors: { amount: `Only ${formatPeso(left)} left on ${debt.data.name}.` } };
+
+  try {
+    const period = await getOrCreatePeriod(supabase, budget, values.periodStart);
+    const { data, error } = await supabase
+      .from("plan_items")
+      .insert({
+        period_id: period.id,
+        name: debt.data.name,
+        planned_amount: values.amount,
+        origin: "one_off",
+        category_id: category.data.id,
+        debt_id: values.debtId,
+      })
+      .select("id, name")
+      .single();
+    if (error) return fail("plan debt payment", error);
+    return { ok: true, saved: { ...data, periodStart: period.start_date } };
+  } catch (error) {
+    return fail("find period", error as Error);
+  }
 }
 
 /**

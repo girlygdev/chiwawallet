@@ -72,3 +72,17 @@ export const setBudgetSchema = z.object({
 
 export type SetBudgetInput = z.input<typeof setBudgetSchema>;
 export type SetBudget = z.output<typeof setBudgetSchema>;
+
+/**
+ * Plan a debt payment (5g-2): an extra amount on one of the user's active
+ * debts, paid from the chosen payday. The Server Action checks it's no more
+ * than what's left on the debt.
+ */
+export const debtPaymentSchema = z.object({
+  debtId: z.uuid("Pick a debt."),
+  amount: amountField,
+  periodStart: z.string().refine(isRealDate, "Pick which payday pays for it."),
+});
+
+export type DebtPaymentInput = z.input<typeof debtPaymentSchema>;
+export type DebtPayment = z.output<typeof debtPaymentSchema>;

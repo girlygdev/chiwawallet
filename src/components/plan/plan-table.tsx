@@ -3,7 +3,7 @@ import { formatPeso } from "@/lib/money";
 import { formatPeriodRange } from "@/lib/periods";
 import type { PlanSummary } from "@/lib/plan";
 import type { PlanRow } from "@/lib/plan-periods";
-import { editHref, GROUP_ADD_LINKS, PLAN_SECTIONS, showGroup } from "@/components/plan/plan-groups";
+import { editHref, groupAddLink, PLAN_SECTIONS, showGroup } from "@/components/plan/plan-groups";
 
 // The desktop plan table (plan.md §4): one table, each group a header row
 // with its total. ACTUAL and STATUS come with ticking items paid (Week 6);
@@ -17,6 +17,7 @@ export function PlanTable({
   carryLabel,
   summary,
   editStart,
+  hasDebts,
 }: {
   period: { start: string; end: string };
   items: PlanRow[];
@@ -27,6 +28,7 @@ export function PlanTable({
   summary: PlanSummary;
   /** The period's start while its plan can change; empty once it has ended. */
   editStart: string | null;
+  hasDebts: boolean;
 }) {
   const incomeRows = items.filter((i) => i.section === "income");
 
@@ -68,12 +70,12 @@ export function PlanTable({
 
         {PLAN_SECTIONS.map(({ key, title }) => {
           const rows = items.filter((i) => i.section === key);
-          if (!showGroup(key, rows.length, editStart)) return null;
-          const add = GROUP_ADD_LINKS[key];
+          const add = groupAddLink(key, editStart, hasDebts);
+          if (!showGroup(key, rows.length, add)) return null;
           return (
             <tbody key={key}>
               <GroupRow title={title} total={summary.sections[key]} />
-              {rows.length === 0 && key === "spending" ? null : rows.length === 0 ? (
+              {rows.length === 0 && key !== "one_off" ? null : rows.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="px-4 py-3 text-text-3">
                     Nothing that only happens once yet.
@@ -90,11 +92,11 @@ export function PlanTable({
                   />
                 ))
               )}
-              {add && editStart && (
+              {add && (
                 <tr>
                   <td colSpan={3} className="px-4 py-1">
                     <Link
-                      href={add.href(editStart)}
+                      href={add.href}
                       scroll={false}
                       className="inline-flex min-h-11 items-center rounded-sm font-extrabold text-link outline-link hover:underline focus-visible:outline-2"
                     >

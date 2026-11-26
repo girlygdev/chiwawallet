@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { editPlanItemSchema, oneOffItemSchema, setBudgetSchema } from "@/lib/validation/plan-item";
+import { debtPaymentSchema, editPlanItemSchema, oneOffItemSchema, setBudgetSchema } from "@/lib/validation/plan-item";
 
 const CATEGORY = "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b";
 const valid = { name: "Dad's birthday gift", amount: "2,500", neededBy: "2026-12-05", periodStart: "2026-11-30", categoryId: CATEGORY };
@@ -69,5 +69,21 @@ describe("setBudgetSchema (5g-1)", () => {
     expect(issues({ categoryId: "" })).toEqual(["Pick a category."]);
     expect(issues({ amount: "0" })).toEqual(["Enter an amount above ₱0."]);
     expect(issues({ scope: "weekly" })).toEqual(["Pick how often."]);
+  });
+});
+
+describe("debtPaymentSchema (5g-2)", () => {
+  const valid = { debtId: "8f14e45f-ceea-4e7a-8d8a-0e0f5b1a2c3d", amount: "2,000", periodStart: "2026-12-15" };
+
+  it("turns the amount into centavos", () => {
+    expect(debtPaymentSchema.parse(valid)).toEqual({ ...valid, amount: 200_000 });
+  });
+
+  it("needs a debt, an amount above ₱0 and a payday", () => {
+    const issues = (input: object) =>
+      debtPaymentSchema.safeParse({ ...valid, ...input }).error?.issues.map((i) => i.message) ?? [];
+    expect(issues({ debtId: "" })).toEqual(["Pick a debt."]);
+    expect(issues({ amount: "0" })).toEqual(["Enter an amount above ₱0."]);
+    expect(issues({ periodStart: "" })).toEqual(["Pick which payday pays for it."]);
   });
 });

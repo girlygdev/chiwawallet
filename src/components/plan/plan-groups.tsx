@@ -25,15 +25,21 @@ export const addOneOffHref = (start: string) => `/plan?start=${start}&add=1`;
 /** Set a budget's address (5g-1). */
 export const setBudgetHref = (start: string) => `/plan?start=${start}&add=budget`;
 
-/** The "add" link under a group while the plan can change (shared with the desktop table). */
-export const GROUP_ADD_LINKS: Partial<Record<Section, { label: string; href: (start: string) => string }>> = {
-  spending: { label: "Set a budget", href: setBudgetHref },
-  one_off: { label: "Add one-off item", href: addOneOffHref },
-};
+/**
+ * The "add" link under a group while the plan can change (shared with the
+ * desktop table): Plan a debt payment (only with a debt to pay), Set a
+ * budget, Add one-off item. Null for other groups and in an ended period.
+ */
+export function groupAddLink(key: Section, editStart: string | null, hasDebts: boolean): { label: string; href: string } | null {
+  if (!editStart) return null;
+  if (key === "debts" && hasDebts) return { label: "Plan a debt payment", href: `/plan?start=${editStart}&add=debt` };
+  if (key === "spending") return { label: "Set a budget", href: setBudgetHref(editStart) };
+  if (key === "one_off") return { label: "Add one-off item", href: addOneOffHref(editStart) };
+  return null;
+}
 
-/** Whether a group shows: when it has rows, or always for One-off items (its empty card) and, while it can be added to, Spending budgets. */
-export const showGroup = (key: Section, rows: number, editStart: string | null) =>
-  rows > 0 || key === "one_off" || (key === "spending" && editStart != null);
+/** Whether a group shows: when it has rows or an add link, and always for One-off items (its empty card). */
+export const showGroup = (key: Section, rows: number, add: unknown) => rows > 0 || key === "one_off" || add != null;
 
 /** The row under the income: "Carried in" or, on the first period, "Starting balance". */
 export type CarryLabel = { name: string; detail: string };
@@ -52,6 +58,7 @@ export function PlanGroups({
   summary,
   future,
   editStart,
+  hasDebts,
   moneyInOnly = false,
 }: {
   items: PlanRow[];
@@ -63,6 +70,8 @@ export function PlanGroups({
   future: boolean;
   /** The period's start while its plan can change; empty once it has ended. */
   editStart: string | null;
+  /** Any debt not paid off: DEBT PAYMENTS shows with "+ Plan a debt payment". */
+  hasDebts: boolean;
   moneyInOnly?: boolean;
 }) {
   const incomeRows = items.filter((i) => i.section === "income");
@@ -115,11 +124,11 @@ export function PlanGroups({
       {!moneyInOnly &&
         PLAN_SECTIONS.map(({ key, title }) => {
           const rows = items.filter((i) => i.section === key);
-          if (!showGroup(key, rows.length, editStart)) return null;
-          const add = GROUP_ADD_LINKS[key];
+          const add = groupAddLink(key, editStart, hasDebts);
+          if (!showGroup(key, rows.length, add)) return null;
           return (
             <Group key={key} id={`plan-${key}`} title={title} total={summary.sections[key]}>
-              {rows.length === 0 && key === "spending" ? null : rows.length === 0 ? (
+              {rows.length === 0 && key !== "one_off" ? null : rows.length === 0 ? (
                 <p className="rounded-2xl border-[1.5px] border-dashed border-line-dash px-4 py-3 text-sm text-text-3">
                   Gifts, events, fees or anything that only happens once. Plan them here so they don&apos;t surprise you.
                 </p>
@@ -135,10 +144,10 @@ export function PlanGroups({
                   })}
                 </ul>
               )}
-              {add && editStart && (
+              {add && (
                 // The Dashed button: "add something new" (style-guide.md "Buttons").
                 <Link
-                  href={add.href(editStart)}
+                  href={add.href}
                   scroll={false}
                   className="flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-dashed border-line-dash bg-surface px-4 text-[15px] font-extrabold text-link outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
                 >

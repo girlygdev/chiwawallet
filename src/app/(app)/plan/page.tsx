@@ -7,13 +7,15 @@ import { PlanStats } from "@/components/plan/plan-stats";
 import { incomeLine, PlanSummary } from "@/components/plan/plan-summary";
 import { PlanTable } from "@/components/plan/plan-table";
 import { PlannedSplit } from "@/components/plan/planned-split";
-import type { PaydayCard } from "@/components/plan/one-off-form";
+import type { PaydayCard } from "@/components/plan/payday-picker";
 import { addOneOffHref, setBudgetHref } from "@/components/plan/plan-groups";
+import { PlanOptionsMenu } from "@/components/plan/plan-options-menu";
 import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { describeSchedule, formatPeriodRange, scheduleFromBudget, todayInManila } from "@/lib/periods";
-import { isEmptyPlan, planCounts, planDone } from "@/lib/plan";
+import { isEmptyPlan, missingStarterItems, type PlanOrigin, planCounts, planDone } from "@/lib/plan";
+import type { BudgetGroup } from "@/lib/transactions";
 import { openPlanPeriod } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
@@ -80,7 +82,17 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
     summary: plan.summary,
     future: plan.future,
     editStart,
+    hasDebts: plan.debts.length > 0,
   };
+  // The Plan options menu, while the period can change. Use starter plan
+  // only while a starter group is missing and pay is expected.
+  const starterMissing = missingStarterItems(
+    plan.starter,
+    plan.items.map((i) => ({ origin: i.origin as PlanOrigin, budget_group: i.budget_group as BudgetGroup | null })),
+  );
+  const menu = editStart && (
+    <PlanOptionsMenu periodStart={editStart} hasDebts={plan.debts.length > 0} canUseStarter={starterMissing.length > 0} />
+  );
 
   return (
     // No items to edit in an ended period, so an old ?edit= link opens nothing.
@@ -91,12 +103,21 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
       cards={cards}
       budgets={budgets}
       periodLabel={formatPeriodRange(period.start, period.end)}
+      debts={plan.debts}
     >
       <PageHeader
         title="Plan"
         mobile="title"
         eyebrow={describeSchedule(scheduleFromBudget(budget))}
-        desktopAction={editStart ? <HeaderStickerLink href={addOneOffHref(editStart)}>Add one-off item</HeaderStickerLink> : undefined}
+        mobileAction={menu || undefined}
+        desktopAction={
+          editStart ? (
+            <div className="flex items-center gap-3">
+              {menu}
+              <HeaderStickerLink href={addOneOffHref(editStart)}>Add one-off item</HeaderStickerLink>
+            </div>
+          ) : undefined
+        }
       />
       <div className="flex flex-col gap-5">
         <PeriodPicker periods={plan.periods} selected={plan.period.start_date} current={plan.currentStart} />
@@ -141,6 +162,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
                   carryLabel={carryLabel}
                   summary={plan.summary}
                   editStart={editStart}
+                  hasDebts={plan.debts.length > 0}
                 />
                 <PlannedSplit split={plan.summary.split} income={plan.income} />
               </div>

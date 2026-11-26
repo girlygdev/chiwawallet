@@ -147,6 +147,14 @@ export function isPaidOff(debt: { total_amount: number; paid: number; paid_off_a
   return debt.paid_off_at != null || debt.paid >= debt.total_amount;
 }
 
+/**
+ * What's left to pay: the total minus what's paid, never below ₱0; ₱0 once
+ * marked paid off. The most a planned extra payment can be (5g-2).
+ */
+export function debtLeft(debt: { total_amount: number; paid: number; paid_off_at: string | null }): number {
+  return isPaidOff(debt) ? 0 : debt.total_amount - debt.paid;
+}
+
 type SummaryDebt = DebtTerms & { name: string; paid: number; paid_off_at: string | null };
 
 export type DebtsSummary = {

@@ -3,7 +3,7 @@ import { addDays, format, parseISO } from "date-fns";
 import type { BillFrequency } from "@/lib/bills";
 import { type BudgetPeriod, getOrCreatePeriod } from "@/lib/budget-periods";
 import type { Budget } from "@/lib/current-budget";
-import { type DebtTerms, debtPaid } from "@/lib/debts";
+import { type DebtTerms, debtLeft, debtPaid } from "@/lib/debts";
 import { receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers } from "@/lib/money";
 import { getPeriod, type Period, type PaySlot, scheduleFromBudget } from "@/lib/periods";
@@ -72,7 +72,11 @@ export type OpenedPlan = {
   starter: StarterItem[];
   /** This payday's expected pay, for "a 50/30/20 split of your ₱25,000 pay". */
   pay: number;
+  /** Plan a debt payment's choices (5g-2): debts not paid off, with what's left, oldest first. */
+  debts: PlanDebt[];
 };
+
+export type PlanDebt = { id: string; name: string; left: number; flexible: boolean };
 
 type Client = SupabaseClient<Database>;
 
@@ -188,6 +192,9 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     moneyOut: numbers?.moneyOut ?? null,
     starter: starterPlan(pay, budget),
     pay,
+    debts: sources.debts
+      .map((d) => ({ id: d.id, name: d.name, left: debtLeft(d), flexible: d.payment_type === "flexible" }))
+      .filter((d) => d.left > 0),
   };
 }
 
@@ -202,7 +209,8 @@ async function loadSources(supabase: Client, budget: Budget) {
     supabase.from("savings_pots").select("id, name, pay_slot, planned_contribution"),
     supabase
       .from("debts")
-      .select("id, name, total_amount, payment_type, num_payments, payment_amount, first_due_date, paid_off_at"),
+      .select("id, name, total_amount, payment_type, num_payments, payment_amount, first_due_date, paid_off_at")
+      .order("created_at"),
     // Every live debt payment, for what's been paid (never stored).
     supabase
       .from("transactions")

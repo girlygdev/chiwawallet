@@ -2,6 +2,45 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 5 · 5g-2 Debt payments and the Plan options menu
+- **What:**
+  - **Plan a debt payment** (`/plan?start=…&add=debt`):
+    - **Fields:** Which debt? (active debts, including "When I can", with "₱10,000 left"), Amount, and the payday cards.
+    - **Checks:** more than what's left is refused, on the form and on the server ("Only ₱10,000 left on Tita Ana.").
+    - **Saves** a `one_off` item with `debt_id` and the Extra debt payment category, so it shows under DEBT PAYMENTS as "Extra payment" and counts as Savings & debt payoff.
+    - **After saving:** you land on that period, with "Tita Ana payment planned · Undo".
+    - **Opens from:** DEBT PAYMENTS (shown whenever there's an active debt) and the menu.
+  - **Plan options menu** (Base UI Menu):
+    - **Where:** in the mobile header, and beside Add one-off item on desktop.
+    - **Items:** Set a budget, Plan a debt payment (with a debt), Use starter plan (while a starter group is missing and pay is expected), and Edit spending budgets (Settings › Categories).
+  - **Shared:** 5f's payday cards, the per-period loader and the impact box moved to `payday-picker.tsx`, used by both sheets.
+- **Files:**
+  - New: `src/components/plan/debt-payment-form.tsx`, `payday-picker.tsx`, `plan-options-menu.tsx`.
+  - Edited:
+    - `src/lib/debts.ts`: `debtLeft()`
+    - `src/lib/validation/plan-item.ts`: `debtPaymentSchema`
+    - `src/lib/plan-periods.ts`: returns the active debts, ordered by when they were added
+    - `src/app/(app)/plan/actions.ts`: `addDebtPayment`
+    - `src/app/(app)/plan/plan-item-sheet.tsx`: the debt sheet and `useShowToast`
+    - `page.tsx`
+    - `src/components/plan/one-off-form.tsx`, `plan-groups.tsx` (`groupAddLink()`), `plan-table.tsx`
+    - Tests: `tests/lib/debts.test.ts`, `tests/lib/validation/plan-item.test.ts`
+    - `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - The cap is what's left on the debt (total − paid), without subtracting payments planned in other periods.
+  - The menu also has Plan a debt payment.
+  - The empty plan's Debt payments row keeps "Add a debt".
+  - Use starter plan in the menu has no Undo. Each item can be removed.
+- **Tests:** written first, 4 new unit tests (479 pass), and 270 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - with no debts, the menu has no Plan a debt payment
+  - added a "When I can" debt, Tita Ana ₱10,000; the menu then offers it, with the debt already picked
+  - ₱12,000 was refused
+  - ₱2,000 on Dec 15 (₱22,000 → ₱20,000) landed there as "Extra payment", next to the Groceries ₱3,000 budget; the split showed Savings & debt payoff 8%
+  - the menu's Edit spending budgets and Set a budget work
+  - 5f's checks still pass
+  - no console errors
+- **Next:** 5h, the wire-up.
+
 ## 2026-11-26 · Week 5 · 5g-1 Spending budgets
 - **What:**
   - **Budget per payday** on New and Edit category. Its note says "₱3,000 added to every payday's plan, starting with this one." The category list shows "₱3,000 per payday".
@@ -38,7 +77,7 @@ Newest entry first.
   - desktop "+ Set a budget"
   - 5f's checks still pass
   - no console errors
-- **Not yet live:** the migration. It needs `npx supabase db push` after the owner's go.
+- **Live:** the migration was pushed Nov 26 (dry run first, owner's go).
 - **Next:** 5g-2, debt payments and the Plan options menu.
 
 ## 2026-11-26 · Week 5 · 5f Add one-off item

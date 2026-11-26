@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  debtLeft,
   debtPaid,
   debtProgress,
   debtSchedule,
@@ -230,5 +231,16 @@ describe("When I can (flexible debts, Nov 24)", () => {
     // A month already gone, or nothing left: no suggestion.
     expect(flexibleMonthly(700_000, "2026-11-20", "2026-10-01")).toBeNull();
     expect(flexibleMonthly(0, "2026-11-20", "2027-06-01")).toBeNull();
+  });
+});
+
+describe("debtLeft (5g-2)", () => {
+  it("is the total minus what's paid", () => {
+    expect(debtLeft({ total_amount: 1_200_000, paid: 360_000, paid_off_at: null })).toBe(840_000);
+  });
+
+  it("is ₱0 once paid off, by payments or by hand", () => {
+    expect(debtLeft({ total_amount: 1_200_000, paid: 1_300_000, paid_off_at: null })).toBe(0);
+    expect(debtLeft({ total_amount: 1_200_000, paid: 360_000, paid_off_at: "2026-11-20T00:00:00Z" })).toBe(0);
   });
 });

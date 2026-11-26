@@ -6,7 +6,9 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, us
 import { type AddSheetData, getAddSheetData } from "@/app/(app)/activity/actions";
 import { FormError } from "@/components/auth/form-error";
 import { ConfirmDelete } from "@/components/confirm-delete";
-import { OneOffForm, type PaydayCard } from "@/components/plan/one-off-form";
+import { DebtPaymentForm } from "@/components/plan/debt-payment-form";
+import { OneOffForm } from "@/components/plan/one-off-form";
+import type { PaydayCard } from "@/components/plan/payday-picker";
 import { type EditableItem, PlanItemForm } from "@/components/plan/plan-item-form";
 import { SetBudgetForm } from "@/components/plan/set-budget-form";
 import { Sheet } from "@/components/sheet";
@@ -14,7 +16,9 @@ import { Toast, type ToastMessage } from "@/components/toast";
 import type { ExpenseView } from "@/components/transactions/expense-form";
 import { formatPeso } from "@/lib/money";
 import { type PlanSummary, removeImpact } from "@/lib/plan";
+import type { PlanDebt } from "@/lib/plan-periods";
 import {
+  addDebtPayment,
   type AddOneOffResult,
   addOneOffItem,
   addStarterPlan,
@@ -39,12 +43,16 @@ type Summary = Pick<PlanSummary, "moneyForPeriod" | "notAssigned">;
 
 const ToastContext = createContext<(toast: ToastMessage) => void>(() => {});
 
+/** Shows a toast in the Plan's one toast spot (the starter button, the Plan options menu). */
+export const useShowToast = () => useContext(ToastContext);
+
 // Edit item and Remove from plan (plan.md §3, task 5e), following the page
 // address like Bills, so plan rows can be plain links:
 //   /plan?start=2026-11-30&edit=<id>     Edit item
 //   /plan?start=2026-11-30&remove=<id>   Remove … from this plan?
 //   /plan?start=2026-11-30&add=1         Add one-off item (5f)
 //   /plan?start=2026-11-30&add=budget    Set a budget (5g-1)
+//   /plan?start=2026-11-30&add=debt      Plan a debt payment (5g-2)
 // Closing goes back to the period. It also owns the toast, so "Meralco
 // removed · Undo" stays up after the dialog closes, and the starter button
 // (inside `children`) can use it after the empty plan is gone.
@@ -55,6 +63,7 @@ export function PlanEditor({
   cards,
   budgets,
   periodLabel,
+  debts,
   children,
 }: {
   items: SheetItem[];
@@ -66,6 +75,8 @@ export function PlanEditor({
   budgets: Record<string, number>;
   /** "Nov 15 – 29" */
   periodLabel: string;
+  /** Plan a debt payment's choices: debts not paid off. */
+  debts: PlanDebt[];
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -85,7 +96,9 @@ export function PlanEditor({
   // the view and, through the key, the form. Not in an ended period.
   const addKind = cards.length > 0 ? params.get("add") : null;
   const settingBudget = addKind === "budget";
-  const adding = addKind != null;
+  // Only with a debt to pay: an old link with none opens nothing.
+  const planningDebt = addKind === "debt" && debts.length > 0;
+  const adding = addKind != null && (addKind !== "debt" || planningDebt);
   const [addData, setAddData] = useState<AddSheetData | null>(null);
   const [addView, setAddView] = useState<ExpenseView>("form");
   const [addCount, setAddCount] = useState(0);
@@ -106,7 +119,8 @@ export function PlanEditor({
   const loadNotAssigned = useCallback(async (start: string) => (await getPeriodNotAssigned(start))?.notAssigned ?? null, []);
 
   // After adding: go to the period that pays for it, with Undo for 5 seconds.
-  const onAdded = (saved: NonNullable<AddOneOffResult["saved"]>) => {
+  // `text` is the toast: "Dad's birthday gift added", "SPayLater payment planned".
+  const onAdded = (saved: NonNullable<AddOneOffResult["saved"]>, text = `${saved.name} added`) => {
     setAddView("form");
     setAddData(null);
     setAddCount((n) => n + 1);
@@ -114,7 +128,7 @@ export function PlanEditor({
     router.refresh();
     setToast({
       id: Date.now(),
-      text: `${saved.name} added`,
+      text,
       action: {
         label: "Undo",
         onClick: async () => {
@@ -210,18 +224,22 @@ export function PlanEditor({
               ? "New category"
               : settingBudget
                 ? "Set a budget"
-                : "Add one-off item"
+                : planningDebt
+                  ? "Plan a debt payment"
+                  : "Add one-off item"
         }
         description={
           addView !== "form"
             ? undefined
             : settingBudget
               ? "A spending limit for a category, like Food."
-              : "Something that happens once: a gift, event, fee or repair."
+              : planningDebt
+                ? "An extra payment toward a debt, from any payday."
+                : "Something that happens once: a gift, event, fee or repair."
         }
         back={addBack}
-        // Set a budget starts with the category tiles (Base UI's default).
-        initialFocus={settingBudget ? undefined : nameRef}
+        // Set a budget and Plan a debt payment start with their first choice (Base UI's default).
+        initialFocus={settingBudget || planningDebt ? undefined : nameRef}
       >
         {settingBudget && (
           <SetBudgetForm
@@ -238,7 +256,19 @@ export function PlanEditor({
             onCancel={closeAdd}
           />
         )}
-        {adding && !settingBudget && (
+        {planningDebt && (
+          <DebtPaymentForm
+            key={addCount}
+            debts={debts}
+            cards={cards}
+            defaultStart={cards.some((c) => c.start === periodStart) ? periodStart : cards[0].start}
+            loadNotAssigned={loadNotAssigned}
+            onSave={addDebtPayment}
+            onSaved={(saved) => onAdded(saved, `${saved.name} payment planned`)}
+            onCancel={closeAdd}
+          />
+        )}
+        {adding && !settingBudget && !planningDebt && (
           <OneOffForm
             key={addCount}
             cards={cards}
