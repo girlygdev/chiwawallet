@@ -15,6 +15,8 @@ type Props = {
   children: React.ReactNode;
   /** Repeats the action and the object: "Delete income source". */
   confirmLabel: string;
+  /** Shown on the red button while it works: "Removing…" for Remove from plan. */
+  pendingLabel?: string;
   onConfirm: () => void;
   pending: boolean;
   error?: string;
@@ -32,6 +34,7 @@ export function ConfirmDelete({
   description,
   children,
   confirmLabel,
+  pendingLabel = "Deleting…",
   onConfirm,
   pending,
   error,
@@ -63,7 +66,7 @@ export function ConfirmDelete({
               className="flex h-[52px] items-center justify-center gap-2 rounded-md bg-danger px-5 text-base font-extrabold text-white outline-link focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-70 md:flex-1"
             >
               {pending && <LoaderCircle aria-hidden className="size-5 animate-spin" />}
-              {pending ? "Deleting…" : confirmLabel}
+              {pending ? pendingLabel : confirmLabel}
             </button>
             <AlertDialog.Close
               ref={keepRef}

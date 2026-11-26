@@ -64,6 +64,8 @@ export type OpenedPlan = {
   isFirst: boolean;
   /** Starts after today: expected income only, no carry-in, nothing paid yet. */
   future: boolean;
+  /** Ended before today: its plan is read-only (5e), and closing it comes in Week 6. */
+  ended: boolean;
   /** Money out so far (Paid or spent); empty for future periods. */
   moneyOut: number | null;
   /** The empty plan's starter tiles: the budget's split of this payday's expected pay (not the carry-in). */
@@ -182,6 +184,7 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     // No period before it existed when this one opened, or this is the oldest.
     isFirst: first == null || row.start_date <= first.start_date,
     future,
+    ended,
     moneyOut: numbers?.moneyOut ?? null,
     starter: starterPlan(pay, budget),
     pay,

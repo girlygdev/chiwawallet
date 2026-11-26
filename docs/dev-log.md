@@ -2,6 +2,34 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 5 · 5e Edit and remove plan items; starter plan
+- **What:**
+  - **Edit item:** tapping a plan row opens a sheet on mobile and a dialog on desktop (`/plan?start=…&edit=<id>`). It edits the name and amount, plus Needed by for one-offs, and shows "Not assigned yet: ₱8,800 → ₱8,300" before saving. Pay that hasn't come in shows Money for this period instead. Saving sets `edited`, so 5h's sync leaves the item alone. The bill, pot or debt keeps its link and its own amount.
+  - **Remove from plan (level 1):** "Remove Meralco from this plan?" with the item card and its effect in pesos. It's a soft delete, then "Meralco removed · Undo" for 5 seconds. Generated items say "It won't be added back to this period."
+  - **Use this starter plan:** the button on the empty plan's starter card adds the three `starter` items, skipping groups already there. The pay is worked out on the server.
+  - **Ended periods are read-only:** no edit links and no starter button, and the actions refuse them too.
+- **Files:**
+  - New:
+    - `src/app/(app)/plan/actions.ts`: `updatePlanItem`, `removePlanItem`, `restorePlanItem`, `addStarterPlan`
+    - `src/app/(app)/plan/plan-item-sheet.tsx`: `PlanEditor` (sheet, remove dialog, toast) and `UseStarterPlanButton`
+    - `src/components/plan/plan-item-form.tsx`
+  - Edited:
+    - `src/lib/plan.ts`: `editImpact()`, `removeImpact()`, `missingStarterItems()`
+    - `tests/lib/plan.test.ts`
+    - `src/lib/plan-periods.ts`: returns `ended`.
+    - `src/components/plan/plan-groups.tsx`, `plan-table.tsx`, `empty-plan.tsx`, `src/app/(app)/plan/page.tsx`
+    - `src/components/confirm-delete.tsx`: an optional `pendingLabel` ("Removing…"). The default stays "Deleting…".
+    - `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - The Plan options menu moved to 5g. For now it would only hold "Use starter plan", and Period settings isn't designed.
+  - Income items can be edited too (name and expected amount). Pay already received counts as logged, so editing it changes nothing in the totals, and the form says so.
+  - The wording is "Remove from plan", not "Delete", following delete-pattern.md.
+  - On mobile, the whole row is the link. On an income row only the name is, because the I got paid pill is its own button. On desktop, the item name is the link.
+  - The starter button uses the Primary look, not Hero, because the starter card is already the area's sticker.
+- **Tests:** written first, 9 new unit tests (460 pass). Lint, typecheck and the build pass. Database tests not run: Docker wasn't running and `.env.test.local` is missing. 5e adds no migration. Not checked in a browser yet.
+- **AI notes:** Claude first ran Prettier on `plan-groups.tsx`, but the project has no Prettier config, so it reformatted the whole file. Claude reverted that and redid the edit by hand.
+- **Next:** check 5e in a browser (edit, remove, Undo, starter plan), then 5f, Add one-off item.
+
 ## 2026-11-25 · Week 5 · 5d-2 Plan desktop table and empty state
 - **What:**
   - **Desktop Plan:**

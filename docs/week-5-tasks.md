@@ -39,10 +39,11 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
   - [x] **5d-1. Picker, summary and groups.** Done Nov 25: `periodIncome()`, `incomeStatus()` and `planItemDetail()` in `lib/plan.ts`; `components/plan/`. Spending budgets show the planned amount only and headings show group totals until planned vs actual (Week 6); the "I got paid" pill came in 5d-2. Period picker (one past, now, future up to 3 months; chips are links, the current one has `aria-current`), summary card, MONEY IN, BILLS, DEBT PAYMENTS, SAVINGS, SPENDING BUDGETS and ONE-OFF ITEMS. Tick circles are display only (Week 6). Past periods read-only with a "Closed" tag once closed (Week 6).
   - [x] **5d-2. Desktop table and empty state.** Done Nov 25: `isEmptyPlan()` (nothing but income), `planCounts()` and `planDone()`. The table has ITEM, DETAILS and PLANNED until Week 6. The starter card's button is 5e. Also the I got paid pill and "Starting balance · From setup". Stat cards, the plan table, the Planned split of income card. Empty plan with the starter plan card and the "Or build it yourself" rows. No Copy last period's plan, no Give leftover a job side card (Week 6).
   - Done when: your real current and next periods show the right items and totals.
-- [ ] **5e. Edit and delete items; starter plan.**
+- [ ] **5e. Edit and delete items; starter plan** (built Nov 26; ticked after the "Done when" check in a browser). `editImpact()`, `removeImpact()` and `missingStarterItems()` in `lib/plan.ts`; `plan/actions.ts`, `plan/plan-item-sheet.tsx`, `components/plan/plan-item-form.tsx`.
   - Tapping a row edits its name and amount (and "Needed by" for one-off items). Items linked to a bill, pot or debt keep the link; only this period changes.
-  - Delete is level 1: soft delete with an undo toast.
-  - **Use this starter plan** creates the three `starter` items; the Plan options menu offers it too (Edit spending budgets, Use starter plan, Period settings).
+  - Delete is level 1: soft delete with an undo toast. Worded **Remove from plan** (delete-pattern.md word list).
+  - **Use this starter plan** creates the three `starter` items. The Plan options menu moved to 5g (owner, Nov 26), when Edit spending budgets exists.
+  - Ended periods are read-only: no edit links, no starter button, and the actions refuse them.
   - Done when: editing and deleting an item updates the summary, and Undo brings it back.
 - [ ] **5f. Add one-off item** (`plan.md` §6).
   - Sheet on mobile, dialog on desktop. Fields: What is it for?, Amount, Needed by (optional), Which payday pays for it? (period cards up to 3 months ahead), Category.
@@ -51,6 +52,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
   - Done when: a one-off added to a future period shows there with the right totals.
 - [ ] **5g. Debt payments and spending budgets.**
   - Plan a debt payment in any period: an extra amount on any active debt (including "When I can"), origin `one_off` with `debt_id`, counting as Savings & debt payoff.
+  - The **Plan options menu** (moved from 5e): Edit spending budgets, Use starter plan. Period settings isn't designed yet.
   - **Budget per payday** on New and Edit category (`default_budget`), and the simple **Set a budget** sheet (`plan.md` fix #2): category, amount, and "every payday" (saves `default_budget`) or "this period only" (a plan item).
   - Done when: a debt payment planned two periods ahead and a Food budget both show in their periods.
 - [ ] **5h. Wire-up.**

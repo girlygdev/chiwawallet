@@ -15,6 +15,7 @@ import { isEmptyPlan, planCounts, planDone } from "@/lib/plan";
 import { openPlanPeriod } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
+import { PlanEditor, UseStarterPlanButton } from "./plan-item-sheet";
 
 export const metadata: Metadata = { title: "Plan · Chiwawallet" };
 
@@ -24,8 +25,9 @@ export const metadata: Metadata = { title: "Plan · Chiwawallet" };
 // - when nothing but income is planned, the empty plan with the starter card.
 // The period is a query string (/plan?start=2026-11-30), not a [periodId]
 // segment: a dynamic segment breaks the build, and a future period doesn't
-// need to exist before you open it. Still to come: editing and the Plan
-// options menu (5e), Add one-off item (5f), ticking items paid (Week 6).
+// need to exist before you open it. Tapping a row opens Edit item
+// (`&edit=…`, 5e) while the period hasn't ended. Still to come: Add one-off
+// item (5f), the Plan options menu (5g), ticking items paid (Week 6).
 export default function PlanPage({ searchParams }: { searchParams: Promise<{ start?: string | string[] }> }) {
   return (
     <PageShell>
@@ -44,6 +46,8 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
   const plan = await openPlanPeriod(supabase, budget, start, todayInManila(new Date()));
   const period = { start: plan.period.start_date, end: plan.period.end_date };
   const empty = isEmptyPlan(plan.items);
+  // An ended period's plan is read-only: no edit links, no starter button.
+  const editStart = plan.ended ? null : plan.period.start_date;
 
   // The row under the income (plan.md §3, §5): on the very first period, the
   // carry-in is the starting balance typed in during setup.
@@ -57,10 +61,12 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
     carryLabel,
     summary: plan.summary,
     future: plan.future,
+    editStart,
   };
 
   return (
-    <>
+    // No items to edit in an ended period, so an old ?edit= link opens nothing.
+    <PlanEditor items={editStart ? plan.items : []} summary={plan.summary} periodStart={plan.period.start_date}>
       <PageHeader title="Plan" mobile="title" eyebrow={describeSchedule(scheduleFromBudget(budget))} />
       <div className="flex flex-col gap-5">
         <PeriodPicker periods={plan.periods} selected={plan.period.start_date} current={plan.currentStart} />
@@ -68,7 +74,12 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
         {empty ? (
           <div className="flex flex-col gap-5 md:max-w-2xl">
             <PlanSummary summary={plan.summary} income={plan.income} carriedIn={plan.carriedIn} empty />
-            <StarterCard pay={plan.pay} starter={plan.starter} targets={budget} />
+            <StarterCard
+              pay={plan.pay}
+              starter={plan.starter}
+              targets={budget}
+              action={editStart && <UseStarterPlanButton periodStart={editStart} />}
+            />
             <PlanGroups {...groups} moneyInOnly />
             <BuildRows />
           </div>
@@ -99,6 +110,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
                   carriedIn={plan.carriedIn}
                   carryLabel={carryLabel}
                   summary={plan.summary}
+                  editStart={editStart}
                 />
                 <PlannedSplit split={plan.summary.split} income={plan.income} />
               </div>
@@ -106,7 +118,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
           </>
         )}
       </div>
-    </>
+    </PlanEditor>
   );
 }
 

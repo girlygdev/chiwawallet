@@ -1,12 +1,14 @@
+import Link from "next/link";
 import { formatPeso } from "@/lib/money";
 import { formatPeriodRange } from "@/lib/periods";
 import type { PlanSummary } from "@/lib/plan";
 import type { PlanRow } from "@/lib/plan-periods";
-import { PLAN_SECTIONS } from "@/components/plan/plan-groups";
+import { editHref, PLAN_SECTIONS } from "@/components/plan/plan-groups";
 
 // The desktop plan table (plan.md §4): one table, each group a header row
 // with its total. ACTUAL and STATUS come with ticking items paid (Week 6);
-// until then every row would say "—".
+// until then every row would say "—". An item's name links to Edit item
+// (5e) while the period's plan can change.
 export function PlanTable({
   period,
   items,
@@ -14,6 +16,7 @@ export function PlanTable({
   carriedIn,
   carryLabel,
   summary,
+  editStart,
 }: {
   period: { start: string; end: string };
   items: PlanRow[];
@@ -22,6 +25,8 @@ export function PlanTable({
   /** "Carried in" or "Starting balance". */
   carryLabel: { name: string; detail: string };
   summary: PlanSummary;
+  /** The period's start while its plan can change; empty once it has ended. */
+  editStart: string | null;
 }) {
   const incomeRows = items.filter((i) => i.section === "income");
 
@@ -46,7 +51,13 @@ export function PlanTable({
         <tbody>
           <GroupRow title="Money in" total={income + (carriedIn ?? 0)} />
           {incomeRows.map((i) => (
-            <ItemRow key={i.id} name={i.name} detail={i.detail} amount={formatPeso(i.planned_amount)} />
+            <ItemRow
+              key={i.id}
+              name={i.name}
+              detail={i.detail}
+              amount={formatPeso(i.planned_amount)}
+              href={editStart && editHref(editStart, i.id)}
+            />
           ))}
           <ItemRow
             name={carryLabel.name}
@@ -69,7 +80,13 @@ export function PlanTable({
                 </tr>
               ) : (
                 rows.map((i) => (
-                  <ItemRow key={i.id} name={i.name} detail={i.detail} amount={formatPeso(i.planned_amount)} />
+                  <ItemRow
+                    key={i.id}
+                    name={i.name}
+                    detail={i.detail}
+                    amount={formatPeso(i.planned_amount)}
+                    href={editStart && editHref(editStart, i.id)}
+                  />
                 ))
               )}
             </tbody>
@@ -91,11 +108,22 @@ function GroupRow({ title, total }: { title: string; total: number }) {
   );
 }
 
-function ItemRow({ name, detail, amount }: { name: string; detail: string; amount: string }) {
+function ItemRow({ name, detail, amount, href }: { name: string; detail: string; amount: string; href?: string | null }) {
   return (
     <tr className="border-t border-line-soft">
       <th scope="row" className="px-4 py-3 font-extrabold text-ink">
-        {name}
+        {href ? (
+          <Link
+            href={href}
+            scroll={false}
+            // A 44px tap area without making the row taller.
+            className="-mx-1 -my-2.5 inline-block rounded-sm px-1 py-2.5 outline-link hover:text-link hover:underline focus-visible:outline-2"
+          >
+            {name}
+          </Link>
+        ) : (
+          name
+        )}
       </th>
       <td className="px-4 py-3 text-text-3">{detail}</td>
       <td className="px-4 py-3 text-right font-extrabold text-ink">{amount}</td>

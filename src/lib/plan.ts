@@ -420,3 +420,49 @@ export function planDone(moneyOut: number, planned: number): string {
   if (planned <= 0) return "Nothing planned to compare with";
   return `${Math.round((moneyOut / planned) * 100)}% of plan done`;
 }
+
+// ---------------------------------------------------------------------------
+// Edit and remove items, and the starter plan button (plan.md §3, §5; 5e)
+// ---------------------------------------------------------------------------
+
+/** A before → after line under a form: "Not assigned yet: ₱8,800 → ₱8,300". */
+export type ImpactLine = { label: "Not assigned yet" | "Money for this period"; before: number; after: number };
+
+type ImpactItem = { section: PlanSection; received: boolean; planned_amount: number };
+
+/**
+ * What changing an item's amount to `amount` does to the summary. Planned
+ * items move Not assigned yet. Pay that hasn't come in moves Money for this
+ * period instead (it's counted at its planned amount, periodIncome()); pay
+ * that came in is counted as logged, so editing it changes nothing (null).
+ */
+export function editImpact(
+  summary: Pick<PlanSummary, "moneyForPeriod" | "notAssigned">,
+  item: ImpactItem,
+  amount: number,
+): ImpactLine | null {
+  const change = amount - item.planned_amount;
+  if (item.section === "income") {
+    if (item.received) return null;
+    return { label: "Money for this period", before: summary.moneyForPeriod, after: summary.moneyForPeriod + change };
+  }
+  return { label: "Not assigned yet", before: summary.notAssigned, after: summary.notAssigned - change };
+}
+
+/** What removing an item from the plan does: the same as editing it to ₱0. */
+export function removeImpact(summary: Pick<PlanSummary, "moneyForPeriod" | "notAssigned">, item: ImpactItem): ImpactLine | null {
+  return editImpact(summary, item, 0);
+}
+
+/**
+ * The starter items still to add: the groups with no live starter item yet.
+ * Makes "Use this starter plan" safe to tap twice or from two tabs (the
+ * database's plan_items_starter_key is the last line of defence).
+ */
+export function missingStarterItems(
+  starter: StarterItem[],
+  items: { origin: PlanOrigin; budget_group: BudgetGroup | null }[],
+): StarterItem[] {
+  const have = new Set(items.filter((i) => i.origin === "starter").map((i) => i.budget_group));
+  return starter.filter((s) => !have.has(s.budget_group));
+}

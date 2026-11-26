@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
+  editImpact,
   generatePlan,
   incomeStatus,
   isEmptyPlan,
+  missingStarterItems,
   planCounts,
   planDone,
   periodIncome,
@@ -14,6 +16,7 @@ import {
   planSummary,
   plannablePeriods,
   resolvePlanStart,
+  removeImpact,
   starterPlan,
 } from "@/lib/plan";
 
@@ -488,5 +491,67 @@ describe("planDone (5d-2)", () => {
 
   it("has nothing to compare with when nothing is planned", () => {
     expect(planDone(50_000, 0)).toBe("Nothing planned to compare with");
+  });
+});
+
+describe("editImpact (5e)", () => {
+  const summary = { moneyForPeriod: 3_000_000, notAssigned: 880_000 };
+  const meralco = { section: "bills" as const, received: false, planned_amount: 250_000 };
+
+  it("moves Not assigned yet by the change in amount", () => {
+    // ₱2,500 → ₱3,000 leaves ₱500 less to assign.
+    expect(editImpact(summary, meralco, 300_000)).toEqual({ label: "Not assigned yet", before: 880_000, after: 830_000 });
+    expect(editImpact(summary, meralco, 200_000)).toEqual({ label: "Not assigned yet", before: 880_000, after: 930_000 });
+  });
+
+  it("can go below ₱0 when too much is planned", () => {
+    expect(editImpact(summary, meralco, 1_500_000)?.after).toBe(-370_000);
+  });
+
+  it("changes Money for this period for pay that hasn't come in", () => {
+    const pay = { section: "income" as const, received: false, planned_amount: 2_500_000 };
+    expect(editImpact(summary, pay, 2_000_000)).toEqual({
+      label: "Money for this period",
+      before: 3_000_000,
+      after: 2_500_000,
+    });
+  });
+
+  it("changes nothing for pay that already came in (what was logged counts)", () => {
+    const pay = { section: "income" as const, received: true, planned_amount: 2_500_000 };
+    expect(editImpact(summary, pay, 2_000_000)).toBeNull();
+  });
+});
+
+describe("removeImpact (5e)", () => {
+  const summary = { moneyForPeriod: 3_000_000, notAssigned: 880_000 };
+
+  it("frees the item's amount", () => {
+    const item = { section: "bills" as const, received: false, planned_amount: 250_000 };
+    expect(removeImpact(summary, item)).toEqual({ label: "Not assigned yet", before: 880_000, after: 1_130_000 });
+  });
+
+  it("takes expected pay out of Money for this period", () => {
+    const pay = { section: "income" as const, received: false, planned_amount: 2_500_000 };
+    expect(removeImpact(summary, pay)).toEqual({ label: "Money for this period", before: 3_000_000, after: 500_000 });
+  });
+});
+
+describe("missingStarterItems (5e)", () => {
+  const starter = starterPlan(2_500_000, { needs_pct: 50, wants_pct: 30, savings_debt_pct: 20 });
+
+  it("adds all three to a plan without starter items", () => {
+    const items = [{ origin: "recurring" as const, budget_group: null }];
+    expect(missingStarterItems(starter, items).map((s) => s.budget_group)).toEqual(["needs", "wants", "savings_debt"]);
+  });
+
+  it("skips groups that already have a starter item (a double tap or a second tab)", () => {
+    const items = [{ origin: "starter" as const, budget_group: "wants" as const }];
+    expect(missingStarterItems(starter, items).map((s) => s.budget_group)).toEqual(["needs", "savings_debt"]);
+  });
+
+  it("ignores a one-off or budget in the same group", () => {
+    const items = [{ origin: "one_off" as const, budget_group: "needs" as const }];
+    expect(missingStarterItems(starter, items)).toHaveLength(3);
   });
 });

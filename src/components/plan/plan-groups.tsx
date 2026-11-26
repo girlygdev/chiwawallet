@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { formatPeso } from "@/lib/money";
 import type { PlanSummary } from "@/lib/plan";
@@ -15,6 +16,9 @@ export const PLAN_SECTIONS: { key: Section; title: string }[] = [
   { key: "one_off", title: "One-off items" },
 ];
 
+/** Edit item's address (5e): rows are plain links that open the sheet. */
+export const editHref = (start: string, id: string) => `/plan?start=${start}&edit=${id}`;
+
 /** The row under the income: "Carried in" or, on the first period, "Starting balance". */
 export type CarryLabel = { name: string; detail: string };
 
@@ -23,6 +27,7 @@ export type CarryLabel = { name: string; detail: string };
 // group's total; "₱1,700 of ₱2,700 paid" comes with ticking items (Week 6).
 // Empty groups are hidden, except One-off items, which explains itself.
 // `moneyInOnly` is for the empty plan (§5), which shows only MONEY IN.
+// Tapping a row opens Edit item (5e), except in an ended period (read-only).
 export function PlanGroups({
   items,
   income,
@@ -30,6 +35,7 @@ export function PlanGroups({
   carryLabel,
   summary,
   future,
+  editStart,
   moneyInOnly = false,
 }: {
   items: PlanRow[];
@@ -39,6 +45,8 @@ export function PlanGroups({
   summary: PlanSummary;
   /** Future periods can't be paid yet, so they get no "I got paid" pill. */
   future: boolean;
+  /** The period's start while its plan can change; empty once it has ended. */
+  editStart: string | null;
   moneyInOnly?: boolean;
 }) {
   const incomeRows = items.filter((i) => i.section === "income");
@@ -49,11 +57,12 @@ export function PlanGroups({
         <ul className={LIST}>
           {incomeRows.map((i) => (
             <li key={i.id} className={ROW}>
-              <div className="flex min-w-0 flex-col">
+              {/* The name is the edit link: the I got paid pill can't sit inside a link. */}
+              <EditLink href={editStart && editHref(editStart, i.id)}>
                 <span className="truncate font-extrabold text-ink">{i.name}</span>
                 {/* "Received" or "Expected Nov 30": words, with colour only as a hint. */}
                 <span className={cn("text-[13px] font-bold", i.received ? "text-link-hover" : "text-text-3")}>{i.detail}</span>
-              </div>
+              </EditLink>
               <span className="flex shrink-0 items-center gap-2">
                 {!i.received && !future && i.income_source_id && (
                   // Opens the add sheet with this pay filled in, like the Dashboard's prompt.
@@ -99,7 +108,14 @@ export function PlanGroups({
                 </p>
               ) : (
                 <ul className={LIST}>
-                  {rows.map((i) => (key === "spending" ? <SpendingRow key={i.id} item={i} /> : <TickRow key={i.id} item={i} />))}
+                  {rows.map((i) => {
+                    const href = editStart && editHref(editStart, i.id);
+                    return key === "spending" ? (
+                      <SpendingRow key={i.id} item={i} href={href} />
+                    ) : (
+                      <TickRow key={i.id} item={i} href={href} />
+                    );
+                  })}
                 </ul>
               )}
             </Group>
@@ -111,6 +127,28 @@ export function PlanGroups({
 
 const LIST = "flex flex-col divide-y divide-line-soft rounded-2xl border-[1.5px] border-line bg-surface";
 const ROW = "flex min-h-14 items-center justify-between gap-3 px-4 py-3";
+const FOCUS = "outline-link focus-visible:outline-2 focus-visible:-outline-offset-2";
+
+/** A row's content: a link to Edit item, or plain once the period has ended. */
+function RowLink({ href, children }: { href: string | null; children: React.ReactNode }) {
+  if (!href) return <div className={ROW}>{children}</div>;
+  return (
+    <Link href={href} scroll={false} className={cn(ROW, FOCUS, "hover:bg-bg")}>
+      {children}
+    </Link>
+  );
+}
+
+/** An income row's name and status as the link (the pill beside it is its own button). */
+function EditLink({ href, children }: { href: string | null; children: React.ReactNode }) {
+  const className = "flex min-h-11 min-w-0 flex-1 flex-col justify-center";
+  if (!href) return <div className={className}>{children}</div>;
+  return (
+    <Link href={href} scroll={false} className={cn(className, FOCUS, "rounded-md")}>
+      {children}
+    </Link>
+  );
+}
 
 function Group({ id, title, total, children }: { id: string; title: string; total: number; children: React.ReactNode }) {
   return (
@@ -127,31 +165,35 @@ function Group({ id, title, total, children }: { id: string; title: string; tota
 // A bill, debt payment, savings or one-off row (plan.md §3 "Tick row"). The
 // circle is drawn but hidden from screen readers: it becomes the Mark paid
 // button in Week 6, and a button that does nothing is worse than none.
-function TickRow({ item }: { item: PlanRow }) {
+function TickRow({ item, href }: { item: PlanRow; href: string | null }) {
   return (
-    <li className={ROW}>
-      <div className="flex min-w-0 items-center gap-3">
-        <span aria-hidden className="size-7 shrink-0 rounded-full border-2 border-line-dash bg-surface" />
-        <div className="flex min-w-0 flex-col">
-          <span className="truncate font-extrabold text-ink">{item.name}</span>
-          <span className="text-[13px] text-text-3">{item.detail}</span>
+    <li>
+      <RowLink href={href}>
+        <div className="flex min-w-0 items-center gap-3">
+          <span aria-hidden className="size-7 shrink-0 rounded-full border-2 border-line-dash bg-surface" />
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate font-extrabold text-ink">{item.name}</span>
+            <span className="text-[13px] text-text-3">{item.detail}</span>
+          </div>
         </div>
-      </div>
-      <span className="shrink-0 font-extrabold text-ink">{formatPeso(item.planned_amount)}</span>
+        <span className="shrink-0 font-extrabold text-ink">{formatPeso(item.planned_amount)}</span>
+      </RowLink>
     </li>
   );
 }
 
 // A spending budget: the name, its group and the planned amount. What's
 // spent and left, with the bar, comes with planned vs actual (Week 6).
-function SpendingRow({ item }: { item: PlanRow }) {
+function SpendingRow({ item, href }: { item: PlanRow; href: string | null }) {
   return (
-    <li className={ROW}>
-      <span className="min-w-0 truncate">
-        <span className="font-extrabold text-ink">{item.name}</span>
-        <span className="text-text-3"> · {item.detail}</span>
-      </span>
-      <span className="shrink-0 font-extrabold text-ink">{formatPeso(item.planned_amount)}</span>
+    <li>
+      <RowLink href={href}>
+        <span className="min-w-0 truncate">
+          <span className="font-extrabold text-ink">{item.name}</span>
+          <span className="text-text-3"> · {item.detail}</span>
+        </span>
+        <span className="shrink-0 font-extrabold text-ink">{formatPeso(item.planned_amount)}</span>
+      </RowLink>
     </li>
   );
 }

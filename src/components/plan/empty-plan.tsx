@@ -12,9 +12,19 @@ const TILE: Record<StarterItem["budget_group"], string> = {
 };
 
 // The empty plan's starter card (plan.md §5), the area's one sticker: the
-// budget's split of this payday's pay as three tiles. The "Use this starter
-// plan" button comes in 5e, with the other ways to change items.
-export function StarterCard({ pay, starter, targets }: { pay: number; starter: StarterItem[]; targets: Targets }) {
+// budget's split of this payday's pay as three tiles, then `action`: the
+// "Use this starter plan" button (5e), left out once the period has ended.
+export function StarterCard({
+  pay,
+  starter,
+  targets,
+  action,
+}: {
+  pay: number;
+  starter: StarterItem[];
+  targets: Targets;
+  action?: React.ReactNode;
+}) {
   const pct = { needs: targets.needs_pct, wants: targets.wants_pct, savings_debt: targets.savings_debt_pct };
   const split = `${targets.needs_pct}/${targets.wants_pct}/${targets.savings_debt_pct}`;
 
@@ -48,6 +58,8 @@ export function StarterCard({ pay, starter, targets }: { pay: number; starter: S
           ))}
         </ul>
       )}
+
+      {starter.length > 0 && action}
     </section>
   );
 }
