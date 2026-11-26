@@ -19,12 +19,15 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
   - Only items in periods that aren't closed. Income items aren't ticked (they use **I got paid**). Spending budgets and starter items aren't ticked either: their actual is what's spent.
   - **RLS** with user A can't mark user B's items tests in `tests/db/`. **Live:** dry run, then the owner's go.
   - Done when: `npm run test:db` passes.
-- [ ] **6b. Mark paid in the app.** Split in two (owner, Nov 26).
+- [x] **6b. Mark paid in the app.** Split in two (owner, Nov 26). Done Nov 26.
   - [x] **6b-1. The Plan.** Done Nov 26 (checked in a browser on local Supabase). `paidOnDate()` and `isTickable()` in `lib/plan.ts`; `markPaid` and `unmarkPaid` in `plan/actions.ts`; `components/plan/tick-button.tsx`.
     - Tapping a paid circle un-ticks it, with Undo and no dialog.
     - Future periods can't be ticked.
     - Paid items can't be removed.
-  - [ ] **6b-2. Bills and Debts:** the rest of the list below.
+  - [x] **6b-2. Bills and Debts.** Done Nov 26 (checked in a browser on local Supabase). `paidThisPeriod()`, `billRowStatus()` and `debtItemToPay()` in `lib/plan.ts`; `payableDebtItems()` in `lib/plan-periods.ts`; `useMarkPaid` and `MarkPaidPill` in `tick-button.tsx`.
+    - One app-wide toast (`useAppToast()`), which the Plan uses too.
+    - The Mark paid pill shows on mobile Bills rows too.
+    - Bills and Debts only tick; un-ticking is on the Plan or in Activity.
   - **Plan tick circles** become buttons ("Mark Meralco paid", "Mark Travel pot added"). Paid shows a solid circle and "Paid Nov 15".
     - Undo toast: "Meralco paid · Undo".
     - A variable bill (`amount_varies`) asks for the real amount first.

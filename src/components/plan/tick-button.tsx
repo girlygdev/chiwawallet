@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteTransaction, restoreTransaction } from "@/app/(app)/activity/actions";
 import { markPaid, unmarkPaid } from "@/app/(app)/plan/actions";
-import { useShowToast } from "@/app/(app)/plan/plan-item-sheet";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { MoneyInput } from "@/components/money-input";
 import { Sheet } from "@/components/sheet";
+import { useAppToast } from "@/components/transactions/add-transaction-provider";
 import { formatPeso, formatPesoInput, parsePesoInput } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -23,35 +23,17 @@ export type TickItem = {
   varies: boolean;
 };
 
-// A tick row's circle (plan.md §3 "Tick row", task 6b-1). Unpaid: a white
-// circle with a dashed ring; paid: solid green with a tick. When the period
-// can be paid (`canTick`), it's a button:
-// - unpaid → Mark paid (a variable bill asks for the amount first), then
-//   "Meralco paid · Undo"
-// - paid → un-tick (deletes the payment), then "Meralco is due again · Undo"
-// Otherwise it's only a picture, hidden from screen readers.
-export function TickButton({ item, canTick }: { item: TickItem; canTick: boolean }) {
+/**
+ * Mark paid's behaviour, shared by the Plan's circle and the Bills and
+ * Debts pill (6b-1, 6b-2): `start()` pays at once, or opens the amount sheet
+ * for a variable bill; `unpay()` deletes the payment. Each shows a toast
+ * with Undo in the app's one toast spot. Render `sheet` next to the button.
+ */
+export function useMarkPaid(item: TickItem) {
   const router = useRouter();
-  const showToast = useShowToast();
+  const showToast = useAppToast();
   const [pending, startTransition] = useTransition();
   const [asking, setAsking] = useState(false);
-
-  const circle = (
-    <span
-      aria-hidden
-      className={cn(
-        "flex size-7 shrink-0 items-center justify-center rounded-full",
-        item.paid ? "bg-green-500 text-white" : "border-2 border-line-dash bg-surface",
-      )}
-    >
-      {pending ? (
-        <LoaderCircle size={16} className="animate-spin text-text-3" />
-      ) : (
-        item.paid && <Check size={16} strokeWidth={3} />
-      )}
-    </span>
-  );
-  if (!canTick) return circle;
 
   const toast = (text: string, undo?: () => Promise<{ ok?: true; formError?: string }>) =>
     showToast({
@@ -61,6 +43,7 @@ export function TickButton({ item, canTick }: { item: TickItem; canTick: boolean
         action: {
           label: "Undo",
           onClick: async () => {
+            showToast(null);
             const result = await undo();
             router.refresh();
             if (!result.ok) showToast({ id: Date.now(), text: result.formError ?? "Couldn't undo." });
@@ -83,6 +66,11 @@ export function TickButton({ item, canTick }: { item: TickItem; canTick: boolean
       }),
     );
 
+  const start = () => {
+    if (item.varies) setAsking(true);
+    else void pay().then((error) => error && toast(error));
+  };
+
   const unpay = () =>
     startTransition(async () => {
       const result = await unmarkPaid(item.id);
@@ -92,6 +80,47 @@ export function TickButton({ item, canTick }: { item: TickItem; canTick: boolean
       // Undo restores the same payment, which ticks the item again.
       toast(`${item.name} is due again`, () => restoreTransaction(transactionId));
     });
+
+  const sheet = item.varies ? (
+    <Sheet
+      open={asking}
+      onOpenChange={(next) => !pending && setAsking(next)}
+      title={`How much was ${item.name}?`}
+      description="It changes each month. Enter what you actually paid."
+    >
+      {asking && <AmountForm item={item} pending={pending} onPay={pay} />}
+    </Sheet>
+  ) : null;
+
+  return { pending, start, unpay, sheet };
+}
+
+// A tick row's circle (plan.md §3 "Tick row", task 6b-1). Unpaid: a white
+// circle with a dashed ring; paid: solid green with a tick. When the period
+// can be paid (`canTick`), it's a button:
+// - unpaid → Mark paid (a variable bill asks for the amount first), then
+//   "Meralco paid · Undo"
+// - paid → un-tick (deletes the payment), then "Meralco is due again · Undo"
+// Otherwise it's only a picture, hidden from screen readers.
+export function TickButton({ item, canTick }: { item: TickItem; canTick: boolean }) {
+  const { pending, start, unpay, sheet } = useMarkPaid(item);
+
+  const circle = (
+    <span
+      aria-hidden
+      className={cn(
+        "flex size-7 shrink-0 items-center justify-center rounded-full",
+        item.paid ? "bg-green-500 text-white" : "border-2 border-line-dash bg-surface",
+      )}
+    >
+      {pending ? (
+        <LoaderCircle size={16} className="animate-spin text-text-3" />
+      ) : (
+        item.paid && <Check size={16} strokeWidth={3} />
+      )}
+    </span>
+  );
+  if (!canTick) return circle;
 
   const label = item.paid
     ? `Mark ${item.name} not paid`
@@ -106,26 +135,42 @@ export function TickButton({ item, canTick }: { item: TickItem; canTick: boolean
         aria-label={label}
         aria-pressed={item.paid}
         disabled={pending}
-        onClick={() => {
-          if (item.paid) unpay();
-          else if (item.varies) setAsking(true);
-          else void pay().then((error) => error && toast(error));
-        }}
+        onClick={() => (item.paid ? unpay() : start())}
         // A 44px tap target around the 28px circle.
         className="-m-2 flex size-11 shrink-0 items-center justify-center rounded-full outline-link focus-visible:outline-2"
       >
         {circle}
       </button>
-      {item.varies && (
-        <Sheet
-          open={asking}
-          onOpenChange={(next) => !pending && setAsking(next)}
-          title={`How much was ${item.name}?`}
-          description="It changes each month. Enter what you actually paid."
-        >
-          {asking && <AmountForm item={item} pending={pending} onPay={pay} />}
-        </Sheet>
-      )}
+      {sheet}
+    </>
+  );
+}
+
+/**
+ * Bills' and Debts' Mark paid (6b-2): a Soft pill (style-guide.md "Buttons")
+ * that pays an unpaid item. `label` is the visible text ("Mark paid", or
+ * "Mark Nov 25 paid" on desktop Debts); the accessible name says which item.
+ * It only ticks: un-ticking is on the Plan, or by deleting the payment.
+ */
+export function MarkPaidPill({ item, label = "Mark paid", className }: { item: TickItem; label?: string; className?: string }) {
+  const { pending, start, sheet } = useMarkPaid(item);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={start}
+        disabled={pending}
+        aria-busy={pending || undefined}
+        aria-label={`${label}: ${item.name}`}
+        className={cn(
+          "flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-mint px-3.5 text-sm font-extrabold text-green-800 outline-link focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-70",
+          className,
+        )}
+      >
+        {pending && <LoaderCircle aria-hidden size={16} className="animate-spin" />}
+        {label}
+      </button>
+      {sheet}
     </>
   );
 }

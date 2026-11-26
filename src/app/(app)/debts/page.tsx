@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
+import { MarkPaidPill } from "@/components/plan/tick-button";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import {
   type DebtTerms,
@@ -19,6 +20,8 @@ import {
 import { formatPeso } from "@/lib/money";
 import { formatMonthYear, formatShortDate, getPeriod, type PaySchedule, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { potProgress } from "@/lib/pots";
+import { debtItemToPay } from "@/lib/plan";
+import { payableDebtItems } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -35,7 +38,8 @@ const PAID_OFF_ROWS = 3;
 // schedule, then the paid-off ones. Plain and encouraging: no jokes here.
 // Each card holds its schedule on every screen size (fix #4), so there's no
 // separate details page. New and Edit debt open in a sheet (`?add=1`,
-// `?edit=…`, `?delete=…`; 4f-2). Mark paid and Pay extra come with plan items (Week 5).
+// `?edit=…`, `?delete=…`; 4f-2). Mark paid on the next payment comes from its
+// plan item (6b-2); Pay extra comes with the Transfer tab (6d-2).
 export default function DebtsPage() {
   return (
     <PageShell>
@@ -87,6 +91,8 @@ async function DebtsContent() {
   const schedule = scheduleFromBudget(budget);
   const today = todayInManila(new Date());
   const period = getPeriod(today, schedule);
+  // Debt items that can be paid now, for Mark paid on each card (6b-2).
+  const payable = await payableDebtItems(supabase, budget, today);
   const summary = debtsSummary(debts, today, period);
   const active = debts.filter((d) => !isPaidOff(d));
   const paidOff = debts.filter((d) => isPaidOff(d));
@@ -170,7 +176,7 @@ async function DebtsContent() {
               <ul className="grid gap-3 lg:grid-cols-2 lg:items-start">
                 {active.map((debt) => (
                   <li key={debt.id}>
-                    <DebtCard debt={debt} schedule={schedule} today={today} period={period} />
+                    <DebtCard debt={debt} schedule={schedule} today={today} period={period} payable={payable} />
                   </li>
                 ))}
               </ul>
@@ -219,14 +225,20 @@ function DebtCard({
   schedule,
   today,
   period,
+  payable,
 }: {
   debt: Debt;
   schedule: PaySchedule;
   today: string;
   period: { start: string; end: string };
+  /** Debt items that can be paid now (6b-2). */
+  payable: Awaited<ReturnType<typeof payableDebtItems>>;
 }) {
   const progress = debtProgress(debt, debt.paid, today, period);
   const next = progress.payments.find((p) => p.status !== "paid");
+  // The plan item that pays the next payment, if its period has started.
+  const toPay = debtItemToPay(debt.id, next?.due ?? null, schedule, payable);
+  const tick = toPay && { id: toPay.id, name: toPay.name, planned_amount: toPay.planned_amount, paid: false, pot: false, varies: false };
   const count = progress.payments.length;
   const detail = [
     debt.payment_type === "one_time" ? "One payment" : debt.payment_type === "flexible" ? "When I can" : `${count} payments`,
@@ -253,16 +265,25 @@ function DebtCard({
       </header>
 
       {next && (
-        <p
+        <div
           className={cn(
-            "rounded-[12px] px-3 py-2 text-sm font-bold",
+            "flex items-center justify-between gap-2 rounded-[12px] px-3 py-1.5 text-sm font-bold",
             next.status === "late" ? "bg-bad-bg text-bad-fg" : "bg-bg text-ink",
           )}
         >
-          {next.status === "late"
-            ? `Late: ${formatPeso(next.amount)} was due ${formatShortDate(next.due)}`
-            : `Next: ${formatPeso(next.amount)} due ${formatShortDate(next.due)}`}
-        </p>
+          <p className="py-1">
+            {next.status === "late"
+              ? `Late: ${formatPeso(next.amount)} was due ${formatShortDate(next.due)}`
+              : `Next: ${formatPeso(next.amount)} due ${formatShortDate(next.due)}`}
+          </p>
+          {/* Mobile: "Mark paid"; desktop: "Mark Nov 25 paid" (debts.md §2–3). */}
+          {tick && (
+            <>
+              <MarkPaidPill item={tick} className="md:hidden" />
+              <MarkPaidPill item={tick} label={`Mark ${formatShortDate(next.due)} paid`} className="hidden md:flex" />
+            </>
+          )}
+        </div>
       )}
 
       {/* "When I can" (Nov 24): no schedule, just how much is paid and the target. */}

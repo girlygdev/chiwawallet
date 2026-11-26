@@ -1,5 +1,5 @@
 import { addDays, addMonths, format, parseISO, subDays } from "date-fns";
-import { billDueDates, type BillFrequency, type BillTiming, splitHalves } from "@/lib/bills";
+import { billDueDates, type BillFrequency, billStatus, type BillTiming, splitHalves } from "@/lib/bills";
 import { type DebtTerms, debtSchedule, paydayFor } from "@/lib/debts";
 import { isActiveOn } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
@@ -707,4 +707,45 @@ export function paidOnDate(today: string, period: { start: string; end: string }
  */
 export function isTickable(item: { section: PlanSection }): boolean {
   return item.section !== "income" && item.section !== "spending";
+}
+
+// ---------------------------------------------------------------------------
+// Mark paid on Bills and Debts (bills.md §2–3, debts.md §2–3; 6b-2)
+// ---------------------------------------------------------------------------
+
+/** Bills' "Paid this period": what was actually paid for this period's bill items. */
+export function paidThisPeriod(
+  items: { bill_id: string | null; paid_at: string | null; paidAmount: number | null }[],
+): number {
+  return items.reduce((sum, i) => (i.bill_id != null && i.paid_at != null ? sum + (i.paidAmount ?? 0) : sum), 0);
+}
+
+/**
+ * A bill row's tag: "Paid Nov 20" once this period's item for it is paid,
+ * otherwise "Due Nov 22" or "Next: Dec 10" as before (billStatus()).
+ */
+export function billRowStatus(
+  bill: BillTiming,
+  period: { start: string; end: string },
+  item: { paid_at: string | null; paidOn: string | null } | undefined,
+): { kind: "paid" | "due" | "next"; date: string } {
+  if (item?.paid_at != null && item.paidOn) return { kind: "paid", date: item.paidOn };
+  return billStatus(bill, period);
+}
+
+/**
+ * The plan item that pays a debt's next payment (due `due`): the debt's item
+ * in the period whose payday pays that date (paydayFor()). `items` are the
+ * debt items that can be paid now (unpaid, started, not closed), with their
+ * period's start. Empty when there's none, or no next payment.
+ */
+export function debtItemToPay<T extends { debt_id: string | null; period_start: string }>(
+  debtId: string,
+  due: string | null,
+  schedule: PaySchedule,
+  items: T[],
+): T | null {
+  if (!due) return null;
+  const start = paydayFor(due, schedule);
+  return items.find((i) => i.debt_id === debtId && i.period_start === start) ?? null;
 }

@@ -257,12 +257,23 @@ export async function syncOpenPeriods(supabase: Client, budget: Budget, today: s
   }
 }
 
-/** A current-period item as Bills and Savings use it (5h-3). */
-export type CurrentItem = { id: string; name: string; planned_amount: number; bill_id: string | null; pot_id: string | null };
+/** A current-period item as Bills, Savings and Debts use it (5h-3, 6b-2). */
+export type CurrentItem = {
+  id: string;
+  name: string;
+  planned_amount: number;
+  bill_id: string | null;
+  pot_id: string | null;
+  debt_id: string | null;
+  paid_at: string | null;
+  /** Paid: the payment's date and actual amount. */
+  paidOn: string | null;
+  paidAmount: number | null;
+};
 
 /**
- * The current period's live, unpaid items, for Bills' "still due this
- * period" and Savings' "Due this period" (5h-3). Opens the period the way
+ * The current period's live items, paid ones with their payment (6b-2), for
+ * Bills' "still due" and "Paid this period" and Savings' "Due this period" (5h-3). Opens the period the way
  * the Plan does: created if needed and synced, so its items exist and are up
  * to date even if the Plan wasn't opened this payday. A failed sync is
  * logged and the items are read as they are.
@@ -281,13 +292,56 @@ export async function openCurrentPlan(
   }
   const { data, error } = await supabase
     .from("plan_items")
-    .select("id, name, planned_amount, bill_id, pot_id")
+    .select("id, name, planned_amount, bill_id, pot_id, debt_id, paid_at")
     .eq("period_id", row.id)
     .is("deleted_at", null)
-    .is("paid_at", null)
     .order("created_at");
   if (error) fail("load this period's plan", error);
-  return { period, items: data! };
+
+  const paidIds = data!.filter((i) => i.paid_at != null).map((i) => i.id);
+  const { data: payments, error: paymentsError } = paidIds.length
+    ? await supabase.from("transactions").select("plan_item_id, date, amount").in("plan_item_id", paidIds).is("deleted_at", null)
+    : { data: [], error: null };
+  if (paymentsError) fail("load this period's payments", paymentsError);
+  const paymentOf = new Map(payments!.map((p) => [p.plan_item_id, p]));
+  const items = data!.map((i) => {
+    const payment = i.paid_at != null ? paymentOf.get(i.id) : undefined;
+    return { ...i, paidOn: payment?.date ?? null, paidAmount: payment?.amount ?? null };
+  });
+  return { period, items };
+}
+
+/**
+ * Debts' Mark paid (6b-2): the unpaid scheduled debt items in periods that
+ * have started and aren't closed, with their period's start, so
+ * debtItemToPay() can find the one that pays a debt's next payment. Opens
+ * the current period first (like the Plan), so its items exist.
+ */
+export async function payableDebtItems(
+  supabase: Client,
+  budget: Budget,
+  today: string,
+): Promise<{ id: string; name: string; planned_amount: number; debt_id: string | null; period_start: string }[]> {
+  await openCurrentPlan(supabase, budget, today);
+  const { data: periods, error } = await supabase
+    .from("budget_periods")
+    .select("id, start_date")
+    .eq("budget_id", budget.id)
+    .lte("start_date", today)
+    .is("closed_at", null);
+  if (error) fail("load open periods", error);
+  if (!periods?.length) return [];
+  const startOf = new Map(periods.map((p) => [p.id, p.start_date]));
+  const { data, error: itemsError } = await supabase
+    .from("plan_items")
+    .select("id, name, planned_amount, debt_id, period_id")
+    .in("period_id", [...startOf.keys()])
+    .eq("origin", "recurring")
+    .not("debt_id", "is", null)
+    .is("deleted_at", null)
+    .is("paid_at", null);
+  if (itemsError) fail("load debt payments to make", itemsError);
+  return data!.map(({ period_id, ...i }) => ({ ...i, period_start: startOf.get(period_id)! }));
 }
 
 /**

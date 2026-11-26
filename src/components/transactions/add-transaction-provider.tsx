@@ -46,6 +46,8 @@ type AddTransaction = {
   openEditSheet: (id: string, deleteTarget: DeleteTarget) => void;
   /** Delete transaction's confirmation (delete-pattern.md §3). */
   openDelete: (target: DeleteTarget) => void;
+  /** The app's one toast (6b-2): Plan, Bills and Debts use it too, so it shows in one place. */
+  showToast: (toast: ToastMessage | null) => void;
 };
 
 const AddTransactionContext = createContext<AddTransaction | null>(null);
@@ -278,7 +280,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
     );
 
   return (
-    <AddTransactionContext.Provider value={{ openAddSheet, openEditSheet, openDelete }}>
+    <AddTransactionContext.Provider value={{ openAddSheet, openEditSheet, openDelete, showToast: setToast }}>
       {children}
       <Sheet
         open={open}
@@ -411,4 +413,9 @@ export function OpenAddSheetButton({
 /** The add sheet's controls, for components that open it (Activity rows). */
 export function useTransactionSheet(): AddTransaction {
   return useAddTransaction();
+}
+
+/** Shows a toast in the app's one toast spot, above the bottom bar (6b-2). */
+export function useAppToast(): (toast: ToastMessage | null) => void {
+  return useAddTransaction().showToast;
 }

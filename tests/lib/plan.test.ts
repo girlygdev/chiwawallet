@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
   billDueInPeriod,
+  billRowStatus,
   budgetImpact,
   budgetLeft,
   categoryBudgets,
+  debtItemToPay,
   editImpact,
   generatePlan,
   incomeStatus,
@@ -13,6 +15,7 @@ import {
   missingStarterItems,
   oneOffImpact,
   paidOnDate,
+  paidThisPeriod,
   planCounts,
   planDone,
   periodIncome,
@@ -876,5 +879,55 @@ describe("isTickable (6b-1)", () => {
     for (const section of ["income", "spending"] as const) {
       expect(isTickable({ section })).toBe(false);
     }
+  });
+});
+
+describe("paidThisPeriod (6b-2)", () => {
+  it("adds up what was actually paid for this period's bills", () => {
+    const items = [
+      { bill_id: "meralco", paid_at: "2026-11-20T00:00:00Z", paidAmount: 262_000 },
+      { bill_id: "netflix", paid_at: null, paidAmount: null },
+      // A pot isn't a bill.
+      { bill_id: null, paid_at: "2026-11-15T00:00:00Z", paidAmount: 200_000 },
+    ];
+    expect(paidThisPeriod(items)).toBe(262_000);
+    expect(paidThisPeriod([])).toBe(0);
+  });
+});
+
+describe("billRowStatus (6b-2)", () => {
+  const meralco = bill("meralco", 20, "payday_1");
+
+  it("is Paid with the payment's date once this period's item is paid", () => {
+    expect(billRowStatus(meralco, NOV_15, { paid_at: "2026-11-20T03:00:00Z", paidOn: "2026-11-20" })).toEqual({
+      kind: "paid",
+      date: "2026-11-20",
+    });
+  });
+
+  it("is Due or Next otherwise, as before", () => {
+    expect(billRowStatus(meralco, NOV_15, { paid_at: null, paidOn: null })).toEqual({ kind: "due", date: "2026-11-20" });
+    expect(billRowStatus(meralco, NOV_15, undefined)).toEqual({ kind: "due", date: "2026-11-20" });
+    expect(billRowStatus(meralco, NOV_30, undefined)).toEqual({ kind: "next", date: "2026-12-20" });
+  });
+});
+
+describe("debtItemToPay (6b-2)", () => {
+  const items = [
+    { id: "a", debt_id: "spay", period_start: "2026-11-15", planned_amount: 400_000 },
+    { id: "b", debt_id: "spay", period_start: "2026-11-30", planned_amount: 400_000 },
+    { id: "c", debt_id: "other", period_start: "2026-11-15", planned_amount: 100_000 },
+  ];
+
+  it("is the item in the period whose payday pays the next payment", () => {
+    // Due Nov 25: the Nov 15 period pays it.
+    expect(debtItemToPay("spay", "2026-11-25", SEMI, items)?.id).toBe("a");
+    // Due Dec 5: the Nov 30 period.
+    expect(debtItemToPay("spay", "2026-12-05", SEMI, items)?.id).toBe("b");
+  });
+
+  it("is empty when that period has no payable item (not open, paid, or closed)", () => {
+    expect(debtItemToPay("spay", "2026-12-25", SEMI, items)).toBeNull();
+    expect(debtItemToPay("spay", null, SEMI, items)).toBeNull();
   });
 });

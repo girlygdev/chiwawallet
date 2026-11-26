@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { MarkPaidPill } from "@/components/plan/tick-button";
 import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
@@ -11,14 +12,13 @@ import {
   billScheduleLine,
   billsPerMonth,
   billsPerPayday,
-  billStatus,
   heavyPayday,
   paydayShares,
   splitHalves,
 } from "@/lib/bills";
 import { formatPeso } from "@/lib/money";
-import { stillDue, upcomingCounts } from "@/lib/plan";
-import { openCurrentPlan, upcomingItems } from "@/lib/plan-periods";
+import { billRowStatus, paidThisPeriod, stillDue, upcomingCounts } from "@/lib/plan";
+import { type CurrentItem, openCurrentPlan, upcomingItems } from "@/lib/plan-periods";
 import { formatShortDate, getPeriod, type PaySchedule, paydayLabel, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
@@ -32,9 +32,9 @@ const ADD_HREF = "/bills?add=1";
 // The Bills screen (bills.md, week-4-tasks.md 4c): what bills cost each
 // month, how they spread across paydays, and each bill with when it's due.
 // New and Edit bill open in a sheet (`?add=1`, `?edit=…`, `?delete=…`; 4c-2), like Income.
-// "Still due this period" comes from the current period's unpaid bill items
-// (5h-3), so the page opens that period like the Plan does. Paid this
-// period and Mark paid come with ticking items (Week 6).
+// "Still due this period" and "Paid this period" come from the current
+// period's bill items (5h-3, 6b-2), so the page opens that period like the
+// Plan does. Rows with an unpaid item this period get a Mark paid pill.
 export default function BillsPage() {
   return (
     <PageShell>
@@ -95,12 +95,17 @@ async function BillsContent() {
     upcomingItems(supabase, budget, today),
   ]);
   const due = stillDue(
-    current.items.filter((i) => i.bill_id != null),
+    current.items.filter((i) => i.bill_id != null && i.paid_at == null),
     bills,
     current.period,
     schedule,
   );
   const upcomingByBill = upcomingCounts(upcoming.map((i) => i.bill_id));
+  const paid = paidThisPeriod(current.items);
+  // Each bill's item in this period, for its tag and Mark paid.
+  const itemOf: Record<string, CurrentItem> = Object.fromEntries(
+    current.items.filter((i) => i.bill_id != null).map((i) => [i.bill_id!, i]),
+  );
 
   return (
     <>
@@ -148,17 +153,25 @@ async function BillsContent() {
                 {due.next ? `${due.next.name} · ${formatShortDate(due.next.date)}` : "Nothing due"}
               </p>
             </section>
+            <section
+              aria-label="Paid this period"
+              className="hidden flex-col gap-1 rounded-xl border-[1.5px] border-line bg-surface p-5 md:flex md:min-w-56"
+            >
+              <p className="text-xs font-extrabold tracking-wide text-text-3 uppercase">Paid this period</p>
+              <p className="font-display text-[28px] leading-none font-semibold text-ink">{formatPeso(paid)}</p>
+              <p className="text-sm text-text-3">What you actually paid</p>
+            </section>
           </div>
 
           <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
             <div className="flex flex-col gap-6">
               {schedule.frequency === "semi_monthly" ? (
                 <>
-                  <BillSection slot="payday_1" bills={bills} schedule={schedule} today={today} period={period} />
-                  <BillSection slot="payday_2" bills={bills} schedule={schedule} today={today} period={period} />
+                  <BillSection slot="payday_1" bills={bills} schedule={schedule} today={today} period={period} items={itemOf} />
+                  <BillSection slot="payday_2" bills={bills} schedule={schedule} today={today} period={period} items={itemOf} />
                 </>
               ) : (
-                <BillSection slot="every" bills={bills} schedule={schedule} today={today} period={period} />
+                <BillSection slot="every" bills={bills} schedule={schedule} today={today} period={period} items={itemOf} />
               )}
             </div>
             {/* Mobile: right under the hero. Desktop: the side column (bills.md §3). */}
@@ -232,12 +245,15 @@ function BillSection({
   schedule,
   today,
   period,
+  items,
 }: {
   slot: "payday_1" | "payday_2" | "every";
   bills: Bill[];
   schedule: PaySchedule;
   today: string;
   period: { start: string; end: string };
+  /** Each bill's item in this period (6b-2). */
+  items: Record<string, CurrentItem>;
 }) {
   const rows =
     slot === "every"
@@ -271,14 +287,15 @@ function BillSection({
       ) : (
         <ul className="flex flex-col divide-y divide-line-soft rounded-2xl border-[1.5px] border-line bg-surface">
           {rows.map(({ bill, amount, split }) => {
-            const status = billStatus(bill, period);
+            const item = items[bill.id];
+            const status = billRowStatus(bill, period, item);
             return (
-              <li key={bill.id}>
-                {/* The whole row is the Edit link (bills.md fix #1). */}
+              <li key={bill.id} className="flex items-center gap-2 pr-3">
+                {/* The row is the Edit link (bills.md fix #1); Mark paid sits beside it. */}
                 <Link
                   href={`/bills?edit=${bill.id}`}
                   scroll={false}
-                  className="flex items-center gap-3 rounded-[14px] px-3.5 py-3 outline-link hover:bg-bg focus-visible:outline-2 focus-visible:-outline-offset-2"
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-[14px] px-3.5 py-3 outline-link hover:bg-bg focus-visible:outline-2 focus-visible:-outline-offset-2"
                 >
                   <CategoryIconTile icon={bill.category.icon} color={bill.category.color} size="md" />
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
@@ -289,10 +306,14 @@ function BillSection({
                       <span
                         className={cn(
                           "rounded-full px-2 py-0.5 text-xs font-bold",
-                          status.kind === "due" ? "bg-warn-bg text-warn-fg" : "bg-track text-text-2",
+                          status.kind === "paid"
+                            ? "bg-mint text-green-800"
+                            : status.kind === "due"
+                              ? "bg-warn-bg text-warn-fg"
+                              : "bg-track text-text-2",
                         )}
                       >
-                        {status.kind === "due" ? "Due" : "Next:"} {formatShortDate(status.date)}
+                        {status.kind === "paid" ? "Paid" : status.kind === "due" ? "Due" : "Next:"} {formatShortDate(status.date)}
                       </span>
                       {split && <span className="rounded-full bg-info-bg px-2 py-0.5 text-xs font-bold text-info-fg">Split</span>}
                     </span>
@@ -308,6 +329,18 @@ function BillSection({
                     {formatPeso(amount)}
                   </span>
                 </Link>
+                {item && item.paid_at == null && (
+                  <MarkPaidPill
+                    item={{
+                      id: item.id,
+                      name: item.name,
+                      planned_amount: item.planned_amount,
+                      paid: false,
+                      pot: false,
+                      varies: bill.amount_varies,
+                    }}
+                  />
+                )}
               </li>
             );
           })}

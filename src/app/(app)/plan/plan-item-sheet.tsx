@@ -2,7 +2,7 @@
 
 import { LoaderCircle } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { type AddSheetData, getAddSheetData } from "@/app/(app)/activity/actions";
 import { FormError } from "@/components/auth/form-error";
 import { ConfirmDelete } from "@/components/confirm-delete";
@@ -12,7 +12,7 @@ import type { PaydayCard } from "@/components/plan/payday-picker";
 import { type EditableItem, PlanItemForm } from "@/components/plan/plan-item-form";
 import { SetBudgetForm } from "@/components/plan/set-budget-form";
 import { Sheet } from "@/components/sheet";
-import { Toast, type ToastMessage } from "@/components/toast";
+import { useAppToast } from "@/components/transactions/add-transaction-provider";
 import type { ExpenseView } from "@/components/transactions/expense-form";
 import { formatPeso } from "@/lib/money";
 import { type PlanSummary, removeImpact } from "@/lib/plan";
@@ -43,10 +43,8 @@ export type SheetItem = EditableItem & {
 
 type Summary = Pick<PlanSummary, "moneyForPeriod" | "notAssigned">;
 
-const ToastContext = createContext<(toast: ToastMessage) => void>(() => {});
-
-/** Shows a toast in the Plan's one toast spot (the starter button, the Plan options menu). */
-export const useShowToast = () => useContext(ToastContext);
+/** The app's one toast (6b-2), for the starter button, the Plan options menu and the tick buttons. */
+export const useShowToast = useAppToast;
 
 // Edit item and Remove from plan (plan.md §3, task 5e), following the page
 // address like Bills, so plan rows can be plain links:
@@ -55,9 +53,9 @@ export const useShowToast = () => useContext(ToastContext);
 //   /plan?start=2026-11-30&add=1         Add one-off item (5f)
 //   /plan?start=2026-11-30&add=budget    Set a budget (5g-1)
 //   /plan?start=2026-11-30&add=debt      Plan a debt payment (5g-2)
-// Closing goes back to the period. It also owns the toast, so "Meralco
-// removed · Undo" stays up after the dialog closes, and the starter button
-// (inside `children`) can use it after the empty plan is gone.
+// Closing goes back to the period. Its toasts ("Meralco removed · Undo") use
+// the app's one toast (6b-2), so they stay up after a dialog closes or the
+// page moves to another period.
 export function PlanEditor({
   items,
   summary,
@@ -84,8 +82,7 @@ export function PlanEditor({
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const [toast, setToast] = useState<ToastMessage | null>(null);
-  const dismissToast = useCallback(() => setToast(null), []);
+  const setToast = useAppToast();
 
   const find = (key: string) => items.find((i) => i.id === params.get(key));
   const editing = find("edit");
@@ -184,7 +181,7 @@ export function PlanEditor({
   };
 
   return (
-    <ToastContext value={setToast}>
+    <>
       {children}
 
       <Sheet
@@ -293,8 +290,7 @@ export function PlanEditor({
         <RemoveItemDialog key={removing.id} item={removing} summary={summary} onClose={close} onRemoved={onRemoved} />
       )}
 
-      <Toast toast={toast} onDismiss={dismissToast} />
-    </ToastContext>
+    </>
   );
 }
 
@@ -389,7 +385,7 @@ function removeNote(item: SheetItem): string {
 // the page refreshes into the full plan and the toast says so.
 export function UseStarterPlanButton({ periodStart }: { periodStart: string }) {
   const router = useRouter();
-  const showToast = useContext(ToastContext);
+  const showToast = useAppToast();
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
 

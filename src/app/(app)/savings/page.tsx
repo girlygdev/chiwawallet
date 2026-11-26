@@ -90,7 +90,7 @@ async function SavingsContent() {
   // "Due this period: ₱2,000 to Travel" (savings.md §2, 5h-3): this period's
   // unpaid pot items. Paying doesn't tick them off until Week 6.
   const current = await openCurrentPlan(supabase, budget, today);
-  const potsDue = potsDueLine(current.items.filter((i) => i.pot_id != null));
+  const potsDue = potsDueLine(current.items.filter((i) => i.pot_id != null && i.paid_at == null));
   const cards = pots.map((pot) => {
     const potRows = rows.filter((r) => r.pot_id === pot.id);
     return {

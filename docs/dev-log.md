@@ -2,6 +2,37 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6b-2 Mark paid on Bills and Debts
+- **What:**
+  - **Bills:**
+    - each row with an unpaid item this period has a **Mark paid** pill (a variable bill asks for the amount)
+    - a paid row's tag says "Paid Nov 26"
+    - desktop has a **Paid this period** stat card, from the actual payments
+  - **Debts:** the next-payment strip ("Next: ₱4,000 due Nov 25", or "Late: …") has **Mark paid**, or **Mark Nov 25 paid** on desktop, when that payment's plan item is unpaid in a period that has started and isn't closed.
+  - **One app-wide toast:** the add sheet's provider exposes `showToast` (`useAppToast()`). The Plan's own toast is gone, so every Undo toast shows in one place and survives page changes.
+  - **`useMarkPaid` hook:** the Mark paid logic moved into it, shared by the Plan's circle and the new pill.
+- **Files:**
+  - `src/lib/plan.ts`: `paidThisPeriod()`, `billRowStatus()`, `debtItemToPay()`
+  - `tests/lib/plan.test.ts`
+  - `src/lib/plan-periods.ts`: `openCurrentPlan` returns paid items with their payment; `payableDebtItems()`
+  - `src/components/transactions/add-transaction-provider.tsx`: `showToast`, `useAppToast()`
+  - `src/app/(app)/plan/plan-item-sheet.tsx`: uses the app toast
+  - `src/components/plan/tick-button.tsx`: `useMarkPaid`, `TickButton`, `MarkPaidPill`
+  - `src/app/(app)/bills/page.tsx`, `debts/page.tsx`, `savings/page.tsx`
+  - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - There's one app-wide toast.
+  - The Mark paid pill shows on mobile Bills rows too.
+  - Bills and Debts only tick.
+- **Tests:** written first, 5 new unit tests (516 pass), and 285 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - SPayLater (3 × ₱4,000, first due Nov 25, so Late) was paid from Debts: ₱8,000 left, the next payment moved to Dec 25, and the Plan showed "Paid Nov 26"
+  - Undo from the Debts toast put it back
+  - Netflix (variable) was paid from Bills at ₱575: tag "Paid Nov 26", and desktop Paid this period ₱575
+  - the Plan's remove + Undo works on the app toast
+  - 5f's checks still pass
+  - no console errors
+- **Next:** 6c, Safe to spend and Due this period on the Dashboard.
+
 ## 2026-11-26 · Week 6 · 6b-1 Mark paid on the Plan
 - **What:**
   - **Tick circles are buttons** on bills, debt payments, savings and one-offs, on mobile rows and in the desktop table ("Mark Netflix paid", "Mark Travel added").
