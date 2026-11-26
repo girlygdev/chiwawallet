@@ -9,10 +9,12 @@ import {
   getAddSheetData,
   getEditTransaction,
   restoreTransaction,
+  type SaveSavingsResult,
   saveExpense,
   saveIncome,
   saveSavings,
   undoTransaction,
+  undoTransfer,
   updateExpense,
   updateIncome,
   updateSavings,
@@ -60,7 +62,7 @@ function toastWithAction(text: string, label?: string, onClick?: () => void): To
   return { id: Date.now(), text, ...(label && onClick ? { action: { label, onClick } } : {}) };
 }
 
-const TITLES: Record<SheetTab, string> ={ expense: "Add expense", income: "Add income", savings: "Savings" };
+const TITLES: Record<SheetTab, string> ={ expense: "Add expense", income: "Add income", savings: "Transfer" };
 
 // Lets the + button (mobile) and "+ Add transaction" (desktop) open the add
 // sheet over any app page (week-3-tasks.md 3c, 3d). It always opens on
@@ -189,14 +191,15 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
 
   // After saving: close, refresh, and a toast with Undo. `text` is the toast
   // ("Expense saved · −₱180"); `removed` is what Undo says ("Expense removed").
-  const showSaved = (saved: { id: string }, text: string, removed: string) => {
+  // A pot-to-pot move (6d-1) has two rows (`ids`), and Undo removes both.
+  const showSaved = (saved: { id: string; ids?: string[] }, text: string, removed: string) => {
     setOpen(false);
     // Re-reads the page's server data so lists and totals update.
     router.refresh();
     setToast(
       toastWithAction(text, "Undo", async () => {
         setToast(null);
-        const result = await undoTransaction(saved.id);
+        const result = saved.ids ? await undoTransfer(saved.ids) : await undoTransaction(saved.id);
         router.refresh();
         setToast(toastWithAction(result.ok ? removed : (result.formError ?? "Couldn't undo.")));
       }),
@@ -206,13 +209,16 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   const savedToast = (kind: "Expense" | "Income", signed: number) => (saved: { id: string; amount: number }) =>
     showSaved(saved, `${kind} saved · ${formatPeso(signed * saved.amount, { signed: true })}`, `${kind} removed`);
   // "Added ₱2,000 to Travel" or "Withdrew ₱1,000 from Travel" (the amount is signed).
-  const savingsToast = (saved: { id: string; amount: number }, potName: string) =>
+  // A move: "Moved ₱2,000 from Travel to Emergency" (6d-1).
+  const savingsToast = (saved: NonNullable<SaveSavingsResult["saved"]>, potName: string) =>
     showSaved(
       saved,
-      saved.amount < 0
-        ? `Withdrew ${formatPeso(-saved.amount)} from ${potName}`
-        : `Added ${formatPeso(saved.amount)} to ${potName}`,
-      "Savings entry removed",
+      saved.toPotName
+        ? `Moved ${formatPeso(saved.amount)} from ${potName} to ${saved.toPotName}`
+        : saved.amount < 0
+          ? `Withdrew ${formatPeso(-saved.amount)} from ${potName}`
+          : `Added ${formatPeso(saved.amount)} to ${potName}`,
+      saved.toPotName ? "Move removed" : "Savings entry removed",
     );
 
   // The Savings tab's "+ New pot": New pot lives on the Savings page.

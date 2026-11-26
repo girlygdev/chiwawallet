@@ -116,24 +116,41 @@ export function incomeSchemaFor(limits: DateLimits) {
 export type IncomeFormInput = z.input<ReturnType<typeof incomeSchemaFor>>;
 export type IncomeValues = z.output<ReturnType<typeof incomeSchemaFor>>;
 
-export const SAVINGS_DIRECTIONS = ["add", "withdraw"] as const;
+/** To a pot, From a pot, Pot to pot (the Transfer tab, 6d-1). */
+export const SAVINGS_DIRECTIONS = ["add", "withdraw", "move"] as const;
 
 /**
- * The Savings tab (activity.md §3 Savings, week-4-tasks.md 4e): add to or
- * withdraw from a pot. The amount is typed above zero and saved signed: a
- * withdrawal is a negative savings amount (plan review 3.5). The category
- * isn't here: savings always use the locked Savings pot category, set on the
- * server. Locked pots and the pot's balance are checked on the server.
+ * The Transfer tab (activity.md §3, "Changed Nov 24"; 4e, 6d-1): to a pot,
+ * from a pot, or pot to pot. The amount is typed above zero. A deposit is
+ * saved positive and a withdrawal negative (plan review 3.5); a move keeps
+ * the amount positive, and the Server Action saves it as a withdrawal from
+ * `potId` and a deposit to `toPotId`. The category isn't here: savings
+ * always use the locked Savings pot category, set on the server. Locked
+ * pots and balances are checked on the server.
  */
 export function savingsSchemaFor(limits: DateLimits) {
   return z
     .object({
-      direction: z.enum(SAVINGS_DIRECTIONS, { error: "Pick Add to pot or Withdraw." }),
+      direction: z.enum(SAVINGS_DIRECTIONS, { error: "Pick To a pot, From a pot or Pot to pot." }),
       amount: amountField(),
       potId: z.uuid("Pick a pot."),
+      /** Pot to pot only; ignored otherwise. */
+      toPotId: z.string().optional(),
       date: dateField(limits),
     })
-    .transform((v) => ({ ...v, amount: v.direction === "withdraw" ? -v.amount : v.amount }));
+    .superRefine((v, ctx) => {
+      if (v.direction !== "move") return;
+      if (!v.toPotId || !z.uuid().safeParse(v.toPotId).success) {
+        ctx.addIssue({ code: "custom", path: ["toPotId"], message: "Pick the pot to move it to." });
+      } else if (v.toPotId === v.potId) {
+        ctx.addIssue({ code: "custom", path: ["toPotId"], message: "Pick a different pot to move it to." });
+      }
+    })
+    .transform((v) => ({
+      ...v,
+      amount: v.direction === "withdraw" ? -v.amount : v.amount,
+      toPotId: v.direction === "move" ? v.toPotId! : null,
+    }));
 }
 
 export type SavingsFormInput = z.input<ReturnType<typeof savingsSchemaFor>>;

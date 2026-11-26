@@ -2,6 +2,40 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6d-1 The Transfer tab (pots)
+- **What:** the add sheet's Savings tab is now **Transfer**: **To a pot**, **From a pot**, **Pot to pot**.
+  - **To a pot:**
+    - a pot with an unpaid planned deposit this period shows "Planned ₱2,000", plus the line "This also ticks off the ₱2,000 planned for this period."
+    - saving goes through `mark_plan_item_paid` (6a), so the deposit is linked and the item ticked in one step
+    - Undo deletes it, and the item is due again
+  - **Pot to pot:**
+    - From and To pots, with "Travel ₱2,000 → ₱1,000 · Emergency Fund ₱0 → ₱1,000. Your cash stays the same."
+    - saves a withdrawal and a deposit in one insert
+    - "Moved ₱1,000 from Travel to Emergency Fund · Undo" removes both
+    - a locked From pot and more than its balance are refused
+  - **Editing** a savings row offers To a pot and From a pot only.
+- **Files:**
+  - `src/lib/pots.ts`: `potTransfer()`
+  - `tests/lib/pots.test.ts`
+  - `src/lib/validation/transaction.ts`: `move`, `toPotId`
+  - `tests/lib/validation/transaction.test.ts`
+  - `src/app/(app)/activity/actions.ts`: pots' `planned`, `writeSavings`, `undoTransfer`
+  - `src/components/transactions/savings-form.tsx`, `type-tabs.tsx`, `add-transaction-provider.tsx`
+  - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - Any amount ticks off the planned item.
+  - Pot to pot ticks nothing off.
+  - There's no link column between a move's two rows.
+  - The four-option layout waits for 6d-2.
+- **Tests:** written first, 3 new unit tests (528 pass), and 285 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - Travel showed "Planned ₱2,000"; a ₱2,000 deposit ticked it ("Paid Nov 26")
+  - Undo of a ticked deposit made it due again
+  - moving ₱1,000 Travel → Emergency Fund, then Undo, worked
+  - moving ₱500 left cash now at −₱1,755, and Activity showed +₱500 and −₱500
+  - no console errors
+- **AI notes:** a long inline shell script broke on quoting, so Claude ran the form edit from a script file. Claude's first browser script typed the amount before the field had focus.
+- **Next:** 6d-2, To a debt and Pay extra.
+
 ## 2026-11-26 · Week 6 · 6c Safe to spend and Due this period
 - **What:**
   - **Safe to spend replaces Cash now as the Dashboard hero:**

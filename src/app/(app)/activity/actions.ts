@@ -86,6 +86,8 @@ export type SheetPot = {
   balance: number;
   target_amount: number | null;
   is_locked: boolean;
+  /** This period's unpaid planned deposit ("Planned ₱2,000", 6d-1); empty in loadSheetPots(). */
+  planned: number | null;
 };
 
 /** Everything the sheet needs, for both tabs; called when it opens. */
@@ -95,7 +97,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
   const today = todayInManila(new Date());
   const period = await getOrCreatePeriod(supabase, budget, today);
 
-  const [categories, recent, rows, sources, first, pots, budgetItems] = await Promise.all([
+  const [categories, recent, rows, sources, first, pots, budgetItems, potItems] = await Promise.all([
     supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color, default_budget"),
     supabase
       .from("transactions")
@@ -126,8 +128,16 @@ export async function getAddSheetData(): Promise<AddSheetData> {
       .is("bill_id", null)
       .is("pot_id", null)
       .is("debt_id", null),
+    // This period's unpaid planned deposits, for "Planned ₱2,000" (6d-1).
+    supabase
+      .from("plan_items")
+      .select("pot_id, planned_amount")
+      .eq("period_id", period.id)
+      .not("pot_id", "is", null)
+      .is("deleted_at", null)
+      .is("paid_at", null),
   ]);
-  for (const result of [categories, recent, rows, sources, budgetItems]) {
+  for (const result of [categories, recent, rows, sources, budgetItems, potItems]) {
     if (result.error) throw new Error(`Couldn't load the add sheet: ${result.error.message}`, { cause: result.error });
   }
 
@@ -163,7 +173,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
     topCount: TOP_TILES,
     recentIds: recentCategories(categories.data!, latestIds, RECENT_TILES).map((c) => c.id),
     targets: { needs: budget.needs_pct, wants: budget.wants_pct, savings_debt: budget.savings_debt_pct },
-    pots,
+    pots: pots.map((p) => ({ ...p, planned: potItems.data!.find((i) => i.pot_id === p.id)?.planned_amount ?? null })),
     budgets: categoryBudgets(
       categories.data!,
       budgetItems.data!,
@@ -193,6 +203,7 @@ async function loadSheetPots(): Promise<SheetPot[]> {
   }
   return pots.data!.map(({ starting_balance, ...pot }) => ({
     ...pot,
+    planned: null,
     balance: potBalance(
       { starting_balance },
       rows.data!.filter((r) => r.pot_id === pot.id),
@@ -344,8 +355,12 @@ async function writeIncome(input: IncomeFormInput, id: string | null): Promise<S
 
 export type SaveSavingsResult = {
   ok?: true;
-  /** The new row; `amount` is signed (a withdrawal is negative). */
-  saved?: { id: string; amount: number };
+  /**
+   * The new row; `amount` is signed (a withdrawal is negative). A move
+   * (6d-1) also has `ids` (both rows, for Undo) and `toPotName`; a deposit
+   * that ticked off the pot's planned item has `tickedOff`.
+   */
+  saved?: { id: string; amount: number; ids?: string[]; toPotName?: string; tickedOff?: boolean };
   formError?: string;
   fieldErrors?: Partial<Record<keyof SavingsFormInput, string>>;
 };
@@ -359,10 +374,15 @@ export async function updateSavings(id: string, input: SavingsFormInput): Promis
 }
 
 /**
- * Adds to or withdraws from a pot (the Savings tab, 4e), or changes savings
- * row `id`. Checked here, for clear messages: the pot is the user's, a
- * locked pot takes deposits only (the database refuses it too), and a
- * withdrawal can't take out more than the pot holds.
+ * To a pot, from a pot, or pot to pot (the Transfer tab, 4e, 6d-1), or
+ * changes savings row `id` (a deposit or withdrawal; moves aren't edited
+ * as one). Checked here, for clear messages: the pots are the user's, a
+ * locked pot takes deposits only (the database refuses it too), and nothing
+ * can take out more than a pot holds.
+ * - A deposit when the pot has an unpaid planned item in that period pays
+ *   it through mark_plan_item_paid() (6a): one step, linked and ticked.
+ * - A move is a withdrawal and a deposit in one insert, so both save or
+ *   neither does.
  */
 async function writeSavings(input: SavingsFormInput, id: string | null): Promise<SaveSavingsResult> {
   const { budget } = await requireAppUser();
@@ -376,8 +396,16 @@ async function writeSavings(input: SavingsFormInput, id: string | null): Promise
   const notEditable = await checkEditable(id, "savings");
   if (notEditable) return notEditable;
 
-  const pot = (await loadSheetPots()).find((p) => p.id === values.potId);
+  const pots = await loadSheetPots();
+  const pot = pots.find((p) => p.id === values.potId);
   if (!pot) return { fieldErrors: { potId: "Pick a pot." } };
+  if (values.direction === "move") {
+    if (id) return { formError: SOMETHING_WRONG };
+    const to = pots.find((p) => p.id === values.toPotId);
+    if (!to) return { fieldErrors: { toPotId: "Pick the pot to move it to." } };
+    if (pot.is_locked) return { fieldErrors: { potId: `${pot.name} is locked: deposits only.` } };
+    if (values.amount > pot.balance) return { fieldErrors: { amount: `${pot.name} only has ${formatPeso(pot.balance)}.` } };
+  }
   if (values.amount < 0) {
     if (pot.is_locked) return { fieldErrors: { potId: `${pot.name} is locked: deposits only.` } };
     // Editing a row already counted in the balance: take its old amount out first.
@@ -407,6 +435,45 @@ async function writeSavings(input: SavingsFormInput, id: string | null): Promise
       date: values.date,
       pot_id: values.potId,
     };
+
+    if (values.direction === "move") {
+      // A withdrawal and a deposit, one statement: both or neither.
+      const { data, error } = await supabase
+        .from("transactions")
+        .insert([
+          { ...fields, type: "savings", amount: -values.amount },
+          { ...fields, type: "savings", pot_id: values.toPotId },
+        ])
+        .select("id, amount");
+      if (error) return fail("move between pots", error);
+      const toPotName = pots.find((p) => p.id === values.toPotId)!.name;
+      return { ok: true, saved: { id: data[0].id, amount: values.amount, ids: data.map((r) => r.id), toPotName } };
+    }
+
+    if (!id && values.direction === "add") {
+      // This period's planned deposit to the pot, if it isn't paid yet.
+      const { data: planned, error: plannedError } = await supabase
+        .from("plan_items")
+        .select("id")
+        .eq("period_id", period.id)
+        .eq("pot_id", values.potId)
+        .is("deleted_at", null)
+        .is("paid_at", null)
+        .limit(1)
+        .maybeSingle();
+      if (plannedError) return fail("load the planned deposit", plannedError);
+      if (planned) {
+        const { data: paidId, error: payError } = await supabase.rpc("mark_plan_item_paid", {
+          target_item: planned.id,
+          paid_on: values.date,
+          paid_amount: values.amount,
+        });
+        // 55000: its period is closed; save a plain deposit instead.
+        if (!payError) return { ok: true, saved: { id: paidId, amount: values.amount, tickedOff: true } };
+        if (payError.code !== "55000") return fail("pay the planned deposit", payError);
+      }
+    }
+
     const { data, error } = await (id
       ? supabase.from("transactions").update(fields).eq("id", id).is("deleted_at", null)
       : supabase.from("transactions").insert({ ...fields, type: "savings" })
@@ -418,6 +485,22 @@ async function writeSavings(input: SavingsFormInput, id: string | null): Promise
   } catch (error) {
     return fail("find period", error as Error);
   }
+}
+
+/** Undo after a pot-to-pot move: soft-deletes both rows (6d-1). */
+export async function undoTransfer(ids: string[]): Promise<{ ok?: true; formError?: string }> {
+  await requireAppUser();
+  if (ids.length === 0 || ids.length > 2 || !ids.every((i) => z.uuid().safeParse(i).success)) return { formError: SOMETHING_WRONG };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .update({ deleted_at: new Date().toISOString() })
+    .in("id", ids)
+    .is("deleted_at", null)
+    .select("id");
+  if (error) return fail("undo the move", error);
+  if (data.length === 0) return { formError: "That move was already removed." };
+  return { ok: true };
 }
 
 /** A savings row's saved amount, if it belongs to `potId` (else 0). */

@@ -8,14 +8,15 @@ export type SheetTab = "expense" | "income" | "savings";
 const TABS: { value: SheetTab; label: string }[] = [
   { value: "expense", label: "Expense" },
   { value: "income", label: "Income" },
-  { value: "savings", label: "Savings" },
+  // Transfer (6d-1, activity.md "Changed Nov 24"): to, from and between pots.
+  { value: "savings", label: "Transfer" },
 ];
 
 export const TAB_PANEL_ID = "add-sheet-panel";
 export const tabId = (tab: SheetTab) => `add-sheet-tab-${tab}`;
 
 // The add sheet's type tabs (activity.md §3): a `track` segmented control with
-// 40px options: Expense, Income and Savings (4e). Follows the WAI-ARIA tabs pattern:
+// 40px options: Expense, Income and Transfer (4e, 6d-1). Follows the WAI-ARIA tabs pattern:
 // only the selected tab is in the Tab order; Left and Right arrows move
 // between tabs and switch at once.
 export function TypeTabs({ value, onChange }: { value: SheetTab; onChange: (tab: SheetTab) => void }) {

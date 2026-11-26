@@ -230,3 +230,18 @@ export function balanceAfterMove(destinationBalance: number, moved: number): num
 export function potBalanceAfter(balance: number, change: number, replacing = 0): number {
   return balance - replacing + change;
 }
+
+/**
+ * Pot to pot (6d-1): both pots' balances before and after moving `amount`
+ * from one to the other. Cash on hand doesn't change.
+ */
+export function potTransfer(
+  fromBalance: number,
+  toBalance: number,
+  amount: number,
+): { from: { before: number; after: number }; to: { before: number; after: number } } {
+  return {
+    from: { before: fromBalance, after: fromBalance - amount },
+    to: { before: toBalance, after: toBalance + amount },
+  };
+}

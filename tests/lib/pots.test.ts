@@ -8,6 +8,7 @@ import {
   potBalanceAfter,
   potGoalDate,
   potProgress,
+  potTransfer,
   potProjection,
   potScheduleLine,
   potStatus,
@@ -234,5 +235,14 @@ describe("potBalanceAfter", () => {
 
   it("editing: takes out the row's old amount first", () => {
     expect(potBalanceAfter(800_000, 300_000, 200_000)).toBe(900_000);
+  });
+});
+
+describe("potTransfer (6d-1)", () => {
+  it("takes the amount from one pot and adds it to the other", () => {
+    expect(potTransfer(800_000, 1_300_000, 200_000)).toEqual({
+      from: { before: 800_000, after: 600_000 },
+      to: { before: 1_300_000, after: 1_500_000 },
+    });
   });
 });

@@ -51,7 +51,10 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
   - The **Due this period** card: unpaid and recently paid items with tick buttons, and "See all" to Plan.
   - Done when: marking an item paid moves Safe to spend and the Due list.
 - [ ] **6d. The Transfer tab.** Likely two sessions:
-  - [ ] **6d-1. Pots.** The add sheet's Savings tab becomes **Transfer**, with To a pot, From a pot, and Pot to pot (a withdrawal and a deposit, net ₱0 to cash). A deposit to a pot with a planned item this period says "This also ticks off the ₱2,000 planned for this period." and pays it (sets `paid_at` and `plan_item_id`).
+  - [x] **6d-1. Pots.** Done Nov 26 (checked in a browser on local Supabase). `potTransfer()` in `lib/pots.ts`; the Savings schema's `move` direction and `toPotId`; `writeSavings`'s tick-off and move paths; `undoTransfer`.
+    - Any amount ticks off the pot's planned item.
+    - Pot to pot never ticks anything off.
+    - A move is two rows, with no link column; Undo removes both. The add sheet's Savings tab becomes **Transfer**, with To a pot, From a pot, and Pot to pot (a withdrawal and a deposit, net ₱0 to cash). A deposit to a pot with a planned item this period says "This also ticks off the ₱2,000 planned for this period." and pays it (sets `paid_at` and `plan_item_id`).
   - [ ] **6d-2. Debts.** **To a debt** has two cases:
     - **A payment is due this period:** it pays that planned item, in the Debt payment category (Needs).
     - **Otherwise:** it's an extra payment, in Extra debt payment (Savings & debt payoff).

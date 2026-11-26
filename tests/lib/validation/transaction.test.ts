@@ -125,7 +125,7 @@ describe("savingsSchemaFor", () => {
   const valid = { direction: "add", amount: "2,000", potId: POT, date: "2026-11-20" };
 
   it("adds are positive and withdrawals negative (plan review 3.5)", () => {
-    expect(schema.parse(valid)).toEqual({ direction: "add", amount: 200_000, potId: POT, date: "2026-11-20" });
+    expect(schema.parse(valid)).toEqual({ direction: "add", amount: 200_000, potId: POT, toPotId: null, date: "2026-11-20" });
     expect(schema.parse({ ...valid, direction: "withdraw" }).amount).toBe(-200_000);
   });
 
@@ -137,7 +137,29 @@ describe("savingsSchemaFor", () => {
     expect(errors({ amount: "0" }).amount).toBe("Enter an amount above ₱0.");
     expect(errors({ amount: "-500" }).amount).toBe("Enter an amount above ₱0.");
     expect(errors({ potId: "" }).potId).toBe("Pick a pot.");
-    expect(errors({ direction: "spend" }).direction).toBe("Pick Add to pot or Withdraw.");
+    expect(errors({ direction: "spend" }).direction).toBe("Pick To a pot, From a pot or Pot to pot.");
     expect(errors({ date: "2026-11-21" }).date).toBe("Pick today or an earlier day.");
+  });
+
+  // Pot to pot (6d-1): the amount moved stays positive; the action makes the two rows.
+  const OTHER = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
+  it("moves need a different pot to move to", () => {
+    expect(schema.parse({ ...valid, direction: "move", toPotId: OTHER })).toEqual({
+      direction: "move",
+      amount: 200_000,
+      potId: POT,
+      toPotId: OTHER,
+      date: "2026-11-20",
+    });
+    const errors = (input: Record<string, unknown>) => {
+      const result = schema.safeParse({ ...valid, direction: "move", ...input });
+      return result.success ? {} : Object.fromEntries(result.error.issues.map((i) => [i.path[0], i.message]));
+    };
+    expect(errors({}).toPotId).toBe("Pick the pot to move it to.");
+    expect(errors({ toPotId: POT }).toPotId).toBe("Pick a different pot to move it to.");
+  });
+
+  it("ignores To pot for adds and withdrawals", () => {
+    expect(schema.parse({ ...valid, toPotId: OTHER }).toPotId).toBeNull();
   });
 });
