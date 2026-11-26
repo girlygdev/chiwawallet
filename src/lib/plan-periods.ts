@@ -20,6 +20,7 @@ import {
   planItemDetail,
   planSection,
   isTickable,
+  itemDueOn,
   paidOnDate,
   planSummary,
   planSync,
@@ -269,6 +270,13 @@ export type CurrentItem = {
   /** Paid: the payment's date and actual amount. */
   paidOn: string | null;
   paidAmount: number | null;
+  /** Its Plan section, and whether it's ticked off (bills, savings, debts, one-offs; 6c). */
+  section: PlanSection;
+  tickable: boolean;
+  /** When it's due this period (itemDueOn()); empty for pots. */
+  dueOn: string | null;
+  /** A bill whose amount changes: Mark paid asks for the amount. */
+  varies: boolean;
 };
 
 /**
@@ -285,14 +293,17 @@ export async function openCurrentPlan(
 ): Promise<{ period: Period; items: CurrentItem[] }> {
   const row = await getOrCreatePeriod(supabase, budget, today);
   const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
+  const schedule = scheduleFromBudget(budget);
+  let sources: Awaited<ReturnType<typeof loadSources>> | null = null;
   try {
-    await syncPeriods(supabase, [{ id: row.id, period }], scheduleFromBudget(budget), await loadSources(supabase, budget));
+    sources = await loadSources(supabase, budget);
+    await syncPeriods(supabase, [{ id: row.id, period }], schedule, sources);
   } catch (error) {
     console.error("plan: couldn't sync the current period", error);
   }
   const { data, error } = await supabase
     .from("plan_items")
-    .select("id, name, planned_amount, bill_id, pot_id, debt_id, paid_at")
+    .select("id, name, planned_amount, bill_id, pot_id, debt_id, income_source_id, category_id, budget_group, origin, needed_by, paid_at")
     .eq("period_id", row.id)
     .is("deleted_at", null)
     .order("created_at");
@@ -304,9 +315,24 @@ export async function openCurrentPlan(
     : { data: [], error: null };
   if (paymentsError) fail("load this period's payments", paymentsError);
   const paymentOf = new Map(payments!.map((p) => [p.plan_item_id, p]));
+  const groupOf = new Map(sources?.categoryGroups ?? []);
   const items = data!.map((i) => {
     const payment = i.paid_at != null ? paymentOf.get(i.id) : undefined;
-    return { ...i, paidOn: payment?.date ?? null, paidAmount: payment?.amount ?? null };
+    // The generated types say `string`; the check constraints allow only these.
+    const origin = i.origin as PlanOrigin;
+    const group = ((i.category_id ? groupOf.get(i.category_id) : i.budget_group) ?? null) as BudgetGroup | null;
+    const section = planSection({ ...i, origin, group });
+    const bill = sources?.bills.find((b) => b.id === i.bill_id);
+    const debt = sources?.debts.find((d) => d.id === i.debt_id);
+    return {
+      ...i,
+      paidOn: payment?.date ?? null,
+      paidAmount: payment?.amount ?? null,
+      section,
+      tickable: isTickable({ section }),
+      dueOn: itemDueOn({ ...i, origin }, { period, schedule, bill, debt }),
+      varies: bill?.amount_varies ?? false,
+    };
   });
   return { period, items };
 }

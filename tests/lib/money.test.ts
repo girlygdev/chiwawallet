@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dashboardNumbers, formatPeso, formatPesoInput, parsePesoInput } from "@/lib/money";
+import { dashboardNumbers, formatPeso, formatPesoInput, parsePesoInput, perDay, safeToSpend, stillDueTotal } from "@/lib/money";
 import { cashOnHand, periodTotals } from "@/lib/transactions";
 
 describe("formatPesoInput: centavos → what an input shows", () => {
@@ -144,5 +144,43 @@ describe("dashboardNumbers (dashboard.md §1)", () => {
     expect(over.cashNow).toBe(-40_000);
     // Nothing to spend from but something spent.
     expect(dashboardNumbers(null, [], [row("expense", 100)]).spentShare).toBe(1);
+  });
+});
+
+describe("Safe to spend (6c, dashboard.md §1)", () => {
+  const item = (planned_amount: number, fields: { tickable?: boolean; paid_at?: string | null } = {}) => ({
+    planned_amount,
+    tickable: true,
+    paid_at: null,
+    ...fields,
+  });
+
+  it("still due is this period's unpaid bills, savings, debts and one-offs", () => {
+    const items = [
+      item(100_000), // a bill
+      item(400_000), // a debt payment
+      item(200_000), // savings
+      item(250_000, { paid_at: "2026-11-20T00:00:00Z" }), // paid: not due
+      item(600_000, { tickable: false }), // a spending budget or income: not due
+    ];
+    expect(stillDueTotal(items)).toBe(700_000);
+    expect(stillDueTotal([])).toBe(0);
+  });
+
+  it("is cash now minus still due", () => {
+    expect(safeToSpend(2_055_000, 700_000)).toBe(1_355_000);
+    expect(safeToSpend(500_000, 700_000)).toBe(-200_000);
+  });
+
+  it("per day divides by the days left, counting today, rounded down to whole pesos", () => {
+    // Nov 20 in Nov 15 – 29: 10 days.
+    expect(perDay(1_355_000, "2026-11-20", "2026-11-29")).toEqual({ kind: "per_day", amount: 135_500, days: 10 });
+    expect(perDay(1_000_050, "2026-11-27", "2026-11-29")).toEqual({ kind: "per_day", amount: 333_300, days: 3 });
+    // The last day: all of it.
+    expect(perDay(50_000, "2026-11-29", "2026-11-29")).toEqual({ kind: "per_day", amount: 50_000, days: 1 });
+  });
+
+  it("says how much over when Safe to spend is below ₱0", () => {
+    expect(perDay(-120_000, "2026-11-20", "2026-11-29")).toEqual({ kind: "over", amount: 120_000 });
   });
 });

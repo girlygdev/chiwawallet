@@ -1,16 +1,32 @@
 import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { formatPeso } from "@/lib/money";
-import type { DashboardNumbers } from "@/lib/money";
+import type { DashboardNumbers, perDay } from "@/lib/money";
 import { formatShortDate } from "@/lib/periods";
 
 /** A source due this period and not logged yet, for the pay prompt. */
 export type DuePay = { id: string; name: string; amount: number; payday: string };
 
-// The Dashboard's hero (dashboard.md §2.2, one sticker per area). It says
-// "Cash now" until Safe to spend exists: Safe to spend is cash now minus
-// what's still due, and nothing can be planned as due before Plan (Week 5),
-// so the card never claims the bills are covered (owner, Nov 23).
-export function CashCard({ numbers, due, today }: { numbers: DashboardNumbers; due: DuePay | null; today: string }) {
+// The Dashboard's hero (dashboard.md §2.2, one sticker per area): Safe to
+// spend (6c) = cash now − what's still due this period, with the per-day
+// pill, the spend bar, the pay prompt, and Carry-in · Income · Cash now.
+// All the numbers come from lib/money.ts on the server.
+export function CashCard({
+  numbers,
+  safe,
+  stillDue,
+  daily,
+  due,
+  today,
+}: {
+  numbers: DashboardNumbers;
+  /** Safe to spend; can be below ₱0. */
+  safe: number;
+  /** This period's unpaid bills, savings, debts and one-offs. */
+  stillDue: number;
+  daily: ReturnType<typeof perDay>;
+  due: DuePay | null;
+  today: string;
+}) {
   const percent = Math.round(numbers.spentShare * 100);
   return (
     <section
@@ -19,10 +35,26 @@ export function CashCard({ numbers, due, today }: { numbers: DashboardNumbers; d
     >
       <div className="flex flex-col gap-1">
         <h2 id="cash-title" className="text-sm font-bold opacity-90">
-          Cash now
+          Safe to spend
         </h2>
-        <p className="font-display text-[44px] leading-none font-semibold">{formatPeso(numbers.cashNow)}</p>
-        <p className="text-sm opacity-90">What you have on hand after everything you&apos;ve logged.</p>
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {/* A minus sign when it's below ₱0 (formatPeso), and the card stays green. */}
+          <span className="font-display text-[44px] leading-none font-semibold">{formatPeso(safe)}</span>
+          {daily.kind === "per_day" ? (
+            <span className="rounded-full bg-green-800 px-2.5 py-1 text-[13px] font-extrabold text-mint">
+              {formatPeso(daily.amount)} / day
+            </span>
+          ) : (
+            <span className="rounded-full bg-bad-bg px-2.5 py-1 text-[13px] font-extrabold text-bad-fg">
+              Over by {formatPeso(daily.amount)}
+            </span>
+          )}
+        </p>
+        <p className="text-sm opacity-90">
+          {stillDue > 0
+            ? `After ${formatPeso(stillDue)} in bills, savings and debts still due this period.`
+            : "Nothing planned is still due this period."}
+        </p>
       </div>
 
       {due && (
@@ -58,12 +90,11 @@ export function CashCard({ numbers, due, today }: { numbers: DashboardNumbers; d
         )}
       </div>
 
-      {/* Three small stats. The spec's third is Cash now, which is already
-          the big number, so it shows Money out instead. */}
+      {/* Three small stats (dashboard.md §2): Carry-in · Income · Cash now. */}
       <dl className="grid grid-cols-3 gap-2 border-t border-white/20 pt-3">
         <Stat label="Carry-in" value={numbers.carryIn} />
         <Stat label="Income" value={numbers.income} />
-        <Stat label="Money out" value={numbers.moneyOut} />
+        <Stat label="Cash now" value={numbers.cashNow} />
       </dl>
     </section>
   );

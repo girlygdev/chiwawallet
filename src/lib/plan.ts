@@ -749,3 +749,35 @@ export function debtItemToPay<T extends { debt_id: string | null; period_start: 
   const start = paydayFor(due, schedule);
   return items.find((i) => i.debt_id === debtId && i.period_start === start) ?? null;
 }
+
+// ---------------------------------------------------------------------------
+// The Dashboard's Due this period (dashboard.md §2, 6c)
+// ---------------------------------------------------------------------------
+
+/**
+ * When an item is due this period: a bill's due date that the period pays,
+ * a scheduled debt payment's due date in it, or a one-off's Needed by.
+ * Pots (and extra debt payments) have no date: "Planned".
+ */
+export function itemDueOn(
+  item: { bill_id: string | null; debt_id: string | null; pot_id: string | null; needed_by: string | null; origin: PlanOrigin },
+  ctx: { period: Period; schedule: PaySchedule; bill?: (BillTiming & { pay_slot: string }) | null; debt?: DebtTerms | null },
+): string | null {
+  if (item.bill_id && ctx.bill) return billDueInPeriod(ctx.bill, ctx.period, ctx.schedule);
+  if (item.debt_id && item.origin === "recurring" && ctx.debt) {
+    return debtSchedule(ctx.debt).find((p) => paydayFor(p.due, ctx.schedule) === ctx.period.start)?.due ?? null;
+  }
+  if (item.pot_id || item.debt_id) return null;
+  return item.needed_by;
+}
+
+/**
+ * Due this period's rows: unpaid items by due date (undated ones, like
+ * pots, after them), then paid ones by when they were paid; at most five.
+ */
+export function dueList<T extends { dueOn: string | null; paid_at: string | null; paidOn: string | null }>(items: T[], max = 5): T[] {
+  const byDate = (a: string | null, b: string | null) => (a ?? "9999-12-31").localeCompare(b ?? "9999-12-31");
+  const unpaid = items.filter((i) => i.paid_at == null).sort((a, b) => byDate(a.dueOn, b.dueOn));
+  const paid = items.filter((i) => i.paid_at != null).sort((a, b) => byDate(a.paidOn, b.paidOn));
+  return [...unpaid, ...paid].slice(0, max);
+}

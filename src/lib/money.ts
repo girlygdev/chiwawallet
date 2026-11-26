@@ -2,6 +2,7 @@
 // dates"). These two functions are the only places pesos are turned into
 // centavos or back, so floating point never touches an amount.
 
+import { differenceInCalendarDays, parseISO } from "date-fns";
 import { cashOnHand, periodTotals } from "@/lib/transactions";
 
 // U+2212, the real minus sign used in the designs ("−₱180").
@@ -112,4 +113,36 @@ export function dashboardNumbers(
     cashNow: periodMoney - moneyOut,
     spentShare,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Safe to spend (dashboard.md §1, week-6-tasks.md 6c)
+// ---------------------------------------------------------------------------
+
+/**
+ * Still due: this period's unpaid planned money out, the bills, savings,
+ * debt payments and one-offs (\`tickable\` plan items, owner Nov 26).
+ * Spending budgets and income aren't due; they're measured by spending.
+ */
+export function stillDueTotal(items: { tickable: boolean; paid_at: string | null; planned_amount: number }[]): number {
+  return items.reduce((sum, i) => (i.tickable && i.paid_at == null ? sum + i.planned_amount : sum), 0);
+}
+
+/** Safe to spend: cash now − still due. Below 0 when what's due is more than what's on hand. */
+export function safeToSpend(cashNow: number, stillDue: number): number {
+  return cashNow - stillDue;
+}
+
+/**
+ * The per-day pill: Safe to spend ÷ days left, counting today (Manila
+ * dates), rounded down to whole pesos. Below 0: "Over by ₱X" instead.
+ */
+export function perDay(
+  safe: number,
+  today: string,
+  periodEnd: string,
+): { kind: "per_day"; amount: number; days: number } | { kind: "over"; amount: number } {
+  if (safe < 0) return { kind: "over", amount: -safe };
+  const days = Math.max(1, differenceInCalendarDays(parseISO(periodEnd), parseISO(today)) + 1);
+  return { kind: "per_day", amount: Math.floor(safe / days / 100) * 100, days };
 }

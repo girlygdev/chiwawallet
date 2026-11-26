@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CashCard } from "@/components/dashboard/cash-card";
+import { DueCard } from "@/components/dashboard/due-card";
 import { IncomeCard } from "@/components/dashboard/income-card";
 import { RecentActivity, type RecentRow } from "@/components/dashboard/recent-activity";
 import { PageHeader } from "@/components/shell/page-header";
@@ -9,7 +10,9 @@ import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import type { ActivityRow } from "@/lib/activity";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { duePay, expectedForPeriod, isActiveOn, receivedSourceIds } from "@/lib/income";
-import { dashboardNumbers } from "@/lib/money";
+import { dashboardNumbers, perDay, safeToSpend, stillDueTotal } from "@/lib/money";
+import { dueList } from "@/lib/plan";
+import { openCurrentPlan } from "@/lib/plan-periods";
 import {
   formatPeriodRange,
   type PaySlot,
@@ -31,8 +34,8 @@ const RECENT_ROWS = 4;
 // The Dashboard (dashboard.md, week-3-tasks.md 3f): this period's dates, Cash
 // now with the spend bar and the pay prompt, income expected vs received, and
 // Recent activity. Its money in and money out match Activity's totals.
-// Due this period, Spending, Savings pots, 50/30/20 and Safe to spend need
-// plan items, pots and debts (Weeks 4-5).
+// Safe to spend and Due this period come from the current period's plan
+// items (6c). Spending, Savings pots and 50/30/20 come in Week 7.
 export default function DashboardPage() {
   return (
     <PageShell>
@@ -86,6 +89,13 @@ async function DashboardBody() {
   // only the four transaction types.
   type Rows = Parameters<typeof dashboardNumbers>[1];
   const numbers = dashboardNumbers(budget.opening_balance, earlierRows.data as Rows, periodRows.data as Rows);
+
+  // Safe to spend (dashboard.md §1): cash now − what's still due, from this
+  // period's plan items, opened (created and synced) like the Plan does.
+  const current = await openCurrentPlan(supabase, budget, today);
+  const planned = current.items.filter((i) => i.tickable);
+  const stillDue = stillDueTotal(planned);
+  const safe = safeToSpend(numbers.cashNow, stillDue);
 
   // Recent rows open Edit transaction, whose Delete link shows the effect on
   // the row's own period. Rows from earlier periods need those periods' rows
@@ -147,9 +157,13 @@ async function DashboardBody() {
         <div className="flex flex-col gap-4 md:gap-6">
           <CashCard
             numbers={numbers}
+            safe={safe}
+            stillDue={stillDue}
+            daily={perDay(safe, today, period.end)}
             due={due && { id: due.id, name: due.name, amount: due.amount, payday: period.start }}
             today={today}
           />
+          <DueCard items={dueList(planned)} periodStart={period.start} />
           <IncomeCard
             received={numbers.income}
             expected={expectedForPeriod(sources.data!, schedule, period)}

@@ -37,7 +37,11 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
     - The desktop **Mark paid** button.
   - **Debts:** **Mark Nov 25 paid** on the debt card.
   - Done when: ticking Meralco on the Plan shows it paid on Plan and Bills, and Undo brings it back.
-- [ ] **6c. Safe to spend and Due this period on the Dashboard.**
+- [x] **6c. Safe to spend and Due this period on the Dashboard.** Done Nov 26 (checked in a browser on local Supabase). `stillDueTotal()`, `safeToSpend()` and `perDay()` in `lib/money.ts`; `itemDueOn()` and `dueList()` in `lib/plan.ts`; `components/dashboard/due-card.tsx`.
+  - Unpaid one-offs count in Still due, and per day rounds down to whole pesos (owner, Nov 26).
+  - Variable bills ask for the amount here too.
+  - The four-card desktop stat row moved to Week 7.
+  - Known: on a 390px phone, a Due row's detail line is cut short beside the Mark paid pill.
   - `lib/money.ts`, tests first:
     - **still due:** unpaid bill, savings and debt items this period
     - **Safe to spend:** cash now − still due

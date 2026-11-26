@@ -2,6 +2,41 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6c Safe to spend and Due this period
+- **What:**
+  - **Safe to spend replaces Cash now as the Dashboard hero:**
+    - the amount, with a per-day pill ("₱1,355 / day"), or "Over by ₱X" when it's below ₱0
+    - "After ₱X in bills, savings and debts still due this period."
+    - Carry-in · Income · Cash now below
+  - **A Due this period card:**
+    - unpaid bills, debt payments, savings and one-offs by due date, then paid ones, at most five
+    - each row has Mark paid (Add to pot for savings), and the row opens the item on the Plan
+    - the empty card says "No bills or debts yet"
+  - **Opening the current period:** the Dashboard opens and syncs it like the Plan.
+- **Files:**
+  - New: `src/components/dashboard/due-card.tsx`.
+  - Edited:
+    - `src/lib/money.ts`: `stillDueTotal()`, `safeToSpend()`, `perDay()`
+    - `tests/lib/money.test.ts`
+    - `src/lib/plan.ts`: `itemDueOn()`, `dueList()`
+    - `tests/lib/plan.test.ts`
+    - `src/lib/plan-periods.ts`: `openCurrentPlan` items get `section`, `tickable`, `dueOn` and `varies`
+    - `src/components/dashboard/cash-card.tsx`
+    - `src/app/(app)/dashboard/page.tsx`
+    - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - Unpaid one-offs count in Still due.
+  - Per day rounds down to whole pesos.
+  - Variable bills ask for the amount.
+  - The desktop stat row waits for Week 7.
+- **Tests:** written first, 9 new unit tests (525 pass), and 285 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - cash now ₱2,245 − still due ₱4,000 = Safe to spend −₱1,755, with "Over by ₱1,755" (Main job's pay wasn't logged yet)
+  - Mark paid on SPayLater from the Due list: still due ₱4,000 → ₱0, cash now ₱2,245 → −₱1,755, Safe to spend unchanged, and the row moved down as "Paid Nov 26"
+  - no console errors
+- **Week 6 "Done when":** marking an item paid updates the Dashboard. ✅
+- **Known:** on a 390px phone, a Due row's detail ("Debt · Due No…") is cut short beside the pill.
+- **Next:** 6d-1, the Transfer tab for pots.
+
 ## 2026-11-26 · Week 6 · 6b-2 Mark paid on Bills and Debts
 - **What:**
   - **Bills:**

@@ -7,11 +7,13 @@ import {
   budgetLeft,
   categoryBudgets,
   debtItemToPay,
+  dueList,
   editImpact,
   generatePlan,
   incomeStatus,
   isEmptyPlan,
   isTickable,
+  itemDueOn,
   missingStarterItems,
   oneOffImpact,
   paidOnDate,
@@ -929,5 +931,44 @@ describe("debtItemToPay (6b-2)", () => {
   it("is empty when that period has no payable item (not open, paid, or closed)", () => {
     expect(debtItemToPay("spay", "2026-12-25", SEMI, items)).toBeNull();
     expect(debtItemToPay("spay", null, SEMI, items)).toBeNull();
+  });
+});
+
+describe("itemDueOn (6c)", () => {
+  const none = { bill_id: null, debt_id: null, pot_id: null, needed_by: null, origin: "recurring" as const };
+
+  it("is a bill's due date this period pays", () => {
+    const meralco = bill("meralco", 20, "payday_1");
+    expect(itemDueOn({ ...none, bill_id: "meralco" }, { period: NOV_15, schedule: SEMI, bill: meralco })).toBe("2026-11-20");
+  });
+
+  it("is a scheduled debt payment's due date in this period", () => {
+    const debt = { total_amount: 1_200_000, payment_type: "installments" as const, num_payments: 3, payment_amount: 400_000, first_due_date: "2026-11-25" };
+    expect(itemDueOn({ ...none, debt_id: "d" }, { period: NOV_15, schedule: SEMI, debt })).toBe("2026-11-25");
+    expect(itemDueOn({ ...none, debt_id: "d" }, { period: NOV_30, schedule: SEMI, debt })).toBeNull();
+  });
+
+  it("is a one-off's Needed by, and nothing for a pot", () => {
+    expect(itemDueOn({ ...none, origin: "one_off", needed_by: "2026-11-28" }, { period: NOV_15, schedule: SEMI })).toBe("2026-11-28");
+    expect(itemDueOn({ ...none, pot_id: "p" }, { period: NOV_15, schedule: SEMI })).toBeNull();
+  });
+});
+
+describe("dueList (6c)", () => {
+  const row = (id: string, dueOn: string | null, paidOn: string | null = null) => ({
+    id,
+    dueOn,
+    paid_at: paidOn ? `${paidOn}T00:00:00Z` : null,
+    paidOn,
+  });
+
+  it("lists unpaid items by due date (undated ones after), then paid ones", () => {
+    const items = [row("pot", null), row("debt", "2026-11-25"), row("paid", "2026-11-18", "2026-11-18"), row("bill", "2026-11-22")];
+    expect(dueList(items).map((i) => i.id)).toEqual(["bill", "debt", "pot", "paid"]);
+  });
+
+  it("shows at most five", () => {
+    const items = Array.from({ length: 7 }, (_, n) => row(`b${n}`, `2026-11-2${n}`));
+    expect(dueList(items)).toHaveLength(5);
   });
 });
