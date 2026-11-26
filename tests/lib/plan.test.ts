@@ -59,6 +59,9 @@ import {
   starterPlan,
   suggestedPeriodStart,
   dueInDays,
+  dashboardNeighbors,
+  nextPeriodLine,
+  nextPeriodSummary,
   spendingTotal,
   stillDueBreakdown,
 } from "@/lib/plan";
@@ -1409,5 +1412,57 @@ describe("spendingTotal: Spending vs plan's heading total", () => {
         { planned_amount: 100_000, spent: null },
       ]),
     ).toEqual({ spent: 475_000, planned: 1_050_000 });
+  });
+});
+
+describe("dashboardNeighbors: the Dashboard's period arrows (7d-2)", () => {
+  it("points to the previous and next periods the Plan can open", () => {
+    expect(dashboardNeighbors("2026-11-26", SEMI, "2026-10-01")).toEqual({ prev: "2026-10-30", next: "2026-11-30" });
+  });
+
+  it("has no previous period in the first one", () => {
+    expect(dashboardNeighbors("2026-11-26", SEMI, "2026-11-15")).toEqual({ prev: null, next: "2026-11-30" });
+  });
+});
+
+describe("nextPeriodLine: the Next period card", () => {
+  it("says what's expected and what's due", () => {
+    expect(nextPeriodLine(3_300_000, ["Electricity", "MP2"])).toBe("₱33,000 expected · Electricity and MP2 due");
+  });
+
+  it("leaves out an empty half", () => {
+    expect(nextPeriodLine(3_300_000, [])).toBe("₱33,000 expected");
+    expect(nextPeriodLine(0, ["Electricity"])).toBe("Electricity due");
+  });
+
+  it("names three, then counts the rest", () => {
+    expect(nextPeriodLine(0, ["Electricity", "Water", "MP2", "Rent", "SPayLater"])).toBe("Electricity, Water, MP2 and 2 more due");
+    expect(nextPeriodLine(0, ["Electricity", "Water", "MP2", "Rent"])).toBe("Electricity, Water, MP2 and 1 more due");
+  });
+
+  it("is empty with neither", () => {
+    expect(nextPeriodLine(0, [])).toBe("");
+  });
+});
+
+describe("nextPeriodSummary: what the Next period card is made from", () => {
+  const i = (name: string, section: string, planned_amount: number) => ({ name, section: section as "bills", planned_amount });
+
+  it("adds the income and names what's due in Plan order", () => {
+    expect(
+      nextPeriodSummary([
+        i("Main job", "income", 2_500_000),
+        i("Side gig", "income", 800_000),
+        i("MP2", "savings", 50_000),
+        i("Groceries", "spending", 600_000),
+        i("SPayLater", "debts", 200_000),
+        i("Electricity", "bills", 250_000),
+        i("Gift", "one_off", 100_000),
+      ]),
+    ).toEqual({ expected: 3_300_000, names: ["Electricity", "SPayLater", "MP2", "Gift"] });
+  });
+
+  it("is empty with nothing planned", () => {
+    expect(nextPeriodSummary([])).toEqual({ expected: 0, names: [] });
   });
 });

@@ -1224,3 +1224,54 @@ export function dueInDays(dueOn: string, today: string): string {
 export function spendingTotal(items: { planned_amount: number; spent: number | null }[]): { spent: number; planned: number } {
   return items.reduce((t, i) => ({ spent: t.spent + (i.spent ?? 0), planned: t.planned + i.planned_amount }), { spent: 0, planned: 0 });
 }
+
+/**
+ * The Dashboard's period arrows (app-shell.md §4, 7d-2): the starts of the
+ * periods before and after the current one, from the Plan's own list, so
+ * an arrow never points somewhere the Plan won't open. No previous one in
+ * the first period. The arrows open these on the Plan (decision 2).
+ */
+export function dashboardNeighbors(
+  today: string,
+  schedule: PaySchedule,
+  firstStart: string | null,
+): { prev: string | null; next: string | null } {
+  const periods = plannablePeriods(today, schedule, firstStart);
+  const current = periods.findIndex((p) => p.start === getPeriod(today, schedule).start);
+  return { prev: periods[current - 1]?.start ?? null, next: periods[current + 1]?.start ?? null };
+}
+
+/** The Next period card names up to three items, then counts the rest. */
+const NEXT_NAMES = 3;
+
+/**
+ * The Next period card's line (dashboard.md §3): "₱33,000 expected ·
+ * Electricity and MP2 due", either half alone, or empty with neither.
+ */
+export function nextPeriodLine(expected: number, names: string[]): string {
+  const rest = names.length - NEXT_NAMES;
+  const due =
+    names.length === 0
+      ? null
+      : rest > 0
+        ? `${names.slice(0, NEXT_NAMES).join(", ")} and ${rest} more due`
+        : `${joinNames(names)} due`;
+  return [expected > 0 ? `${formatPeso(expected)} expected` : null, due].filter(Boolean).join(" · ");
+}
+
+/** The order the Next period card names things in: the Plan's sections. */
+const DUE_ORDER: PlanSection[] = ["bills", "debts", "savings", "one_off"];
+
+/**
+ * The Next period card's numbers (7d-2), from that period's items (live,
+ * or generatePlan()'s if it isn't open yet): the income expected and the
+ * names of what's due, bills first, as on the Plan. Spending budgets aren't due.
+ */
+export function nextPeriodSummary(items: { name: string; section: PlanSection; planned_amount: number }[]): {
+  expected: number;
+  names: string[];
+} {
+  const expected = items.filter((i) => i.section === "income").reduce((sum, i) => sum + i.planned_amount, 0);
+  const names = DUE_ORDER.flatMap((section) => items.filter((i) => i.section === section).map((i) => i.name));
+  return { expected, names };
+}

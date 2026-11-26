@@ -2,6 +2,20 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 7 · 7d-2 Dashboard: period arrows and Next period
+- **What:**
+  - **Period switcher:** previous and next arrows around the Dashboard's dates (44px on phones, 40px on desktop), opening those periods on the Plan. In the first period the previous arrow is shown disabled.
+  - **Next period** (desktop side column, mint): the dates, "₱25,000 expected · Electricity due" and Plan ahead. Hidden when nothing is expected or due.
+  - **Phones:** "Plan next payday · Nov 30 – Dec 14" under Recent activity.
+- **Files:** src/lib/plan.ts, src/lib/plan-periods.ts, src/components/dashboard/period-switcher.tsx (new), next-period-card.tsx (new), src/app/(app)/dashboard/page.tsx, tests/lib/plan.test.ts, docs/week-7-tasks.md
+- **Decisions:**
+  - The arrows come from the Plan's own `plannablePeriods()`, so they never point somewhere the Plan won't open.
+  - The card never opens (creates) the next period. Already open: its live items, with edits and one-offs. Not open yet: `generatePlan()` from the sources `openCurrentPlan` already loaded, so at most two more queries. Bills and Savings don't ask for it.
+  - Expected = the next period's income items; names in Plan order (bills, debts, savings, one-offs), three then "and N more".
+- **Tests:** 8 new Vitest cases; lint, typecheck and `npm run test` pass (632). Browser: the fresh account showed prev disabled, next → `/plan?start=2026-11-30`, the card went from "₱25,000 expected" to "· Electricity due" after adding a bill, and stayed the same once the next arrow opened that period; the main account's previous arrow opens Oct 30 on the Plan and its card read "Meralco and Travel due"; phones show the link, not the card.
+- **AI notes:** Nothing went wrong this time; the card's numbers match before and after the period is opened.
+- **Next:** 7e, check Savings and Debts against their specs.
+
 ## 2026-11-26 · Week 7 · 7d-1 follow-up: when "Create a savings pot" ticks
 - **What:** The step now ticks once any pot has money in it or a target. Every account gets two empty starter pots at sign-up (Emergency Fund, Sinking Funds), so it used to be ticked on day one. The unticked step goes to Savings (to fill those pots in) instead of the add-pot sheet. One fewer query: it uses the pots the Dashboard already loads.
 - **Files:** src/lib/checklist.ts, src/app/(app)/dashboard/page.tsx, src/components/dashboard/get-started-card.tsx, tests/lib/checklist.test.ts, docs/week-7-tasks.md

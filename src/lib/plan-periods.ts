@@ -11,8 +11,10 @@ import { potBalance } from "@/lib/pots";
 import {
   generatePlan,
   incomeStatus,
+  nextPeriodSummary,
   type PlanOrigin,
   type PlanSection,
+  type SectionItem,
   type PlanSources,
   type PlanSummary,
   type StarterItem,
@@ -368,6 +370,9 @@ export type CurrentItem = {
   leftAfter: number | null;
 };
 
+/** The Dashboard's Next period card (7d-2): the next period and what it holds. */
+export type NextPreview = { period: Period; expected: number; names: string[] };
+
 /**
  * The current period's live items, paid ones with their payment (6b-2), for
  * Bills' "still due" and "Paid this period" and Savings' "Due this period" (5h-3). Opens the period the way
@@ -379,7 +384,9 @@ export async function openCurrentPlan(
   supabase: Client,
   budget: Budget,
   today: string,
-): Promise<{ period: Period; items: CurrentItem[] }> {
+  /** withNext: also preview the next period, for the Dashboard (7d-2). */
+  options: { withNext?: boolean } = {},
+): Promise<{ period: Period; items: CurrentItem[]; next: NextPreview | null }> {
   const row = await getOrCreatePeriod(supabase, budget, today);
   const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
   const schedule = scheduleFromBudget(budget);
@@ -443,7 +450,59 @@ export async function openCurrentPlan(
       leftAfter: debt && i.paid_at == null ? debtLeftAfter(debtLeft(debt), i.planned_amount) : null,
     };
   });
-  return { period, items };
+  const next = options.withNext ? await previewNextPeriod(supabase, budget, period, sources, groupOf) : null;
+  return { period, items, next };
+}
+
+/**
+ * The period after `current` for the Next period card (7d-2), without
+ * opening it. Already open (visited on the Plan): its live items, with any
+ * edits and one-offs. Not open yet: what generatePlan() would make today,
+ * from the sources already loaded. None if those failed to load.
+ */
+async function previewNextPeriod(
+  supabase: Client,
+  budget: Budget,
+  current: Period,
+  sources: Awaited<ReturnType<typeof loadSources>> | null,
+  groupOf: Map<string, string | null>,
+): Promise<NextPreview | null> {
+  const schedule = scheduleFromBudget(budget);
+  const period = getPeriod(dayAfter(current.end), schedule);
+  const { data: row, error } = await supabase
+    .from("budget_periods")
+    .select("id")
+    .eq("budget_id", budget.id)
+    .eq("start_date", period.start)
+    .maybeSingle();
+  if (error) fail("load the next period", error);
+
+  type Row = Omit<SectionItem, "group"> & { name: string; planned_amount: number; category_id: string | null; budget_group: string | null };
+  let rows: Row[];
+  if (row) {
+    const { data, error: itemsError } = await supabase
+      .from("plan_items")
+      .select("name, planned_amount, origin, income_source_id, bill_id, pot_id, debt_id, category_id, budget_group")
+      .eq("period_id", row.id)
+      .is("deleted_at", null)
+      .order("created_at");
+    if (itemsError) fail("load the next period's plan", itemsError);
+    // The check constraint allows only the plan origins.
+    rows = data!.map((i) => ({ ...i, origin: i.origin as PlanOrigin }));
+  } else if (sources) {
+    rows = generatePlan(period, schedule, sources).map((i) => ({ ...i, budget_group: null }));
+  } else {
+    return null;
+  }
+
+  const summary = nextPeriodSummary(
+    rows.map((i) => ({
+      name: i.name,
+      planned_amount: i.planned_amount,
+      section: planSection({ ...i, group: ((i.category_id ? groupOf.get(i.category_id) : i.budget_group) ?? null) as BudgetGroup | null }),
+    })),
+  );
+  return { period, ...summary };
 }
 
 /** A place Give leftover a job can send money (6f): a pot or an active debt. */

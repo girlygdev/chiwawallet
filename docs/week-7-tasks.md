@@ -42,9 +42,9 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
     - Spending vs plan
     - Recent activity as a table
   - **The side column:** Savings pots, with "Manage" and "+₱3,000 this period", and the 50/30/20 check.
-- [ ] **7d. Dashboard: first-day state and the period switcher** (`dashboard.md` §4, `app-shell.md` §4). Split in two (owner, Nov 26):
+- [x] **7d. Dashboard: first-day state and the period switcher** (`dashboard.md` §4, `app-shell.md` §4). Split in two (owner, Nov 26):
   - [x] **7d-1. First-day state.** Done Nov 26 (checked in a browser on a fresh local account, 390 and 1280px). `checklistSteps()` in `lib/checklist.ts`, `periodDayLine()` in `lib/periods.ts`; `get-started-card.tsx`, `empty-card.tsx`; Dismiss is a cookie (`gs_dismissed`, per browser, owner Nov 26). The card shows in any period until all five are done or it's dismissed; the h1 stays "Your payday at a glance". Create a savings pot ticks once a pot has money or a target (open question 5).
-  - [ ] **7d-2. Period arrows and Next period.** The arrows open the previous and next periods on the Plan (decision 2).
+  - [x] **7d-2. Period arrows and Next period.** Done Nov 26 (checked in a browser on local Supabase, 1280 and 390px). `dashboardNeighbors()`, `nextPeriodLine()`, `nextPeriodSummary()` in `lib/plan.ts`; `openCurrentPlan(…, { withNext: true })` previews the next period without opening it; `period-switcher.tsx`, `next-period-card.tsx`. The arrows open the previous and next periods on the Plan (decision 2); the previous one is disabled in the first period.
   - **Next period:** the desktop side column's mint card ("Nov 30 – Dec 14", "₱33,000 expected · Electricity and MP2 due", Plan ahead) and the mobile "Plan next payday" link (decision 4), both from the next period (moved from 7c, owner Nov 26).
   - **The Get started checklist** (an `<ol>`, "1 of 5 done"), and the empty section cards.
   - **The period switcher's arrows.** See open question 2.

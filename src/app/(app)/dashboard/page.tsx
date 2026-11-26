@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CashCard, PayPrompt } from "@/components/dashboard/cash-card";
 import { DueCard } from "@/components/dashboard/due-card";
 import { GetStartedCard } from "@/components/dashboard/get-started-card";
+import { NextPeriodCard } from "@/components/dashboard/next-period-card";
+import { PeriodSwitcher } from "@/components/dashboard/period-switcher";
 import { type PotCard, PotsCard } from "@/components/dashboard/pots-card";
 import { type SpendingRow, SpendingCard } from "@/components/dashboard/spending-card";
 import { SplitCard } from "@/components/dashboard/split-card";
@@ -19,7 +22,7 @@ import { checklistSteps, potStarted } from "@/lib/checklist";
 import { isChecklistDismissed } from "@/lib/checklist-cookie";
 import { duePay, expectedForPeriod, isActiveOn, receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers, perDay, periodMoneyLine, safeToSpend, spentSplit, stillDueTotal } from "@/lib/money";
-import { dueList, spendingTotal, stillDueBreakdown, topBudgets } from "@/lib/plan";
+import { dashboardNeighbors, dueList, nextPeriodLine, spendingTotal, stillDueBreakdown, topBudgets } from "@/lib/plan";
 import { closeEndedPeriodsOnVisit, openCurrentPlan } from "@/lib/plan-periods";
 import { potBalance, potCardLine, potPeriodLine } from "@/lib/pots";
 import {
@@ -48,6 +51,7 @@ const RECENT_ROWS = 5;
 // items (6c), then Spending and Savings pots (7a) and the 50/30/20 check
 // (7b). Desktop (7c, §3): a stat row, then a main and a side column.
 // First-day state (7d-1, §4): Get started, the empty cards, "Day 1 of 15".
+// Period arrows to the Plan and Next period (7d-2).
 export default function DashboardPage() {
   return (
     <PageShell>
@@ -108,7 +112,7 @@ async function DashboardBody() {
 
   // Safe to spend (dashboard.md §1): cash now − what's still due, from this
   // period's plan items, opened (created and synced) like the Plan does.
-  const current = await openCurrentPlan(supabase, budget, today);
+  const current = await openCurrentPlan(supabase, budget, today, { withNext: true });
   const planned = current.items.filter((i) => i.tickable);
   const stillDue = stillDueTotal(planned);
   const safe = safeToSpend(numbers.cashNow, stillDue);
@@ -239,21 +243,22 @@ async function DashboardBody() {
   const isFirstPeriod = firstPeriod.data?.start_date === period.start;
   // Nothing logged and nothing planned yet: "Your starting balance."
   const fresh = periodRows.data!.length === 0 && planned.length === 0;
+  // The period arrows and Next period (7d-2); both open periods on the Plan.
+  const neighbors = dashboardNeighbors(today, schedule, firstPeriod.data?.start_date ?? null);
+  const next = current.next;
+  const nextLine = next ? nextPeriodLine(next.expected, next.names) : "";
   const duePrompt = due && { id: due.id, name: due.name, amount: due.amount, payday: period.start };
   const daily = perDay(safe, today, period.end);
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
-      {/* The period switcher's text (app-shell.md §4). Its arrows come with
-          Plan (Week 5), when moving to another period opens that period's plan. */}
-      <section aria-label="This period" className="flex flex-col">
-        <p className="font-display text-2xl leading-tight font-semibold text-ink">
-          {formatPeriodRange(period.start, period.end)}
-        </p>
-        <p className="text-[13px] font-bold text-text-3">
-          {isFirstPeriod ? `Your first payday period · ${periodDayLine(period, today)}` : periodStatusLine(period, schedule, today)}
-        </p>
-      </section>
+      <PeriodSwitcher
+        start={period.start}
+        end={period.end}
+        status={isFirstPeriod ? `Your first payday period · ${periodDayLine(period, today)}` : periodStatusLine(period, schedule, today)}
+        prev={neighbors.prev}
+        next={neighbors.next}
+      />
 
       {/* Desktop (§3): the pay prompt as a banner, then the stat row; phones
           have both inside the Cash card. */}
@@ -292,6 +297,8 @@ async function DashboardBody() {
           <PotsCard pots={pots} />
           {/* Hidden until money out reaches ₱1,000 (dashboard.md §5). */}
           {split.show && <SplitCard groups={split.groups} />}
+          {/* Hidden until there's something in it (§4). */}
+          {next && nextLine && <NextPeriodCard start={next.period.start} end={next.period.end} line={nextLine} />}
           <IncomeCard
             received={numbers.income}
             expected={expectedForPeriod(sources.data!, schedule, period)}
@@ -303,6 +310,15 @@ async function DashboardBody() {
         {/* Each row has exactly one category; see the Activity page. */}
         <div className="lg:col-start-1 lg:row-start-3">
           <RecentActivity rows={recentWithImpact} today={today} />
+          {/* Phones (dashboard.md fix #5, decision 4): the next period's plan. */}
+          {next && (
+            <Link
+              href={`/plan?start=${next.period.start}`}
+              className="mt-2 flex min-h-11 items-center justify-center gap-1 rounded-md text-sm font-extrabold text-link outline-link hover:text-link-hover focus-visible:outline-2 lg:hidden"
+            >
+              Plan next payday · {formatPeriodRange(next.period.start, next.period.end)}
+            </Link>
+          )}
         </div>
       </div>
     </div>
