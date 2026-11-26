@@ -2,6 +2,19 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6i Live check (Week 6 done)
+- **What:** the owner checked Week 6 on the live site (`358adf4`). The checklist covered the payday screen, Safe to spend and Due this period, Mark paid and Undo, spending bars, the Transfer tab, Mark paid and Pay extra on Debts, and Give leftover a job. All fine ("tick it").
+- **Files:** `docs/week-6-tasks.md` (6i ticked), `docs/mvp-brief.md` (Week 6's checkboxes ticked), `docs/dev-log.md`.
+- **Decisions:** none.
+- **Tests:** at `358adf4`, 583 unit and 292 database tests pass. Lint, typecheck and the build pass. Week 6's one migration (6a) is live.
+- **Known, carried forward:**
+  - a debt payment cleared by extras reads "paid from Jan 15 payday"
+  - "₱575 of ₱549 paid" when a group is paid above plan
+  - the Due row's detail is cut short beside the pill on a 390px phone
+  - a closed period with nothing planned still shows the empty-plan card
+  - the Dashboard's desktop stat row, pot progress and 50/30/20 are Week 7
+- **Next:** Week 7, savings, debts and the dashboard.
+
 ## 2026-11-26 · Week 6 · 6h-2 The payday screen
 - **What:** `/payday?start=<the period that ended>` (payday-rollover.md). The Dashboard and the Plan redirect there when 6h-1 leaves a period waiting. The screen has:
   - **The header:** the mascot, "IT'S PAYDAY", and "Nov 15 – 29 has started" (focused).

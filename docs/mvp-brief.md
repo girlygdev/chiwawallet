@@ -287,12 +287,12 @@ Each task fits in one session and ends with something you can check. Deploy from
 
 **Done when:** test data across three periods gives correct carry-over, and marking an item paid updates the dashboard.
 
-- [ ] Mark paid on a plan item creates the matching transaction
-- [ ] The add sheet's Savings tab becomes **Transfer** (decided Nov 24): To a pot, From a pot, Pot to pot (net ₱0 to cash), and To a debt (a planned payment when one is due this period, otherwise an extra payment); plus Pay extra on Debts. Uses the locked "Debt payment" category (Needs, added in Week 5's 5a) for planned payments; extra payments keep "Extra debt payment" (Savings & debt payoff)
-- [ ] Planned vs actual per item and per group on the Plan screen
-- [ ] Give leftover a job (`plan.md` §7): assign what's not assigned yet to pots and debts as `assigned` plan items (moved from Week 5, Nov 25)
-- [ ] Pure function for carry-over, with Vitest cases for surplus, overspend and zero
-- [ ] Close a period and carry the result into the next; first period starts from the opening balance
+- [x] Mark paid on a plan item creates the matching transaction
+- [x] The add sheet's Savings tab becomes **Transfer** (decided Nov 24): To a pot, From a pot, Pot to pot (net ₱0 to cash), and To a debt (a planned payment when one is due this period, otherwise an extra payment); plus Pay extra on Debts. Uses the locked "Debt payment" category (Needs, added in Week 5's 5a) for planned payments; extra payments keep "Extra debt payment" (Savings & debt payoff)
+- [x] Planned vs actual per item and per group on the Plan screen
+- [x] Give leftover a job (`plan.md` §7): assign what's not assigned yet to pots and debts as `assigned` plan items (moved from Week 5, Nov 25)
+- [x] Pure function for carry-over, with Vitest cases for surplus, overspend and zero
+- [x] Close a period and carry the result into the next; first period starts from the opening balance
 
 ### Week 7: Savings, debts and dashboard
 

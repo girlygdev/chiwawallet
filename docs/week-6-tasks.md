@@ -112,7 +112,7 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
     - "Your new period is ready"
     - the overspent version
   - Done when: the three-period test data gives the right carry-over, and a real payday shows the screen once.
-- [ ] **6i. Live check.** Push, then mark this period's bills paid on your phone and watch Safe to spend.
+- [x] **6i. Live check.** Push, then mark this period's bills paid on your phone and watch Safe to spend. Done Nov 26: the owner checked the live site (`358adf4`) and said "tick it".
 
 ## From Week 5
 
