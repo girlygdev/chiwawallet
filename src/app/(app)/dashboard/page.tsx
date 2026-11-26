@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { CashCard } from "@/components/dashboard/cash-card";
+import { CashCard, PayPrompt } from "@/components/dashboard/cash-card";
 import { DueCard } from "@/components/dashboard/due-card";
 import { type PotCard, PotsCard } from "@/components/dashboard/pots-card";
 import { type SpendingRow, SpendingCard } from "@/components/dashboard/spending-card";
 import { SplitCard } from "@/components/dashboard/split-card";
+import { StatRow } from "@/components/dashboard/stat-row";
 import { IncomeCard } from "@/components/dashboard/income-card";
 import { RecentActivity, type RecentRow } from "@/components/dashboard/recent-activity";
 import { PageHeader } from "@/components/shell/page-header";
@@ -14,10 +15,10 @@ import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import type { ActivityRow } from "@/lib/activity";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { duePay, expectedForPeriod, isActiveOn, receivedSourceIds } from "@/lib/income";
-import { dashboardNumbers, perDay, safeToSpend, spentSplit, stillDueTotal } from "@/lib/money";
-import { dueList, topBudgets } from "@/lib/plan";
+import { dashboardNumbers, perDay, periodMoneyLine, safeToSpend, spentSplit, stillDueTotal } from "@/lib/money";
+import { dueList, spendingTotal, stillDueBreakdown, topBudgets } from "@/lib/plan";
 import { closeEndedPeriodsOnVisit, openCurrentPlan } from "@/lib/plan-periods";
-import { potBalance, potCardLine } from "@/lib/pots";
+import { potBalance, potCardLine, potPeriodLine } from "@/lib/pots";
 import {
   formatPeriodRange,
   type PaySlot,
@@ -33,15 +34,15 @@ import { editImpact } from "@/lib/transactions";
 
 export const metadata: Metadata = { title: "Dashboard · Chiwawallet" };
 
-/** Recent activity shows the last four (dashboard.md §2.7). */
-const RECENT_ROWS = 4;
+/** Recent activity: the last four on phones (dashboard.md §2.7), five in the desktop table (§3). */
+const RECENT_ROWS = 5;
 
 // The Dashboard (dashboard.md, week-3-tasks.md 3f): this period's dates, Cash
 // now with the spend bar and the pay prompt, income expected vs received, and
 // Recent activity. Its money in and money out match Activity's totals.
 // Safe to spend and Due this period come from the current period's plan
 // items (6c), then Spending and Savings pots (7a) and the 50/30/20 check
-// (7b). The desktop layout comes next in Week 7.
+// (7b). Desktop (7c, §3): a stat row, then a main and a side column.
 export default function DashboardPage() {
   return (
     <PageShell>
@@ -112,13 +113,14 @@ async function DashboardBody() {
   const [categoryRows, potRows, savingRows] = await Promise.all([
     supabase.from("categories").select("id, icon, color, budget_group"),
     supabase.from("savings_pots").select("id, name, starting_balance, target_amount, is_locked").order("created_at").order("name"),
-    supabase.from("transactions").select("pot_id, amount, deleted_at").eq("type", "savings").not("pot_id", "is", null).is("deleted_at", null),
+    supabase.from("transactions").select("pot_id, period_id, amount, deleted_at").eq("type", "savings").not("pot_id", "is", null).is("deleted_at", null),
   ]);
   for (const result of [categoryRows, potRows, savingRows]) {
     if (result.error) throw new Error(`Couldn't load the dashboard: ${result.error.message}`, { cause: result.error });
   }
   const look = new Map(categoryRows.data!.map((c) => [c.id, c]));
-  const spending: SpendingRow[] = topBudgets(current.items.filter((i) => i.section === "spending" && i.bar != null)).map((i) => ({
+  const spendingLines = current.items.filter((i) => i.section === "spending" && i.bar != null);
+  const spending: SpendingRow[] = topBudgets(spendingLines).map((i) => ({
     id: i.id,
     name: i.name,
     icon: look.get(i.category_id!)?.icon ?? "shopping-basket",
@@ -134,8 +136,20 @@ async function DashboardBody() {
     budget,
   );
   const pots: PotCard[] = potRows.data!.map((p) => {
-    const balance = potBalance(p, savingRows.data!.filter((r) => r.pot_id === p.id));
-    return { id: p.id, name: p.name, balance, line: potCardLine(balance, p.target_amount, p.is_locked) };
+    const rows = savingRows.data!.filter((r) => r.pot_id === p.id);
+    const balance = potBalance(p, rows);
+    // Desktop's "+₱3,000 this period": the net moved this period (a balance
+    // from ₱0), else what's still planned for the pot this period.
+    const moved = potBalance({ starting_balance: 0 }, rows.filter((r) => r.period_id === row.id));
+    const planned = stillDueTotal(current.items.filter((i) => i.pot_id === p.id));
+    return {
+      id: p.id,
+      name: p.name,
+      balance,
+      target: p.target_amount,
+      line: potCardLine(balance, p.target_amount, p.is_locked),
+      period: potPeriodLine(moved, planned),
+    };
   });
 
   // Recent rows open Edit transaction, whose Delete link shows the effect on
@@ -182,6 +196,8 @@ async function DashboardBody() {
       (schedule.frequency !== "semi_monthly" || s.pay_slot === "every" || s.pay_slot === period.paySlot),
   );
   const due = duePay(sources.data!, received, schedule, today);
+  const duePrompt = due && { id: due.id, name: due.name, amount: due.amount, payday: period.start };
+  const daily = perDay(safe, today, period.end);
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
@@ -194,19 +210,35 @@ async function DashboardBody() {
         <p className="text-[13px] font-bold text-text-3">{periodStatusLine(period, schedule, today)}</p>
       </section>
 
-      <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
-        <div className="flex flex-col gap-4 md:gap-6">
-          <CashCard
-            numbers={numbers}
-            safe={safe}
-            stillDue={stillDue}
-            daily={perDay(safe, today, period.end)}
-            due={due && { id: due.id, name: due.name, amount: due.amount, payday: period.start }}
-            today={today}
-          />
-          <DueCard items={dueList(planned)} periodStart={period.start} />
-          {/* Hidden until there's something to show (dashboard.md §4). */}
-          {spending.length > 0 && <SpendingCard rows={spending} planHref={`/plan?start=${period.start}`} />}
+      {/* Desktop (§3): the pay prompt as a banner, then the stat row; phones
+          have both inside the Cash card. */}
+      {duePrompt && <PayPrompt due={duePrompt} today={today} className="hidden rounded-2xl bg-green-700 lg:flex" />}
+      <StatRow
+        numbers={numbers}
+        safe={safe}
+        daily={daily}
+        periodLine={periodMoneyLine(numbers)}
+        stillDue={stillDue}
+        dueLine={stillDueBreakdown(planned)}
+      />
+
+      {/* Phones: one column in this order. Desktop: a grid with the side
+          column spanning every row; its last row is 1fr, so a tall side
+          column adds space below Recent activity, not between the cards. */}
+      <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
+        <div className="lg:hidden">
+          <CashCard numbers={numbers} safe={safe} stillDue={stillDue} daily={daily} due={duePrompt} today={today} />
+        </div>
+        <div className="lg:col-start-1 lg:row-start-1">
+          <DueCard items={dueList(planned)} periodStart={period.start} today={today} />
+        </div>
+        {/* Hidden until there's something to show (dashboard.md §4). */}
+        {spending.length > 0 && (
+          <div className="lg:col-start-1 lg:row-start-2">
+            <SpendingCard rows={spending} planHref={`/plan?start=${period.start}`} total={spendingTotal(spendingLines)} />
+          </div>
+        )}
+        <div className="flex flex-col gap-4 md:gap-6 lg:col-start-2 lg:row-span-3 lg:row-start-1">
           {pots.length > 0 && <PotsCard pots={pots} />}
           {/* Hidden until money out reaches ₱1,000 (dashboard.md §5). */}
           {split.show && <SplitCard groups={split.groups} />}
@@ -219,7 +251,9 @@ async function DashboardBody() {
           />
         </div>
         {/* Each row has exactly one category; see the Activity page. */}
-        <RecentActivity rows={recentWithImpact} today={today} />
+        <div className="lg:col-start-1 lg:row-start-3">
+          <RecentActivity rows={recentWithImpact} today={today} />
+        </div>
       </div>
     </div>
   );
@@ -233,10 +267,16 @@ function DashboardSkeleton() {
         <Skeleton className="h-7 w-40" />
         <Skeleton className="h-4 w-48" />
       </div>
-      <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="hidden grid-cols-4 gap-4 lg:grid">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-[124px] rounded-[20px]" />
+        ))}
+      </div>
+      <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
         <div className="flex flex-col gap-4 md:gap-6">
-          <Skeleton className="h-[260px] rounded-xl" />
-          <Skeleton className="h-[140px] rounded-xl" />
+          <Skeleton className="h-[260px] rounded-xl lg:hidden" />
+          <Skeleton className="h-[240px] rounded-xl" />
+          <Skeleton className="h-[200px] rounded-xl" />
         </div>
         <Skeleton className="h-[300px] rounded-2xl" />
       </div>

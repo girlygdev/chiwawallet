@@ -18,13 +18,26 @@ export type SpendingRow = {
 // category budgets (topBudgets(): the biggest planned), each with "₱3,240 /
 // ₱6,000", an 8px bar and "₱2,760 left" or "₱340 over", the same numbers as
 // the Plan. The bars are decorative: the text beside them says the same.
-export function SpendingCard({ rows, planHref }: { rows: SpendingRow[]; planHref: string }) {
+// Desktop (7c) adds the total across every spending line: "₱4,750 of ₱9,500".
+export function SpendingCard({
+  rows,
+  planHref,
+  total,
+}: {
+  rows: SpendingRow[];
+  planHref: string;
+  /** spendingTotal() of this period's spending lines. */
+  total: { spent: number; planned: number };
+}) {
   return (
     <section aria-labelledby="spending-title" className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <h2 id="spending-title" className="text-[13px] font-extrabold tracking-wide text-text-3 uppercase">
-          Spending
+          Spending<span className="hidden lg:inline"> vs plan</span>
         </h2>
+        <span className="ml-auto hidden pr-2 text-sm font-bold text-text-2 lg:inline">
+          {formatPeso(total.spent)} of {formatPeso(total.planned)}
+        </span>
         <Link href={planHref} className="flex min-h-11 items-center px-1 text-sm font-extrabold text-link outline-link focus-visible:outline-2">
           Plan
         </Link>

@@ -31,7 +31,7 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
   - **The card:** a 14px stacked bar, rows with "Target 50%" (mobile) or "11 pts over 50%" (desktop), and the footnote.
   - **Hidden** until money out reaches ₱1,000.
   - Done when: the Vitest cases pass, and the card matches a hand-worked period.
-- [ ] **7c. Dashboard: desktop layout** (`dashboard.md` §3).
+- [x] **7c. Dashboard: desktop layout** Done Nov 26 (checked in a browser on local Supabase at 1024, 1280, 1440 and 390px). `stillDueBreakdown()`, `dueInDays()`, `spendingTotal()` in `lib/plan.ts`; `potPeriodLine()` in `lib/pots.ts`; `debtLeftAfter()` in `lib/debts.ts`; `periodMoneyLine()` in `lib/money.ts`; `stat-row.tsx`. "Left after this" is the debt's balance after the payment; the pay prompt is a banner above the stat row and Income sits at the bottom of the side column (owner, Nov 26). The Next period card moves to 7d. (`dashboard.md` §3).
   - **The stat row:**
     - Safe to spend (hero), with "₱1,355 a day for 10 days"
     - Money out so far
@@ -43,6 +43,7 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
     - Recent activity as a table
   - **The side column:** Savings pots, with "Manage" and "+₱3,000 this period", and the 50/30/20 check.
 - [ ] **7d. Dashboard: first-day state and the period switcher** (`dashboard.md` §4, `app-shell.md` §4).
+  - **Next period:** the desktop side column's mint card ("Nov 30 – Dec 14", "₱33,000 expected · Electricity and MP2 due", Plan ahead) and the mobile "Plan next payday" link (decision 4), both from the next period (moved from 7c, owner Nov 26).
   - **The Get started checklist** (an `<ol>`, "1 of 5 done"), and the empty section cards.
   - **The period switcher's arrows.** See open question 2.
 - [ ] **7e. Savings and Debts: check against the specs.** Walk `savings.md` and `debts.md` against the pages and fix any gaps.

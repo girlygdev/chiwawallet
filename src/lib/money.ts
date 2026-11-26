@@ -213,3 +213,14 @@ export function spentSplit(
     },
   };
 }
+
+/**
+ * This period's money stat (dashboard.md §3): "₱25,000 income + ₱5,000
+ * carried in", plus "+ ₱1,000 from savings" for net withdrawals from pots
+ * (the rest of periodMoney). A negative carry-in reads "− ₱200 carried in".
+ */
+export function periodMoneyLine(numbers: Pick<DashboardNumbers, "carryIn" | "income" | "periodMoney">): string {
+  const fromSavings = numbers.periodMoney - numbers.carryIn - numbers.income;
+  const carried = numbers.carryIn < 0 ? ` ${MINUS} ${formatPeso(-numbers.carryIn)} carried in` : ` + ${formatPeso(numbers.carryIn)} carried in`;
+  return `${formatPeso(numbers.income)} income${carried}${fromSavings > 0 ? ` + ${formatPeso(fromSavings)} from savings` : ""}`;
+}

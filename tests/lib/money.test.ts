@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dashboardNumbers, formatPeso, formatPesoInput, parsePesoInput, perDay, safeToSpend, spentSplit, stillDueTotal } from "@/lib/money";
+import { dashboardNumbers, formatPeso, formatPesoInput, parsePesoInput, perDay, safeToSpend, spentSplit, stillDueTotal, periodMoneyLine } from "@/lib/money";
 import { cashOnHand, periodTotals } from "@/lib/transactions";
 
 describe("formatPesoInput: centavos → what an input shows", () => {
@@ -239,5 +239,22 @@ describe("spentSplit (7b, dashboard.md §5)", () => {
     expect(spentSplit([row("expense", 18_000, "fun")], groupOf, targets).show).toBe(false);
     expect(spentSplit([row("expense", 100_000, "fun")], groupOf, targets).show).toBe(true);
     expect(spentSplit([], groupOf, targets)).toMatchObject({ base: 0, show: false });
+  });
+});
+
+describe("periodMoneyLine: This period's money stat", () => {
+  const n = (carryIn: number, income: number, periodMoney: number) =>
+    ({ carryIn, income, periodMoney }) as Parameters<typeof periodMoneyLine>[0];
+
+  it("splits income and carry-in", () => {
+    expect(periodMoneyLine(n(500_000, 2_500_000, 3_000_000))).toBe("₱25,000 income + ₱5,000 carried in");
+  });
+
+  it("adds money taken out of pots", () => {
+    expect(periodMoneyLine(n(500_000, 2_500_000, 3_100_000))).toBe("₱25,000 income + ₱5,000 carried in + ₱1,000 from savings");
+  });
+
+  it("shows a negative carry-in as carried over short", () => {
+    expect(periodMoneyLine(n(-20_000, 2_500_000, 2_480_000))).toBe("₱25,000 income − ₱200 carried in");
   });
 });

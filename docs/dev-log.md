@@ -2,6 +2,27 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 7 · 7c Dashboard: desktop layout
+- **What:**
+  - **Stat row** (1024px and up, replacing the Cash card):
+    - Safe to spend (the sticker) with "₱1,355 a day for 10 days"
+    - Money out so far with a bar and "32% of ₱30,000"
+    - This period's money: "₱25,000 income + ₱5,000 carried in" (+ "from savings" for withdrawals)
+    - Still due: "1 bill, 1 debt, 1 savings transfer"
+  - **Main column:** Due this period with "Due Nov 22 · in 2 days", "₱4,000 left after this" on debts, a Paid tag and "Open plan"; Spending vs plan with "₱4,750 of ₱9,500"; Recent activity as a table of the last five, then All transactions.
+  - **Side column:** Savings pots (Manage, "₱13,000 / ₱30,000", "+₱3,000 this period" or "₱2,000 planned this period", locked pots in one compact row), the 50/30/20 check, Income.
+  - **Pay prompt:** a Forest banner above the stat row on desktop; still inside the Cash card on phones (shared `PayPrompt`).
+- **Files:** src/lib/plan.ts, src/lib/pots.ts, src/lib/debts.ts, src/lib/money.ts, src/lib/plan-periods.ts, src/components/dashboard/stat-row.tsx (new), cash-card.tsx, due-card.tsx, spending-card.tsx, pots-card.tsx, recent-activity.tsx, src/components/activity/activity-list.tsx, src/app/(app)/dashboard/page.tsx, tests/lib/{plan,pots,debts,money}.test.ts, docs/week-7-tasks.md
+- **Decisions:**
+  - "Left after this" = the debt's balance after this payment, debt rows only (owner, Nov 26).
+  - The Spending total covers every spending line (budgets and starter lines), like the Plan, not just the three shown.
+  - Desktop uses a grid whose side column spans every row (last row `1fr`), so the DOM, and so the phone order and tab order, stays Cash, Due, Spending, Pots, 50/30/20, Income, Recent.
+  - Below 1280px the stat row is 2 × 2 (auto-fit wrapped 3 + 1) and the table drops its Category column so amounts fit. From 1280px it follows the spec.
+  - The Next period card moves to 7d with the mobile link.
+- **Tests:** 19 new Vitest cases; lint, typecheck and `npm run test` pass. Browser on local Supabase: an expense moved Money out, Safe to spend and the Spending total; a ₱500 deposit showed "+₱X this period"; the table opens Edit transaction; no sideways scroll at 1024, 1280 or 1440px; phones unchanged (Cash card, four recent rows).
+- **AI notes:** First 1024px pass cut off the table's Amount column; fixed by hiding Category below `xl`. The test account had no unpaid items, so "in N days" and "left after this" were checked by unit tests only.
+- **Next:** 7d, the first-day state, period switcher arrows and Next period.
+
 ## 2026-11-26 · Week 7 · 7b Dashboard: the 50/30/20 check
 - **What:**
   - **`spentSplit()`:** money out so far by group, on the same base as the Dashboard's "₱X out so far".

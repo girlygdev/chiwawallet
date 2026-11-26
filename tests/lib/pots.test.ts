@@ -15,6 +15,7 @@ import {
   potStatus,
   potToGo,
   totalSaved,
+  potPeriodLine,
 } from "@/lib/pots";
 
 const twiceAMonth: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
@@ -259,5 +260,23 @@ describe("potCardLine (7a, dashboard.md §2 Pot card)", () => {
 
   it("a locked pot: a full bar and 'Locked savings'", () => {
     expect(potCardLine(4_850_000, null, true)).toEqual({ share: 1, text: "Locked savings", locked: true });
+  });
+});
+
+describe("potPeriodLine: a pot's line on the desktop Dashboard", () => {
+  it("shows what moved in this period", () => {
+    expect(potPeriodLine(300_000, 200_000)).toBe("+₱3,000 this period");
+  });
+
+  it("shows what moved out", () => {
+    expect(potPeriodLine(-50_000, 0)).toBe("−₱500 this period");
+  });
+
+  it("shows what's planned when nothing has moved yet", () => {
+    expect(potPeriodLine(0, 200_000)).toBe("₱2,000 planned this period");
+  });
+
+  it("is empty with neither", () => {
+    expect(potPeriodLine(0, 0)).toBeNull();
   });
 });

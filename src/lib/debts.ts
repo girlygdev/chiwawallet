@@ -304,3 +304,8 @@ export function debtPaymentSplit(amount: number, scheduled: number | null): { sc
   if (scheduled == null) return { scheduled: 0, extra: amount };
   return { scheduled: Math.min(amount, scheduled), extra: Math.max(0, amount - scheduled) };
 }
+
+/** What a debt will owe after a payment, never below ₱0: "₱4,000 left after this" (dashboard.md §3). */
+export function debtLeftAfter(left: number, payment: number): number {
+  return Math.max(0, left - payment);
+}

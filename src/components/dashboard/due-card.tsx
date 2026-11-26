@@ -4,6 +4,7 @@ import { MarkPaidPill } from "@/components/plan/tick-button";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import { formatPeso } from "@/lib/money";
 import { formatShortDate } from "@/lib/periods";
+import { dueInDays } from "@/lib/plan";
 import type { CurrentItem } from "@/lib/plan-periods";
 import { cn } from "@/lib/utils";
 
@@ -25,11 +26,23 @@ function detailLine(item: CurrentItem): string {
   return item.dueOn ? `${label} · Due ${formatShortDate(item.dueOn)}` : label;
 }
 
+/**
+ * Desktop's longer line (dashboard.md §3): "Bill · Due Nov 22 · in 2 days",
+ * and on a debt "· ₱4,000 left after this". Paid rows keep the short line.
+ */
+function longDetailLine(item: CurrentItem, today: string): string {
+  const short = detailLine(item);
+  if (item.paid_at != null) return short;
+  const when = item.dueOn ? ` · ${dueInDays(item.dueOn, today)}` : "";
+  const left = item.leftAfter != null ? ` · ${formatPeso(item.leftAfter)} left after this` : "";
+  return `${short}${when}${left}`;
+}
+
 // Due this period (dashboard.md §2, task 6c): this period's bills, debt
 // payments, savings and one-offs, unpaid ones first by due date, at most
 // five (dueList()). Each unpaid row has Mark paid (Add to pot for savings),
 // the same as Bills and Debts; the row itself opens the item on the Plan.
-export function DueCard({ items, periodStart }: { items: CurrentItem[]; periodStart: string }) {
+export function DueCard({ items, periodStart, today }: { items: CurrentItem[]; periodStart: string; today: string }) {
   return (
     <section aria-labelledby="due-title" className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -40,7 +53,8 @@ export function DueCard({ items, periodStart }: { items: CurrentItem[]; periodSt
           href={`/plan?start=${periodStart}`}
           className="flex min-h-11 items-center px-1 text-sm font-extrabold text-link outline-link focus-visible:outline-2"
         >
-          See all
+          <span className="lg:hidden">See all</span>
+          <span className="hidden lg:inline">Open plan</span>
         </Link>
       </div>
 
@@ -78,13 +92,18 @@ export function DueCard({ items, periodStart }: { items: CurrentItem[]; periodSt
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate font-extrabold text-ink">{item.name}</span>
                     <span className={cn("truncate text-[13px]", paid ? "font-bold text-link-hover" : "text-text-3")}>
-                      {detailLine(item)}
+                      <span className="lg:hidden">{detailLine(item)}</span>
+                      <span className="hidden lg:inline">{longDetailLine(item, today)}</span>
                     </span>
                   </span>
                   <span className={cn("shrink-0 font-extrabold", paid ? "text-text-3" : "text-ink")}>
                     {formatPeso(paid ? (item.paidAmount ?? item.planned_amount) : item.planned_amount)}
                   </span>
                 </Link>
+                {/* Desktop: paid rows get a "Paid" tag where the pill was. */}
+                {paid && (
+                  <span className="hidden shrink-0 rounded-full bg-mint px-2.5 py-1 text-xs font-extrabold text-green-800 lg:inline">Paid</span>
+                )}
                 {!paid && (
                   <MarkPaidPill
                     item={{

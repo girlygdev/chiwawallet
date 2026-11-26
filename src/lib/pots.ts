@@ -263,3 +263,14 @@ export function potCardLine(
   if (share == null || target == null) return { share: null, text: "No target", locked };
   return { share, text: `${wholePercent.format(share)} of ${formatPeso(target)}`, locked };
 }
+
+/**
+ * A pot's line on the desktop Dashboard (dashboard.md §3): "+₱3,000 this
+ * period" for the net moved in (or out) this period; before anything has
+ * moved, "₱2,000 planned this period" from its unpaid planned items; else none.
+ */
+export function potPeriodLine(moved: number, plannedUnpaid: number): string | null {
+  if (moved !== 0) return `${formatPeso(moved, { signed: true })} this period`;
+  if (plannedUnpaid > 0) return `${formatPeso(plannedUnpaid)} planned this period`;
+  return null;
+}

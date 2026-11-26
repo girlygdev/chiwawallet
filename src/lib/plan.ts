@@ -1185,3 +1185,42 @@ export function topBudgets<T extends { name: string; planned_amount: number; cat
     .sort((a, b) => b.planned_amount - a.planned_amount || a.name.localeCompare(b.name))
     .slice(0, count);
 }
+
+// ---------------------------------------------------------------------------
+// The Dashboard's desktop layout (dashboard.md §3, task 7c)
+// ---------------------------------------------------------------------------
+
+/** Still due's kinds, in Plan order, with their singular and plural words. */
+const DUE_KINDS: { section: PlanSection; one: string; many: string }[] = [
+  { section: "bills", one: "bill", many: "bills" },
+  { section: "debts", one: "debt", many: "debts" },
+  { section: "savings", one: "savings transfer", many: "savings transfers" },
+  { section: "one_off", one: "one-off", many: "one-offs" },
+];
+
+/** The Still due stat's line: "1 bill, 1 debt, 1 savings transfer", from the unpaid items. */
+export function stillDueBreakdown(items: { section: PlanSection; paid_at: string | null }[]): string {
+  const unpaid = items.filter((i) => i.paid_at == null);
+  const parts = DUE_KINDS.flatMap(({ section, one, many }) => {
+    const count = unpaid.filter((i) => i.section === section).length;
+    return count === 0 ? [] : [`${count} ${count === 1 ? one : many}`];
+  });
+  return parts.length ? parts.join(", ") : "Nothing left to pay";
+}
+
+/** "today", "tomorrow", "in 2 days", "yesterday", "3 days ago" (Manila dates). */
+export function dueInDays(dueOn: string, today: string): string {
+  const days = differenceInCalendarDays(parseISO(dueOn), parseISO(today));
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days === -1) return "yesterday";
+  return days > 0 ? `in ${days} days` : `${-days} days ago`;
+}
+
+/**
+ * Spending vs plan's heading total, "₱4,750 of ₱9,500": every spending
+ * line (budgets and starter lines, as on the Plan), not just the three shown.
+ */
+export function spendingTotal(items: { planned_amount: number; spent: number | null }[]): { spent: number; planned: number } {
+  return items.reduce((t, i) => ({ spent: t.spent + (i.spent ?? 0), planned: t.planned + i.planned_amount }), { spent: 0, planned: 0 });
+}

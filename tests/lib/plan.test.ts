@@ -58,6 +58,9 @@ import {
   removeImpact,
   starterPlan,
   suggestedPeriodStart,
+  dueInDays,
+  spendingTotal,
+  stillDueBreakdown,
 } from "@/lib/plan";
 
 // 5b: generatePlan(), starterPlan() and planSummary() (week-5-tasks.md).
@@ -1359,5 +1362,52 @@ describe("topBudgets (7a)", () => {
 
   it("breaks ties by name", () => {
     expect(topBudgets([b("Pets", 200_000), b("Fun", 200_000)], 1).map((r) => r.name)).toEqual(["Fun"]);
+  });
+});
+
+describe("stillDueBreakdown: the Still due stat's line (dashboard.md §3)", () => {
+  const i = (section: string, paid = false) => ({ section: section as "bills", paid_at: paid ? "2026-11-20T00:00:00Z" : null });
+
+  it("counts unpaid items by kind, in Plan order", () => {
+    expect(stillDueBreakdown([i("savings"), i("debts"), i("bills")])).toBe("1 bill, 1 debt, 1 savings transfer");
+  });
+
+  it("uses plurals and adds one-offs", () => {
+    expect(stillDueBreakdown([i("bills"), i("bills"), i("one_off"), i("savings"), i("savings")])).toBe(
+      "2 bills, 2 savings transfers, 1 one-off",
+    );
+  });
+
+  it("leaves out paid items", () => {
+    expect(stillDueBreakdown([i("bills", true), i("debts")])).toBe("1 debt");
+  });
+
+  it("says so when nothing is left", () => {
+    expect(stillDueBreakdown([i("bills", true)])).toBe("Nothing left to pay");
+    expect(stillDueBreakdown([])).toBe("Nothing left to pay");
+  });
+});
+
+describe("dueInDays: 'in 2 days' for a due row", () => {
+  it.each([
+    ["2026-11-26", "today"],
+    ["2026-11-27", "tomorrow"],
+    ["2026-11-28", "in 2 days"],
+    ["2026-11-25", "yesterday"],
+    ["2026-11-23", "3 days ago"],
+  ])("%s → %s", (due, text) => {
+    expect(dueInDays(due, "2026-11-26")).toBe(text);
+  });
+});
+
+describe("spendingTotal: Spending vs plan's heading total", () => {
+  it("adds spent and planned across every spending line", () => {
+    expect(
+      spendingTotal([
+        { planned_amount: 600_000, spent: 324_000 },
+        { planned_amount: 350_000, spent: 151_000 },
+        { planned_amount: 100_000, spent: null },
+      ]),
+    ).toEqual({ spent: 475_000, planned: 1_050_000 });
   });
 });

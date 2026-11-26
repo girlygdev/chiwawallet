@@ -57,21 +57,8 @@ export function CashCard({
         </p>
       </div>
 
-      {due && (
-        // The pay prompt (dashboard.md §2): a Forest panel inside the hero.
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-green-800 px-4 py-3">
-          <p className="text-sm font-bold">
-            {formatPeso(due.amount)} from {due.name}{" "}
-            {due.payday === today ? "is due today." : `was due ${formatShortDate(due.payday)}.`}
-          </p>
-          <OpenAddSheetButton
-            options={{ tab: "income", incomeSource: due.id, amount: due.amount }}
-            className="h-10 shrink-0 rounded-[10px] bg-white px-4 text-sm font-extrabold text-green-800 outline-white focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            I got paid
-          </OpenAddSheetButton>
-        </div>
-      )}
+      {/* The pay prompt (dashboard.md §2): a Forest panel inside the hero. */}
+      {due && <PayPrompt due={due} today={today} className="rounded-[14px] bg-green-800" />}
 
       {/* The spend bar: money out ÷ this period's money. The text under it
           says the same, so the bar itself is decorative. */}
@@ -97,6 +84,27 @@ export function CashCard({
         <Stat label="Cash now" value={numbers.cashNow} />
       </dl>
     </section>
+  );
+}
+
+/**
+ * "₱25,000 from Acme is due today." with I got paid. Inside the hero on
+ * phones; on desktop (7c) a Forest banner above the stat row.
+ */
+export function PayPrompt({ due, today, className }: { due: DuePay; today: string; className: string }) {
+  return (
+    <div className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-white ${className}`}>
+      <p className="text-sm font-bold">
+        {formatPeso(due.amount)} from {due.name}{" "}
+        {due.payday === today ? "is due today." : `was due ${formatShortDate(due.payday)}.`}
+      </p>
+      <OpenAddSheetButton
+        options={{ tab: "income", incomeSource: due.id, amount: due.amount }}
+        className="h-10 shrink-0 rounded-[10px] bg-white px-4 text-sm font-extrabold text-green-800 outline-white focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        I got paid
+      </OpenAddSheetButton>
+    </div>
   );
 }
 

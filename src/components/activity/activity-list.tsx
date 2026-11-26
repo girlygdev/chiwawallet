@@ -204,7 +204,7 @@ function DeleteButton({ row, actions }: { row: ActivityRow; actions: RowActions 
 }
 
 /** "−₱180" for money out, "+₱25,000" (green) for money in. */
-function Amount({ row, className }: { row: ActivityRow; className?: string }) {
+export function Amount({ row, className }: { row: ActivityRow; className?: string }) {
   const signed = signedAmount(row);
   return (
     <span className={cn("shrink-0 font-display font-semibold", signed > 0 ? "text-link" : "text-ink", className)}>

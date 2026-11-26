@@ -12,6 +12,7 @@ import {
   paydayFor,
   paymentStatusText,
   reducedSchedule,
+  debtLeftAfter,
 } from "@/lib/debts";
 
 const spayLater = {
@@ -319,5 +320,15 @@ describe("debtProgress with extra payments", () => {
       ["planned", 400_000],
       ["planned", 200_000],
     ]);
+  });
+});
+
+describe("debtLeftAfter: '₱4,000 left after this' on a due debt row", () => {
+  it("takes the payment off what's left", () => {
+    expect(debtLeftAfter(600_000, 200_000)).toBe(400_000);
+  });
+
+  it("never goes below ₱0", () => {
+    expect(debtLeftAfter(100_000, 200_000)).toBe(0);
   });
 });

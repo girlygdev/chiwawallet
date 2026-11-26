@@ -3,7 +3,7 @@ import { addDays, format, parseISO } from "date-fns";
 import type { BillFrequency } from "@/lib/bills";
 import { type BudgetPeriod, getOrCreatePeriod } from "@/lib/budget-periods";
 import type { Budget } from "@/lib/current-budget";
-import { type DebtTerms, debtLeft, debtPaidFor } from "@/lib/debts";
+import { type DebtTerms, debtLeft, debtLeftAfter, debtPaidFor } from "@/lib/debts";
 import { receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers } from "@/lib/money";
 import { formatPeriodRange, formatShortDate, getPeriod, type Period, type PaySlot, scheduleFromBudget } from "@/lib/periods";
@@ -364,6 +364,8 @@ export type CurrentItem = {
   /** Spending budgets and starter lines (7a): spent so far and the bar, as on the Plan (6e). */
   spent: number | null;
   bar: ReturnType<typeof budgetBar> | null;
+  /** An unpaid debt payment (7c): what the debt will owe after it, for "₱4,000 left after this". */
+  leftAfter: number | null;
 };
 
 /**
@@ -438,6 +440,7 @@ export async function openCurrentPlan(
       varies: bill?.amount_varies ?? false,
       spent: section === "spending" ? (spentOf[i.id] ?? 0) : null,
       bar: section === "spending" ? budgetBar(i.planned_amount, spentOf[i.id] ?? 0) : null,
+      leftAfter: debt && i.paid_at == null ? debtLeftAfter(debtLeft(debt), i.planned_amount) : null,
     };
   });
   return { period, items };
