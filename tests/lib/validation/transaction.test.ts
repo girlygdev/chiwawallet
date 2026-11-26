@@ -125,7 +125,7 @@ describe("savingsSchemaFor", () => {
   const valid = { direction: "add", amount: "2,000", potId: POT, date: "2026-11-20" };
 
   it("adds are positive and withdrawals negative (plan review 3.5)", () => {
-    expect(schema.parse(valid)).toEqual({ direction: "add", amount: 200_000, potId: POT, toPotId: null, date: "2026-11-20" });
+    expect(schema.parse(valid)).toEqual({ direction: "add", amount: 200_000, potId: POT, toPotId: null, debtId: null, date: "2026-11-20" });
     expect(schema.parse({ ...valid, direction: "withdraw" }).amount).toBe(-200_000);
   });
 
@@ -137,7 +137,7 @@ describe("savingsSchemaFor", () => {
     expect(errors({ amount: "0" }).amount).toBe("Enter an amount above ₱0.");
     expect(errors({ amount: "-500" }).amount).toBe("Enter an amount above ₱0.");
     expect(errors({ potId: "" }).potId).toBe("Pick a pot.");
-    expect(errors({ direction: "spend" }).direction).toBe("Pick To a pot, From a pot or Pot to pot.");
+    expect(errors({ direction: "spend" }).direction).toBe("Pick To a pot, From a pot, Pot to pot or To a debt.");
     expect(errors({ date: "2026-11-21" }).date).toBe("Pick today or an earlier day.");
   });
 
@@ -149,6 +149,7 @@ describe("savingsSchemaFor", () => {
       amount: 200_000,
       potId: POT,
       toPotId: OTHER,
+      debtId: null,
       date: "2026-11-20",
     });
     const errors = (input: Record<string, unknown>) => {
@@ -161,5 +162,22 @@ describe("savingsSchemaFor", () => {
 
   it("ignores To pot for adds and withdrawals", () => {
     expect(schema.parse({ ...valid, toPotId: OTHER }).toPotId).toBeNull();
+  });
+
+  // To a debt (6d-2): a debt instead of a pot; the amount stays positive.
+  const DEBT = "5b6c7d8e-9f0a-4b1c-8d2e-3f4a5b6c7d8e";
+  it("To a debt needs a debt, not a pot", () => {
+    expect(schema.parse({ ...valid, direction: "debt", potId: "", debtId: DEBT })).toEqual({
+      direction: "debt",
+      amount: 200_000,
+      potId: "",
+      toPotId: null,
+      debtId: DEBT,
+      date: "2026-11-20",
+    });
+    const result = schema.safeParse({ ...valid, direction: "debt", potId: "" });
+    expect(result.success ? {} : Object.fromEntries(result.error.issues.map((i) => [i.path[0], i.message]))).toEqual({
+      debtId: "Pick a debt.",
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   debtLeft,
+  debtPaymentSplit,
   debtPaid,
   debtProgress,
   debtSchedule,
@@ -242,5 +243,20 @@ describe("debtLeft (5g-2)", () => {
   it("is ₱0 once paid off, by payments or by hand", () => {
     expect(debtLeft({ total_amount: 1_200_000, paid: 1_300_000, paid_off_at: null })).toBe(0);
     expect(debtLeft({ total_amount: 1_200_000, paid: 360_000, paid_off_at: "2026-11-20T00:00:00Z" })).toBe(0);
+  });
+});
+
+describe("debtPaymentSplit (6d-2)", () => {
+  it("pays the scheduled payment first, and the rest is extra", () => {
+    expect(debtPaymentSplit(600_000, 400_000)).toEqual({ scheduled: 400_000, extra: 200_000 });
+    expect(debtPaymentSplit(400_000, 400_000)).toEqual({ scheduled: 400_000, extra: 0 });
+  });
+
+  it("still pays the scheduled payment with less than it", () => {
+    expect(debtPaymentSplit(300_000, 400_000)).toEqual({ scheduled: 300_000, extra: 0 });
+  });
+
+  it("is all extra when nothing is due", () => {
+    expect(debtPaymentSplit(250_000, null)).toEqual({ scheduled: 0, extra: 250_000 });
   });
 });

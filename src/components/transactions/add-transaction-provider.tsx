@@ -37,9 +37,11 @@ type OpenOptions = {
   incomeSource?: string;
   /** A starting amount in centavos, e.g. the source's expected pay ("I got paid"). */
   amount?: number;
-  /** The Savings tab's starting pot and direction, e.g. a pot's Add money or Withdraw (4e). */
+  /** The Transfer tab's starting pot and direction, e.g. a pot's Add money or Withdraw (4e). */
   potId?: string;
-  direction?: "add" | "withdraw";
+  direction?: "add" | "withdraw" | "move" | "debt";
+  /** To a debt's starting debt: Pay extra on Debts (6d-2). */
+  debtId?: string;
 };
 
 type AddTransaction = {
@@ -80,7 +82,8 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   const [tab, setTab] = useState<SheetTab>("expense");
   const [incomeSource, setIncomeSource] = useState<string>("");
   const [potId, setPotId] = useState<string>("");
-  const [direction, setDirection] = useState<"add" | "withdraw">("add");
+  const [direction, setDirection] = useState<"add" | "withdraw" | "move" | "debt">("add");
+  const [debtId, setDebtId] = useState<string>("");
   const [data, setData] = useState<AddSheetData | null>(null);
   // Edit mode: the row once it has loaded, and what its Delete link confirms.
   const [mode, setMode] = useState<"add" | "edit">("add");
@@ -112,6 +115,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
     setIncomeSource(options.incomeSource ?? "");
     setPotId(options.potId ?? "");
     setDirection(options.direction ?? "add");
+    setDebtId(options.debtId ?? "");
     setView("form");
     const startAmount = options.amount != null ? formatPesoInput(options.amount) : "";
     amountText.current = startAmount;
@@ -209,16 +213,19 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   const savedToast = (kind: "Expense" | "Income", signed: number) => (saved: { id: string; amount: number }) =>
     showSaved(saved, `${kind} saved · ${formatPeso(signed * saved.amount, { signed: true })}`, `${kind} removed`);
   // "Added ₱2,000 to Travel" or "Withdrew ₱1,000 from Travel" (the amount is signed).
-  // A move: "Moved ₱2,000 from Travel to Emergency" (6d-1).
+  // A move: "Moved ₱2,000 from Travel to Emergency" (6d-1); a debt payment:
+  // "Paid ₱6,000 to SPayLater" (6d-2), whose Undo removes all its rows.
   const savingsToast = (saved: NonNullable<SaveSavingsResult["saved"]>, potName: string) =>
     showSaved(
       saved,
-      saved.toPotName
-        ? `Moved ${formatPeso(saved.amount)} from ${potName} to ${saved.toPotName}`
-        : saved.amount < 0
-          ? `Withdrew ${formatPeso(-saved.amount)} from ${potName}`
-          : `Added ${formatPeso(saved.amount)} to ${potName}`,
-      saved.toPotName ? "Move removed" : "Savings entry removed",
+      saved.debtName
+        ? `Paid ${formatPeso(saved.amount)} to ${saved.debtName}`
+        : saved.toPotName
+          ? `Moved ${formatPeso(saved.amount)} from ${potName} to ${saved.toPotName}`
+          : saved.amount < 0
+            ? `Withdrew ${formatPeso(-saved.amount)} from ${potName}`
+            : `Added ${formatPeso(saved.amount)} to ${potName}`,
+      saved.debtName ? "Payment removed" : saved.toPotName ? "Move removed" : "Savings entry removed",
     );
 
   // The Savings tab's "+ New pot": New pot lives on the Savings page.
@@ -277,6 +284,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
         {...formProps}
         defaultPotId={potId}
         defaultDirection={direction}
+        defaultDebtId={debtId}
         onSave={editing ? (input) => updateSavings(editing.id, input) : saveSavings}
         onSaved={editing ? onEdited : savingsToast}
         onNewPot={goToNewPot}

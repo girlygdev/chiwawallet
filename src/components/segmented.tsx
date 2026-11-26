@@ -10,16 +10,18 @@ type SegmentedProps<T extends string> = {
   value: T | undefined;
   onChange: (value: T) => void;
   error?: string;
+  /** Four options as a 2×2 grid on phones, one row from 768px (the Transfer tab, 6d-2). */
+  wrap?: boolean;
 };
 
 // A segmented control (style-guide.md "Choices": 2–4 options). Built from
 // real radio buttons in a fieldset, so arrow keys, Tab and screen readers work
 // without extra code. The `track` background, white selected option.
-export function Segmented<T extends string>({ name, legend, options, value, onChange, error }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ name, legend, options, value, onChange, error, wrap = false }: SegmentedProps<T>) {
   return (
     <fieldset className="flex flex-col gap-1.5">
       <legend className="mb-1.5 text-sm font-bold text-ink">{legend}</legend>
-      <div className="flex rounded-[14px] bg-track p-1">
+      <div className={cn("rounded-[14px] bg-track p-1", wrap ? "grid grid-cols-2 gap-1 md:flex md:gap-0" : "flex")}>
         {options.map((option) => (
           <label
             key={option.value}

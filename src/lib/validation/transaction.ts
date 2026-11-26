@@ -116,29 +116,40 @@ export function incomeSchemaFor(limits: DateLimits) {
 export type IncomeFormInput = z.input<ReturnType<typeof incomeSchemaFor>>;
 export type IncomeValues = z.output<ReturnType<typeof incomeSchemaFor>>;
 
-/** To a pot, From a pot, Pot to pot (the Transfer tab, 6d-1). */
-export const SAVINGS_DIRECTIONS = ["add", "withdraw", "move"] as const;
+/** To a pot, From a pot, Pot to pot (6d-1) and To a debt (6d-2): the Transfer tab. */
+export const SAVINGS_DIRECTIONS = ["add", "withdraw", "move", "debt"] as const;
 
 /**
  * The Transfer tab (activity.md §3, "Changed Nov 24"; 4e, 6d-1): to a pot,
  * from a pot, or pot to pot. The amount is typed above zero. A deposit is
  * saved positive and a withdrawal negative (plan review 3.5); a move keeps
  * the amount positive, and the Server Action saves it as a withdrawal from
- * `potId` and a deposit to `toPotId`. The category isn't here: savings
- * always use the locked Savings pot category, set on the server. Locked
- * pots and balances are checked on the server.
+ * `potId` and a deposit to `toPotId`. To a debt (6d-2) has `debtId` instead
+ * of a pot, and its amount stays positive. The categories aren't here:
+ * they're the locked system ones, set on the server. Locked pots, balances
+ * and what's left on a debt are checked on the server.
  */
 export function savingsSchemaFor(limits: DateLimits) {
   return z
     .object({
-      direction: z.enum(SAVINGS_DIRECTIONS, { error: "Pick To a pot, From a pot or Pot to pot." }),
+      direction: z.enum(SAVINGS_DIRECTIONS, { error: "Pick To a pot, From a pot, Pot to pot or To a debt." }),
       amount: amountField(),
-      potId: z.uuid("Pick a pot."),
+      /** Every direction but To a debt. */
+      potId: z.string(),
       /** Pot to pot only; ignored otherwise. */
       toPotId: z.string().optional(),
+      /** To a debt only; ignored otherwise. */
+      debtId: z.string().optional(),
       date: dateField(limits),
     })
     .superRefine((v, ctx) => {
+      if (v.direction === "debt") {
+        if (!v.debtId || !z.uuid().safeParse(v.debtId).success) {
+          ctx.addIssue({ code: "custom", path: ["debtId"], message: "Pick a debt." });
+        }
+        return;
+      }
+      if (!z.uuid().safeParse(v.potId).success) ctx.addIssue({ code: "custom", path: ["potId"], message: "Pick a pot." });
       if (v.direction !== "move") return;
       if (!v.toPotId || !z.uuid().safeParse(v.toPotId).success) {
         ctx.addIssue({ code: "custom", path: ["toPotId"], message: "Pick the pot to move it to." });
@@ -150,6 +161,7 @@ export function savingsSchemaFor(limits: DateLimits) {
       ...v,
       amount: v.direction === "withdraw" ? -v.amount : v.amount,
       toPotId: v.direction === "move" ? v.toPotId! : null,
+      debtId: v.direction === "debt" ? v.debtId! : null,
     }));
 }
 

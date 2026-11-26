@@ -237,3 +237,14 @@ export function paymentStatusText(
     }
   }
 }
+
+/**
+ * To a debt (6d-2): how a payment splits when a scheduled payment is due.
+ * It pays that first (Debt payment, Needs); anything above it is extra
+ * (Extra debt payment, Savings & debt payoff). Less than it still pays it.
+ * `scheduled`: the unpaid scheduled amount this period, or null if none.
+ */
+export function debtPaymentSplit(amount: number, scheduled: number | null): { scheduled: number; extra: number } {
+  if (scheduled == null) return { scheduled: 0, extra: amount };
+  return { scheduled: Math.min(amount, scheduled), extra: Math.max(0, amount - scheduled) };
+}

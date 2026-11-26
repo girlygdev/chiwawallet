@@ -6,6 +6,7 @@ import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { MarkPaidPill } from "@/components/plan/tick-button";
+import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import {
   type DebtTerms,
@@ -337,14 +338,23 @@ function DebtCard({
         </ol>
       )}
 
-      <Link
-        href={`/debts?edit=${debt.id}`}
-        scroll={false}
-        className="flex h-11 items-center gap-2 self-start rounded-md px-2 text-sm font-extrabold text-link outline-link hover:text-link-hover focus-visible:outline-2"
-      >
-        <Pencil aria-hidden size={16} />
-        Edit<span className="sr-only"> {debt.name}</span>
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link
+          href={`/debts?edit=${debt.id}`}
+          scroll={false}
+          className="flex h-11 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-link outline-link hover:text-link-hover focus-visible:outline-2"
+        >
+          <Pencil aria-hidden size={16} />
+          Edit<span className="sr-only"> {debt.name}</span>
+        </Link>
+        {/* Pay extra (debts.md §5, 6d-2): the add sheet's To a debt, this debt picked. */}
+        <OpenAddSheetButton
+          options={{ tab: "savings", direction: "debt", debtId: debt.id }}
+          className="flex min-h-11 items-center rounded-full border-[1.5px] border-line bg-surface px-4 text-sm font-extrabold text-ink outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          Pay extra<span className="sr-only"> on {debt.name}</span>
+        </OpenAddSheetButton>
+      </div>
     </article>
   );
 }

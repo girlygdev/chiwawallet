@@ -10,6 +10,8 @@ import { SubmitButton } from "@/components/auth/submit-button";
 import { Segmented } from "@/components/segmented";
 import { formatPeso, formatPesoInput, parsePesoInput } from "@/lib/money";
 import { todayInManila } from "@/lib/periods";
+import { debtPaymentSplit } from "@/lib/debts";
+import { formatShortDate } from "@/lib/periods";
 import { potBalanceAfter, potProgress, potTransfer } from "@/lib/pots";
 import { cn } from "@/lib/utils";
 import { type SavingsFormInput, type SavingsValues, savingsSchemaFor } from "@/lib/validation/transaction";
@@ -18,20 +20,22 @@ import { CategoryIconTile } from "./category-grid";
 import { DateButton } from "./date-button";
 import { DeleteLink } from "./delete-link";
 
-const FIELD_ORDER = ["amount", "potId", "toPotId", "date"] as const;
+const FIELD_ORDER = ["amount", "potId", "toPotId", "debtId", "date"] as const;
 const percent = new Intl.NumberFormat("en-PH", { style: "percent", maximumFractionDigits: 0 });
 
 // The Transfer tab (activity.md §3, "Changed Nov 24"; 4e, 6d-1): To a pot,
 // From a pot or Pot to pot, the amount, the pot (and the pot to move to),
 // the date, then a button that says exactly what happens. Locked pots take
 // deposits only. A pot with an unpaid planned deposit this period shows
-// "Planned ₱2,000", and adding to it ticks that off. To a debt comes in 6d-2.
+// "Planned ₱2,000", and adding to it ticks that off. To a debt (6d-2) pays a
+// scheduled payment due this period first; the rest is an extra payment.
 export function SavingsForm({
   data,
   amountRef,
   defaultAmount,
   defaultPotId = "",
   defaultDirection = "add",
+  defaultDebtId = "",
   onAmountChange,
   onSave,
   onSaved,
@@ -44,7 +48,9 @@ export function SavingsForm({
   defaultAmount: string;
   /** A pot already chosen, e.g. from its details page. */
   defaultPotId?: string;
-  defaultDirection?: "add" | "withdraw" | "move";
+  defaultDirection?: "add" | "withdraw" | "move" | "debt";
+  /** A debt already chosen, e.g. from Pay extra on Debts (6d-2). */
+  defaultDebtId?: string;
   onAmountChange: (text: string) => void;
   onSave: (input: SavingsFormInput) => Promise<SaveSavingsResult>;
   onSaved: (saved: NonNullable<SaveSavingsResult["saved"]>, potName: string) => void;
@@ -86,9 +92,17 @@ export function SavingsForm({
           amount: formatPesoInput(Math.abs(editing.amount)),
           potId: editing.potId ?? "",
           toPotId: "",
+          debtId: "",
           date: editing.date,
         }
-      : { direction: defaultDirection, amount: defaultAmount, potId: defaultPotId, toPotId: "", date: today },
+      : {
+          direction: defaultDirection,
+          amount: defaultAmount,
+          potId: defaultPotId,
+          toPotId: "",
+          debtId: defaultDebtId,
+          date: today,
+        },
   });
 
   const amountText = useWatch({ control, name: "amount" }) ?? "";
@@ -96,11 +110,15 @@ export function SavingsForm({
   const direction = useWatch({ control, name: "direction" });
   const potId = useWatch({ control, name: "potId" });
   const toPotId = useWatch({ control, name: "toPotId" }) ?? "";
+  const debtId = useWatch({ control, name: "debtId" }) ?? "";
   const date = useWatch({ control, name: "date" }) ?? today;
   const centavos = parsePesoInput(amountText);
   const validAmount = centavos != null && centavos > 0 ? centavos : null;
   const withdrawing = direction === "withdraw";
   const moving = direction === "move";
+  const paying = direction === "debt";
+  const debts = data?.debts ?? [];
+  const debt = paying ? debts.find((d) => d.id === debtId) : undefined;
   const pots = data?.pots ?? [];
   const pot = pots.find((p) => p.id === potId);
   const toPot = moving ? pots.find((p) => p.id === toPotId && p.id !== potId) : undefined;
@@ -109,7 +127,7 @@ export function SavingsForm({
   const showPlanned = direction === "add" && !editing && inCurrent;
 
   // A locked pot can't be taken from: withdrawing or moving drops it.
-  const pickDirection = (next: "add" | "withdraw" | "move") => {
+  const pickDirection = (next: "add" | "withdraw" | "move" | "debt") => {
     setValue("direction", next);
     if (next !== "add" && pot?.is_locked) setValue("potId", "");
   };
@@ -118,9 +136,11 @@ export function SavingsForm({
   // old amount out of its pot's balance first.
   const signed = validAmount == null ? null : withdrawing ? -validAmount : validAmount;
   const after =
-    pot && signed != null && !moving
+    pot && signed != null && !moving && !paying
       ? potBalanceAfter(pot.balance, signed, editing && editing.potId === pot.id ? editing.amount : 0)
       : null;
+  // To a debt: what it pays first, and what's left after.
+  const split = debt && validAmount != null ? debtPaymentSplit(validAmount, debt.scheduled?.amount ?? null) : null;
   // Pot to pot: both balances before → after; cash doesn't change.
   const move = moving && pot && toPot && validAmount != null ? potTransfer(pot.balance, toPot.balance, validAmount) : null;
 
@@ -132,6 +152,7 @@ export function SavingsForm({
       amount: amountText,
       potId: values.potId,
       toPotId: values.toPotId ?? "",
+      debtId: values.debtId ?? "",
       date: values.date,
     };
     startTransition(async () => {
@@ -149,7 +170,11 @@ export function SavingsForm({
   const potError = errors.potId?.message;
   const buttonLabel = editing
     ? "Save changes"
-    : moving
+    : paying
+      ? debt && validAmount
+        ? `Pay ${formatPeso(validAmount)} to ${debt.name}`
+        : "Pay"
+      : moving
       ? toPot && validAmount
         ? `Move ${formatPeso(validAmount)} to ${toPot.name}`
         : "Move"
@@ -223,8 +248,15 @@ export function SavingsForm({
             options={[
               { value: "add", label: "To a pot" },
               { value: "withdraw", label: "From a pot" },
-              ...(editing ? [] : [{ value: "move" as const, label: "Pot to pot" }]),
+              ...(editing
+                ? []
+                : [
+                    { value: "move" as const, label: "Pot to pot" },
+                    { value: "debt" as const, label: "To a debt" },
+                  ]),
             ]}
+            // Four options: two rows on phones (6d-2).
+            wrap={!editing}
             value={field.value}
             onChange={pickDirection}
             error={errors.direction?.message}
@@ -234,7 +266,61 @@ export function SavingsForm({
 
       <AmountField id="savings-amount" field={register("amount")} amountRef={amountRef} error={errors.amount?.message} />
 
-      <fieldset className="flex flex-col gap-2" aria-describedby={potError ? "savings-pot-error" : undefined}>
+      {paying && (
+        <fieldset className="flex flex-col gap-2" aria-describedby={errors.debtId ? "savings-debt-error" : undefined}>
+          <legend className="mb-1.5 text-sm font-bold text-ink">Which debt?</legend>
+          {debts.length === 0 ? (
+            <p className="rounded-[14px] bg-track px-4 py-3 text-sm text-text-2">No debts to pay. Add one on Debts.</p>
+          ) : (
+            debts.map((option) => {
+              const checked = debtId === option.id;
+              const inputId = `savings-debt-${option.id}`;
+              return (
+                <label
+                  key={option.id}
+                  htmlFor={inputId}
+                  className={cn(
+                    "flex min-h-[62px] cursor-pointer items-center gap-3 rounded-[14px] px-4 py-3 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-link",
+                    checked ? "border-2 border-green-600 bg-mint" : "border-[1.5px] border-line bg-surface",
+                  )}
+                >
+                  <input
+                    id={inputId}
+                    type="radio"
+                    name="savings-debt"
+                    value={option.id}
+                    checked={checked}
+                    onChange={() => setValue("debtId", option.id, { shouldValidate: errors.debtId != null })}
+                    className="sr-only"
+                  />
+                  <CategoryIconTile icon="credit-card" color="red" />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-[15px] font-extrabold text-ink">{option.name}</span>
+                    <span className="text-[13px] text-text-3">{formatPeso(option.left)} left</span>
+                  </span>
+                  {option.scheduled && (
+                    <span className="shrink-0 rounded-full bg-warn-bg px-2 py-0.5 text-xs font-bold text-warn-fg">
+                      Due {formatPeso(option.scheduled.amount)}
+                    </span>
+                  )}
+                </label>
+              );
+            })
+          )}
+          {errors.debtId && (
+            <p id="savings-debt-error" className="flex items-center gap-1.5 text-[13px] font-bold text-bad-fg">
+              <CircleAlert aria-hidden className="size-4 shrink-0" />
+              {errors.debtId.message}
+            </p>
+          )}
+        </fieldset>
+      )}
+
+      <fieldset
+        hidden={paying}
+        className="flex flex-col gap-2"
+        aria-describedby={potError ? "savings-pot-error" : undefined}
+      >
         <legend className="mb-1.5 text-sm font-bold text-ink">{moving ? "From which pot?" : "Which pot?"}</legend>
         {data == null ? (
           <div aria-hidden className="flex flex-col gap-2">
@@ -289,6 +375,24 @@ export function SavingsForm({
 
       {/* The effect in pesos before saving (CLAUDE.md UI rules). */}
       <div aria-live="polite" className="flex flex-col gap-2">
+        {debt && split && validAmount != null && (
+          <p
+            className={cn(
+              "rounded-[14px] px-4 py-3 text-sm font-bold",
+              validAmount > debt.left ? "bg-warn-bg text-warn-fg" : "bg-mint text-link-hover",
+            )}
+          >
+            {validAmount > debt.left
+              ? `Only ${formatPeso(debt.left)} left on ${debt.name}.`
+              : `${debt.name}: ${formatPeso(debt.left)} → ${formatPeso(debt.left - validAmount)} left. ${
+                  split.scheduled > 0
+                    ? `Pays the ${formatPeso(debt.scheduled!.amount)} due${debt.scheduled!.due ? ` ${formatShortDate(debt.scheduled!.due)}` : ""}${
+                        split.extra > 0 ? `, plus ${formatPeso(split.extra)} extra (Savings & debt payoff).` : "."
+                      }`
+                    : "An extra payment (Savings & debt payoff)."
+                }`}
+          </p>
+        )}
         {move && pot && toPot && (
           <p
             className={cn(

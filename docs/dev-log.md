@@ -2,6 +2,44 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6d-2 To a debt and Pay extra
+- **What:**
+  - **To a debt,** the Transfer tab's fourth option:
+    - "Which debt?" lists active debts with "₱12,000 left", and "Due ₱4,000" when a scheduled payment is unpaid this period
+    - the money pays that scheduled payment first, through `mark_plan_item_paid` (Debt payment, Needs)
+    - the rest is an extra payment (Extra debt payment, Savings & debt payoff), which ticks a planned extra if there is one
+    - the impact line reads "SPayLater: ₱12,000 → ₱6,000 left. Pays the ₱4,000 due Nov 25, plus ₱2,000 extra (Savings & debt payoff)."
+    - more than what's left is refused
+    - Undo removes every part
+  - **Pay extra** on each active debt opens the sheet with that debt picked.
+  - **Four options** show as a 2×2 grid on phones.
+- **Files:**
+  - `src/lib/debts.ts`: `debtPaymentSplit()`
+  - `tests/lib/debts.test.ts`
+  - `src/lib/validation/transaction.ts`: `debt`, `debtId`
+  - `tests/lib/validation/transaction.test.ts`
+  - `src/app/(app)/activity/actions.ts`: `loadSheetDebts()`, `payDebt()`
+  - `src/components/transactions/savings-form.tsx`
+  - `src/components/segmented.tsx`: `wrap`
+  - `src/components/transactions/add-transaction-provider.tsx`
+  - `src/app/(app)/debts/page.tsx`
+  - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - Above the scheduled amount, the payment is split.
+  - Below it, it still ticks the payment off.
+  - Pay extra opens the same sheet.
+  - Four options use a 2×2 grid on phones.
+- **Tests:** written first, 4 new unit tests (532 pass), and 285 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - ₱6,000 on SPayLater (₱4,000 due Nov 25): ₱12,000 → ₱6,000 left, the Plan showed "Paid Nov 26", and Activity had −₱4,000 and −₱2,000
+  - a ₱5,000 payment plus Undo removed both parts
+  - ₱99,999 was refused ("Only ₱10,000 left")
+  - Pay extra on Tita Ana: ₱10,000 → ₱9,000
+  - no console errors
+- **Open question:** payments fill the oldest scheduled payment first, in `debtProgress()` (Debts page) and `debtAmount` (plan generation), both from Weeks 4–5. debts.md §5 says extra payments "lower the last payments first, so the debt-free date can move earlier."
+  - **What it looks like now:** after a ₱2,000 extra on SPayLater, the next scheduled payment showed ₱2,000 instead of ₱4,000. The last payment didn't shrink.
+  - **Fixing it** means telling extra payments apart from scheduled ones in both functions (by category). That's a separate task: owner's call.
+- **Next:** 6e, planned vs actual on the Plan. Or first, the extra-payment fix if the owner wants it.
+
 ## 2026-11-26 · Week 6 · 6d-1 The Transfer tab (pots)
 - **What:** the add sheet's Savings tab is now **Transfer**: **To a pot**, **From a pot**, **Pot to pot**.
   - **To a pot:**

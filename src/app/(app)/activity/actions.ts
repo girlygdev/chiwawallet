@@ -5,7 +5,8 @@ import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { isActiveOn, receivedSourceIds, sourcePayday } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
 import { type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
-import { type CategoryBudget, categoryBudgets } from "@/lib/plan";
+import { debtLeft, debtPaid, debtPaymentSplit, type DebtTerms } from "@/lib/debts";
+import { type CategoryBudget, categoryBudgets, itemDueOn } from "@/lib/plan";
 import { potBalance, potBalanceAfter } from "@/lib/pots";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
@@ -74,6 +75,18 @@ export type AddSheetData = {
   pots: SheetPot[];
   /** Each offered category's budget and spending this period, for "Food budget: ₱2,580 left" (5h-2). */
   budgets: Record<string, CategoryBudget>;
+  /** To a debt's choices (6d-2): debts not paid off, oldest first. */
+  debts: SheetDebt[];
+};
+
+/** A debt card on To a debt (6d-2). */
+export type SheetDebt = {
+  id: string;
+  name: string;
+  /** What's left to pay; the most a payment can be. */
+  left: number;
+  /** This period's unpaid scheduled payment, which a payment pays first. */
+  scheduled: { amount: number; due: string | null } | null;
 };
 
 /** A pot card on the Savings tab (activity.md §3 Savings). */
@@ -174,12 +187,68 @@ export async function getAddSheetData(): Promise<AddSheetData> {
     recentIds: recentCategories(categories.data!, latestIds, RECENT_TILES).map((c) => c.id),
     targets: { needs: budget.needs_pct, wants: budget.wants_pct, savings_debt: budget.savings_debt_pct },
     pots: pots.map((p) => ({ ...p, planned: potItems.data!.find((i) => i.pot_id === p.id)?.planned_amount ?? null })),
+    debts: await loadSheetDebts(period, schedule),
     budgets: categoryBudgets(
       categories.data!,
       budgetItems.data!,
       rows.data!.filter((r) => r.type === "expense"),
     ),
   };
+}
+
+/**
+ * The user's debts that aren't paid off, with what's left and this
+ * period's unpaid scheduled payment (6d-2), for To a debt.
+ */
+async function loadSheetDebts(
+  period: { id: string; start_date: string; end_date: string; pay_slot: string },
+  schedule: PaySchedule,
+): Promise<SheetDebt[]> {
+  const supabase = await createClient();
+  const [debts, payments, items] = await Promise.all([
+    supabase
+      .from("debts")
+      .select("id, name, total_amount, payment_type, num_payments, payment_amount, first_due_date, paid_off_at")
+      .order("created_at"),
+    supabase
+      .from("transactions")
+      .select("debt_id, amount, deleted_at")
+      .eq("type", "debt_payment")
+      .not("debt_id", "is", null)
+      .is("deleted_at", null),
+    supabase
+      .from("plan_items")
+      .select("debt_id, planned_amount")
+      .eq("period_id", period.id)
+      .eq("origin", "recurring")
+      .not("debt_id", "is", null)
+      .is("deleted_at", null)
+      .is("paid_at", null),
+  ]);
+  for (const result of [debts, payments, items]) {
+    if (result.error) throw new Error(`Couldn't load debts: ${result.error.message}`, { cause: result.error });
+  }
+  const current = { start: period.start_date, end: period.end_date, paySlot: period.pay_slot as PaySlot };
+  return debts
+    .data!.map((d) => {
+      const terms = { ...d, payment_type: d.payment_type as DebtTerms["payment_type"] };
+      const item = items.data!.find((i) => i.debt_id === d.id);
+      return {
+        id: d.id,
+        name: d.name,
+        left: debtLeft({ ...d, paid: debtPaid(payments.data!.filter((p) => p.debt_id === d.id)) }),
+        scheduled: item
+          ? {
+              amount: item.planned_amount,
+              due: itemDueOn(
+                { bill_id: null, pot_id: null, needed_by: null, debt_id: d.id, origin: "recurring" },
+                { period: current, schedule, debt: terms },
+              ),
+            }
+          : null,
+      };
+    })
+    .filter((d) => d.left > 0);
 }
 
 /** The user's pots with their balances, for the Savings tab and its checks. */
@@ -360,7 +429,7 @@ export type SaveSavingsResult = {
    * (6d-1) also has `ids` (both rows, for Undo) and `toPotName`; a deposit
    * that ticked off the pot's planned item has `tickedOff`.
    */
-  saved?: { id: string; amount: number; ids?: string[]; toPotName?: string; tickedOff?: boolean };
+  saved?: { id: string; amount: number; ids?: string[]; toPotName?: string; tickedOff?: boolean; debtName?: string };
   formError?: string;
   fieldErrors?: Partial<Record<keyof SavingsFormInput, string>>;
 };
@@ -395,6 +464,11 @@ async function writeSavings(input: SavingsFormInput, id: string | null): Promise
   const values = parsed.data;
   const notEditable = await checkEditable(id, "savings");
   if (notEditable) return notEditable;
+
+  if (values.direction === "debt") {
+    if (id) return { formError: SOMETHING_WRONG };
+    return payDebt(budget, values.debtId!, values.amount, values.date);
+  }
 
   const pots = await loadSheetPots();
   const pot = pots.find((p) => p.id === values.potId);
@@ -482,6 +556,93 @@ async function writeSavings(input: SavingsFormInput, id: string | null): Promise
       .single();
     if (error) return fail(id ? "update savings" : "save savings", error);
     return { ok: true, saved: data };
+  } catch (error) {
+    return fail("find period", error as Error);
+  }
+}
+
+/**
+ * To a debt (6d-2, debts.md §5): a payment of `amount` on a debt, dated
+ * `date`, no more than what's left. If a scheduled payment is due unpaid in
+ * that period, the money pays it first through mark_plan_item_paid() (Debt
+ * payment, Needs); the rest is an extra payment (Extra debt payment,
+ * Savings & debt payoff), which ticks off a planned extra if there is one.
+ * If the extra part fails after the scheduled part saved, the scheduled
+ * part is soft-deleted again, so it's all or nothing.
+ */
+async function payDebt(
+  budget: { id: string } & Parameters<typeof getOrCreatePeriod>[1],
+  debtId: string,
+  amount: number,
+  date: string,
+): Promise<SaveSavingsResult> {
+  const supabase = await createClient();
+  const [debt, payments, extraCategory] = await Promise.all([
+    supabase.from("debts").select("name, total_amount, paid_off_at").eq("id", debtId).maybeSingle(),
+    supabase.from("transactions").select("amount, deleted_at").eq("type", "debt_payment").eq("debt_id", debtId).is("deleted_at", null),
+    supabase.from("categories").select("id").eq("system_key", "extra_debt").maybeSingle(),
+  ]);
+  for (const result of [debt, payments, extraCategory]) {
+    if (result.error) return fail("load debt", result.error);
+  }
+  if (!debt.data) return { fieldErrors: { debtId: "Pick a debt." } };
+  if (!extraCategory.data) return fail("find the Extra debt payment category", { message: "missing system category" });
+  const left = debtLeft({ ...debt.data, paid: debtPaid(payments.data!) });
+  if (left <= 0) return { fieldErrors: { debtId: `${debt.data.name} is paid off.` } };
+  if (amount > left) return { fieldErrors: { amount: `Only ${formatPeso(left)} left on ${debt.data.name}.` } };
+
+  try {
+    const period = await getOrCreatePeriod(supabase, budget, date);
+    // This period's unpaid scheduled payment and planned extra, if any.
+    const { data: items, error: itemsError } = await supabase
+      .from("plan_items")
+      .select("id, origin, planned_amount")
+      .eq("period_id", period.id)
+      .eq("debt_id", debtId)
+      .is("deleted_at", null)
+      .is("paid_at", null);
+    if (itemsError) return fail("load the debt's plan items", itemsError);
+    const scheduled = items.find((i) => i.origin === "recurring");
+    const plannedExtra = items.find((i) => i.origin !== "recurring");
+    const split = debtPaymentSplit(amount, scheduled?.planned_amount ?? null);
+
+    const ids: string[] = [];
+    const undo = async () => {
+      if (ids.length) await supabase.from("transactions").update({ deleted_at: new Date().toISOString() }).in("id", ids);
+    };
+    const payItem = async (itemId: string, part: number) => {
+      const { data, error } = await supabase.rpc("mark_plan_item_paid", { target_item: itemId, paid_on: date, paid_amount: part });
+      if (error) throw error;
+      ids.push(data);
+    };
+
+    try {
+      if (scheduled && split.scheduled > 0) await payItem(scheduled.id, split.scheduled);
+      if (split.extra > 0) {
+        if (plannedExtra) {
+          await payItem(plannedExtra.id, split.extra);
+        } else {
+          const { data, error } = await supabase
+            .from("transactions")
+            .insert({
+              period_id: period.id,
+              category_id: extraCategory.data.id,
+              type: "debt_payment",
+              amount: split.extra,
+              date,
+              debt_id: debtId,
+            })
+            .select("id")
+            .single();
+          if (error) throw error;
+          ids.push(data.id);
+        }
+      }
+    } catch (error) {
+      await undo();
+      return fail("pay debt", error as { message: string });
+    }
+    return { ok: true, saved: { id: ids[0], amount, ids, debtName: debt.data.name } };
   } catch (error) {
     return fail("find period", error as Error);
   }

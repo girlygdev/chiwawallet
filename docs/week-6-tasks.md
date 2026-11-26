@@ -50,12 +50,15 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
   - The Safe to spend card replaces "Cash now" (`cash-card.tsx`).
   - The **Due this period** card: unpaid and recently paid items with tick buttons, and "See all" to Plan.
   - Done when: marking an item paid moves Safe to spend and the Due list.
-- [ ] **6d. The Transfer tab.** Likely two sessions:
+- [x] **6d. The Transfer tab.** Done Nov 26.
   - [x] **6d-1. Pots.** Done Nov 26 (checked in a browser on local Supabase). `potTransfer()` in `lib/pots.ts`; the Savings schema's `move` direction and `toPotId`; `writeSavings`'s tick-off and move paths; `undoTransfer`.
     - Any amount ticks off the pot's planned item.
     - Pot to pot never ticks anything off.
     - A move is two rows, with no link column; Undo removes both. The add sheet's Savings tab becomes **Transfer**, with To a pot, From a pot, and Pot to pot (a withdrawal and a deposit, net ₱0 to cash). A deposit to a pot with a planned item this period says "This also ticks off the ₱2,000 planned for this period." and pays it (sets `paid_at` and `plan_item_id`).
-  - [ ] **6d-2. Debts.** **To a debt** has two cases:
+  - [x] **6d-2. Debts.** Done Nov 26 (checked in a browser on local Supabase). `debtPaymentSplit()` in `lib/debts.ts`; the `debt` direction with `debtId`; `payDebt()` in `activity/actions.ts`; Pay extra on Debts; Segmented's `wrap` (2×2 on phones).
+    - Above the scheduled amount, a payment is split: scheduled (Needs) plus extra (Savings & debt payoff). Below it, it still ticks the payment off.
+    - Pay extra opens the same sheet.
+    - **Open question (owner):** payments fill the *oldest* scheduled payment first (`debtProgress()`, and `generatePlan()`'s `debtAmount`, from Weeks 4–5). debts.md §5 says extra payments lower the *last* payments first. See the dev log. **To a debt** has two cases:
     - **A payment is due this period:** it pays that planned item, in the Debt payment category (Needs).
     - **Otherwise:** it's an extra payment, in Extra debt payment (Savings & debt payoff).
     - Also **Pay extra** on the Debts card (a small sheet for the amount).
