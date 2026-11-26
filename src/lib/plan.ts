@@ -1,6 +1,6 @@
 import { addDays, addMonths, format, parseISO, subDays } from "date-fns";
 import { billDueDates, type BillFrequency, billStatus, type BillTiming, splitHalves } from "@/lib/bills";
-import { type DebtTerms, debtSchedule, paydayFor } from "@/lib/debts";
+import { type DebtTerms, debtSchedule, paydayFor, reducedSchedule } from "@/lib/debts";
 import { isActiveOn } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
 import { formatShortDate, getPeriod, type PaySchedule, type Period, type PaySlot, paydayLabel } from "@/lib/periods";
@@ -39,8 +39,8 @@ export type PlanSources = {
     pay_slot: string;
   }[];
   pots: { id: string; name: string; pay_slot: string; planned_contribution: number }[];
-  /** `paid`: the debt's payments so far (debtPaid()). */
-  debts: (DebtTerms & { id: string; name: string; paid: number; paid_off_at: string | null })[];
+  /** `paid`: the debt's payments so far; `extraPaid`: the extra ones among them (debtPaidByKind()). */
+  debts: (DebtTerms & { id: string; name: string; paid: number; extraPaid?: number; paid_off_at: string | null })[];
   /** The user's categories; only expense ones with a budget per payday become items. */
   spending: { id: string; name: string; kind: string; system_key: string | null; default_budget: number | null }[];
 };
@@ -106,11 +106,14 @@ function debtAmount(debt: PlanSources["debts"][number], period: Period, schedule
   if (debt.payment_type === "flexible" || debt.paid_off_at != null || debt.paid >= debt.total_amount) return 0;
   let total = 0;
   let paidUpTo = 0; // the running total of the schedule
-  for (const payment of debtSchedule(debt)) {
+  // Extra payments shrink the last payments (debts.md §5); the other
+  // payments cover the rest oldest first.
+  const extra = debt.extraPaid ?? 0;
+  const scheduledPaid = debt.paid - extra;
+  for (const payment of reducedSchedule(debtSchedule(debt), extra)) {
     const before = paidUpTo;
     paidUpTo += payment.amount;
-    // Payments are covered oldest first: what's paid so far fills them in order.
-    const left = Math.min(payment.amount, paidUpTo - Math.max(debt.paid, before));
+    const left = Math.min(payment.amount, paidUpTo - Math.max(scheduledPaid, before));
     if (left > 0 && paydayFor(payment.due, schedule) === period.start) total += left;
   }
   return total;

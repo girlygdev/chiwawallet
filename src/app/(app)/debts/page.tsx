@@ -10,7 +10,7 @@ import { OpenAddSheetButton } from "@/components/transactions/add-transaction-pr
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import {
   type DebtTerms,
-  debtPaid,
+  debtPaidFor,
   debtProgress,
   debtsSummary,
   isPaidOff,
@@ -59,6 +59,8 @@ type Debt = DebtTerms & {
   interest_rate: number | null;
   paid_off_at: string | null;
   paid: number;
+  /** Extra payments among `paid`: they shrink the last payments first. */
+  extraPaid: number;
 };
 
 async function DebtsContent() {
@@ -74,7 +76,7 @@ async function DebtsContent() {
     // Every live payment, for what's been paid ("left" is never stored).
     supabase
       .from("transactions")
-      .select("debt_id, amount, deleted_at")
+      .select("debt_id, amount, deleted_at, category:categories(system_key)")
       .eq("type", "debt_payment")
       .not("debt_id", "is", null)
       .is("deleted_at", null),
@@ -86,7 +88,8 @@ async function DebtsContent() {
     ...d,
     // The check constraint allows only these two.
     payment_type: d.payment_type as DebtTerms["payment_type"],
-    paid: debtPaid(paymentRows.data!.filter((p) => p.debt_id === d.id)),
+    // Total paid, and the extra payments that shrink the last payments (debts.md §5).
+    ...debtPaidFor(paymentRows.data!, d.id),
   }));
 
   const schedule = scheduleFromBudget(budget);
@@ -235,7 +238,7 @@ function DebtCard({
   /** Debt items that can be paid now (6b-2). */
   payable: Awaited<ReturnType<typeof payableDebtItems>>;
 }) {
-  const progress = debtProgress(debt, debt.paid, today, period);
+  const progress = debtProgress(debt, debt.paid, today, period, debt.extraPaid);
   const next = progress.payments.find((p) => p.status !== "paid");
   // The plan item that pays the next payment, if its period has started.
   const toPay = debtItemToPay(debt.id, next?.due ?? null, schedule, payable);

@@ -46,6 +46,54 @@ export function debtPaid(rows: { amount: number; deleted_at: string | null }[]):
   return rows.reduce((sum, r) => (r.deleted_at == null ? sum + r.amount : sum), 0);
 }
 
+/**
+ * Everything paid, and the extra payments apart (`extra`: in the Extra debt
+ * payment category). Extra payments lower the last scheduled payments
+ * first (debts.md §5, reducedSchedule()); the rest fill them from the oldest.
+ */
+export function debtPaidByKind(rows: { amount: number; deleted_at: string | null; extra: boolean }[]): {
+  paid: number;
+  extraPaid: number;
+} {
+  return {
+    paid: debtPaid(rows),
+    extraPaid: debtPaid(rows.filter((r) => r.extra)),
+  };
+}
+
+/**
+ * One debt's paid and extra paid from loaded payment rows, each with its
+ * category's `system_key` (`category:categories(system_key)`): Extra debt
+ * payment rows are the extra ones.
+ */
+export function debtPaidFor(
+  rows: { debt_id: string | null; amount: number; deleted_at: string | null; category: unknown }[],
+  debtId: string,
+): { paid: number; extraPaid: number } {
+  return debtPaidByKind(
+    rows
+      .filter((r) => r.debt_id === debtId)
+      .map((r) => ({ ...r, extra: (r.category as { system_key: string | null } | null)?.system_key === "extra_debt" })),
+  );
+}
+
+/**
+ * The schedule after extra payments (debts.md §5: they "lower the last
+ * payments first, so the debt-free date can move earlier"): `extraPaid` is
+ * taken off the last payment, then the one before, and so on. A payment
+ * brought to ₱0 is cleared. Numbers and due dates don't change.
+ */
+export function reducedSchedule(schedule: ScheduledPayment[], extraPaid: number): ScheduledPayment[] {
+  let extra = Math.max(0, extraPaid);
+  const reduced = [...schedule];
+  for (let i = reduced.length - 1; i >= 0 && extra > 0; i--) {
+    const off = Math.min(extra, reduced[i].amount);
+    reduced[i] = { ...reduced[i], amount: reduced[i].amount - off };
+    extra -= off;
+  }
+  return reduced;
+}
+
 export type PaymentStatus = "paid" | "due" | "planned" | "late";
 
 export type DebtProgress = {
@@ -64,23 +112,27 @@ export type DebtProgress = {
 };
 
 /**
- * Where a debt stands (debts.md §1). Payments count in order: one is Paid
- * once everything paid covers it and every payment before it. An unpaid one
- * is Late after its due date ("Late · 3 days"), Due when it falls in the
- * current `period`, and Planned otherwise.
+ * Where a debt stands (debts.md §1). Extra payments (`extraPaid`, part of
+ * `paid`) shrink the schedule from the last payment (reducedSchedule());
+ * the other payments count in order: one is Paid once they cover it and
+ * every payment before it, and one cleared by extra payments is Paid too.
+ * An unpaid one is Late after its due date ("Late · 3 days"), Due when it
+ * falls in the current `period`, and Planned otherwise.
  */
 export function debtProgress(
   debt: DebtTerms,
   paid: number,
   today: string,
   period: { start: string; end: string },
+  extraPaid = 0,
 ): DebtProgress {
-  const schedule = debtSchedule(debt);
-  let covered = 0;
-  let paymentsMade = 0;
+  const schedule = reducedSchedule(debtSchedule(debt), extraPaid);
+  const scheduledPaid = paid - extraPaid;
+  let covered = 0;  let paymentsMade = 0;
   const payments = schedule.map((payment) => {
     covered += payment.amount;
-    if (paid >= covered) {
+    // Cleared by extra payments, or covered by the scheduled ones.
+    if (payment.amount === 0 || scheduledPaid >= covered) {
       paymentsMade += 1;
       return { ...payment, status: "paid" as const };
     }
@@ -101,7 +153,11 @@ export function debtProgress(
     left,
     paidOff: left === 0,
     paymentsMade,
-    debtFreeBy: schedule.length > 0 ? schedule[schedule.length - 1].due : targetMonthEnd(debt.target_date),
+    // The last payment extra payments haven't cleared: it moves earlier.
+    debtFreeBy:
+      schedule.length > 0
+        ? (schedule.findLast((p) => p.amount > 0) ?? schedule[schedule.length - 1]).due
+        : targetMonthEnd(debt.target_date),
     payments,
   };
 }
@@ -155,7 +211,7 @@ export function debtLeft(debt: { total_amount: number; paid: number; paid_off_at
   return isPaidOff(debt) ? 0 : debt.total_amount - debt.paid;
 }
 
-type SummaryDebt = DebtTerms & { name: string; paid: number; paid_off_at: string | null };
+type SummaryDebt = DebtTerms & { name: string; paid: number; paid_off_at: string | null; extraPaid?: number };
 
 export type DebtsSummary = {
   /** "Total owed": what's left across active debts. */
@@ -198,7 +254,7 @@ export function debtsSummary(
       summary.paidOffCount += 1;
       continue;
     }
-    const progress = debtProgress(debt, debt.paid, today, period);
+    const progress = debtProgress(debt, debt.paid, today, period, debt.extraPaid ?? 0);
     summary.activeCount += 1;
     summary.totalOwed += progress.left;
     summary.activeTotal += debt.total_amount;

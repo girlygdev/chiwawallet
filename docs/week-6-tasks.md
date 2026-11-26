@@ -58,7 +58,9 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
   - [x] **6d-2. Debts.** Done Nov 26 (checked in a browser on local Supabase). `debtPaymentSplit()` in `lib/debts.ts`; the `debt` direction with `debtId`; `payDebt()` in `activity/actions.ts`; Pay extra on Debts; Segmented's `wrap` (2×2 on phones).
     - Above the scheduled amount, a payment is split: scheduled (Needs) plus extra (Savings & debt payoff). Below it, it still ticks the payment off.
     - Pay extra opens the same sheet.
-    - **Open question (owner):** payments fill the *oldest* scheduled payment first (`debtProgress()`, and `generatePlan()`'s `debtAmount`, from Weeks 4–5). debts.md §5 says extra payments lower the *last* payments first. See the dev log. **To a debt** has two cases:
+    - **Fixed Nov 26:** extra payments now lower the *last* payments first (debts.md §5), and scheduled ones fill from the oldest. See `reducedSchedule()`, `debtPaidByKind()` and `debtPaidFor()`.
+    - A payment cleared by extras shows as Paid at ₱0.
+    - Known: its line says "paid from Jan 15 payday". **To a debt** has two cases:
     - **A payment is due this period:** it pays that planned item, in the Debt payment category (Needs).
     - **Otherwise:** it's an extra payment, in Extra debt payment (Savings & debt payoff).
     - Also **Pay extra** on the Debts card (a small sheet for the amount).

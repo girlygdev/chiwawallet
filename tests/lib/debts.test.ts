@@ -3,6 +3,7 @@ import {
   debtLeft,
   debtPaymentSplit,
   debtPaid,
+  debtPaidByKind,
   debtProgress,
   debtSchedule,
   debtsSummary,
@@ -10,6 +11,7 @@ import {
   isPaidOff,
   paydayFor,
   paymentStatusText,
+  reducedSchedule,
 } from "@/lib/debts";
 
 const spayLater = {
@@ -258,5 +260,64 @@ describe("debtPaymentSplit (6d-2)", () => {
 
   it("is all extra when nothing is due", () => {
     expect(debtPaymentSplit(250_000, null)).toEqual({ scheduled: 0, extra: 250_000 });
+  });
+});
+
+// Extra payments lower the last payments first (debts.md §5).
+describe("reducedSchedule (extra payments)", () => {
+  const amounts = (extra: number) => reducedSchedule(debtSchedule(spayLater), extra).map((p) => p.amount);
+
+  it("takes extra payments off the last payment first", () => {
+    expect(amounts(0)).toEqual([400_000, 400_000, 400_000]);
+    expect(amounts(200_000)).toEqual([400_000, 400_000, 200_000]);
+    expect(amounts(500_000)).toEqual([400_000, 300_000, 0]);
+    expect(amounts(1_200_000)).toEqual([0, 0, 0]);
+  });
+
+  it("keeps each payment's number and due date", () => {
+    expect(reducedSchedule(debtSchedule(spayLater), 200_000)[2]).toEqual({ number: 3, due: "2027-01-25", amount: 200_000 });
+  });
+});
+
+describe("debtPaidByKind", () => {
+  it("adds up everything paid, and the extra payments apart", () => {
+    const rows = [
+      { amount: 400_000, deleted_at: null, extra: false },
+      { amount: 200_000, deleted_at: null, extra: true },
+      { amount: 100_000, deleted_at: "2026-11-20T00:00:00Z", extra: true },
+    ];
+    expect(debtPaidByKind(rows)).toEqual({ paid: 600_000, extraPaid: 200_000 });
+  });
+});
+
+describe("debtProgress with extra payments", () => {
+  const statuses = (paid: number, extra: number) =>
+    debtProgress(spayLater, paid, "2026-11-20", period, extra).payments.map((p) => [p.status, p.amount]);
+
+  it("an extra payment doesn't pay the next scheduled payment; it shrinks the last", () => {
+    expect(statuses(200_000, 200_000)).toEqual([
+      ["due", 400_000],
+      ["planned", 400_000],
+      ["planned", 200_000],
+    ]);
+  });
+
+  it("a payment cleared by extra payments counts as paid, and the debt-free date moves earlier", () => {
+    const progress = debtProgress(spayLater, 400_000, "2026-11-20", period, 400_000);
+    expect(progress.payments.map((p) => [p.status, p.amount])).toEqual([
+      ["due", 400_000],
+      ["planned", 400_000],
+      ["paid", 0],
+    ]);
+    expect(progress.debtFreeBy).toBe("2026-12-25");
+    expect(progress.left).toBe(800_000);
+  });
+
+  it("scheduled payments still fill from the oldest", () => {
+    expect(statuses(600_000, 200_000)).toEqual([
+      ["paid", 400_000],
+      ["planned", 400_000],
+      ["planned", 200_000],
+    ]);
   });
 });

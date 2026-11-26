@@ -222,6 +222,13 @@ describe("generatePlan: debts", () => {
     expect(short(generatePlan(NOV_30, SEMI, s))).toEqual(["Loan from Ate 500000"]);
   });
 
+  it("extra payments shrink the last payment, not the next one (debts.md §5)", () => {
+    const s = sources({ debts: [debt("SPayLater", { paid: 200_000, extraPaid: 200_000 })] });
+    expect(short(generatePlan(NOV_15, SEMI, s))).toEqual(["SPayLater 400000"]);
+    expect(short(generatePlan(DEC_15, SEMI, s))).toEqual(["SPayLater 400000"]);
+    expect(short(generatePlan(P("2027-01-15", "2027-01-29"), SEMI, s))).toEqual(["SPayLater 200000"]);
+  });
+
   it("never plans a paid-off or \"When I can\" debt", () => {
     const s = sources({
       debts: [

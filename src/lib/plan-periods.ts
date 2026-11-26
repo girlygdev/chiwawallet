@@ -3,7 +3,7 @@ import { addDays, format, parseISO } from "date-fns";
 import type { BillFrequency } from "@/lib/bills";
 import { type BudgetPeriod, getOrCreatePeriod } from "@/lib/budget-periods";
 import type { Budget } from "@/lib/current-budget";
-import { type DebtTerms, debtLeft, debtPaid } from "@/lib/debts";
+import { type DebtTerms, debtLeft, debtPaidFor } from "@/lib/debts";
 import { receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers } from "@/lib/money";
 import { formatShortDate, getPeriod, type Period, type PaySlot, scheduleFromBudget } from "@/lib/periods";
@@ -468,7 +468,7 @@ async function loadSources(supabase: Client, budget: Budget) {
     // Every live debt payment, for what's been paid (never stored).
     supabase
       .from("transactions")
-      .select("debt_id, amount, deleted_at")
+      .select("debt_id, amount, deleted_at, category:categories(system_key)")
       .eq("type", "debt_payment")
       .not("debt_id", "is", null)
       .is("deleted_at", null),
@@ -494,7 +494,8 @@ async function loadSources(supabase: Client, budget: Budget) {
     debts: debts.data!.map((d) => ({
       ...d,
       payment_type: d.payment_type as DebtTerms["payment_type"],
-      paid: debtPaid(payments.data!.filter((p) => p.debt_id === d.id)),
+      // Total paid, and the extra payments that shrink the last payments (debts.md §5).
+      ...debtPaidFor(payments.data!, d.id),
     })),
     spending: categories.data!,
     /** Each category's group (empty for income), for the sections and the split. */

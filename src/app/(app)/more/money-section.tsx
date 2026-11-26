@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { getCurrentBudget } from "@/lib/current-budget";
 import { describeIncome, isActiveOn } from "@/lib/income";
-import { type DebtTerms, debtPaid, debtsSummary } from "@/lib/debts";
+import { type DebtTerms, debtPaidFor, debtsSummary } from "@/lib/debts";
 import { formatPeso } from "@/lib/money";
 import { getPeriod, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { potBalance, totalSaved } from "@/lib/pots";
@@ -118,7 +118,7 @@ async function DebtsDetail() {
       .select("id, name, total_amount, payment_type, num_payments, payment_amount, first_due_date, paid_off_at"),
     supabase
       .from("transactions")
-      .select("debt_id, amount, deleted_at")
+      .select("debt_id, amount, deleted_at, category:categories(system_key)")
       .eq("type", "debt_payment")
       .not("debt_id", "is", null)
       .is("deleted_at", null),
@@ -130,7 +130,7 @@ async function DebtsDetail() {
       ...d,
       // The check constraint allows only these two.
       payment_type: d.payment_type as DebtTerms["payment_type"],
-      paid: debtPaid(payments.data.filter((p) => p.debt_id === d.id)),
+      ...debtPaidFor(payments.data, d.id),
     })),
     today,
     getPeriod(today, scheduleFromBudget(budget)),

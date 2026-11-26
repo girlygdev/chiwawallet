@@ -2,6 +2,27 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · Extra debt payments lower the last payments first
+- **What:** fixes the 6d-2 open question. Extra payments (Extra debt payment category) now shrink a debt's schedule from the last payment (debts.md §5), and scheduled payments still fill it from the oldest.
+  - **Where it shows:** the Debts page (schedule, statuses, next payment, Debt-free by), the More page's debt line, and plan generation (`debtAmount`), which the sync then applies to open periods.
+  - **The debt-free date** moves earlier when extras clear whole payments.
+  - **What's left** doesn't change.
+- **Files:**
+  - `src/lib/debts.ts`:
+    - `reducedSchedule()`, `debtPaidByKind()`, `debtPaidFor()`
+    - `debtProgress()` takes `extraPaid`; `debtsSummary()` passes it
+  - `src/lib/plan.ts`: `debtAmount`; sources' debts get `extraPaid`
+  - `tests/lib/debts.test.ts`, `tests/lib/plan.test.ts`
+  - the payment loads, now with `category:categories(system_key)`, in `src/lib/plan-periods.ts`, `src/app/(app)/debts/page.tsx` and `src/app/(app)/more/money-section.tsx`
+  - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendation):** a payment cleared by extras shows as Paid at ₱0. There's no new status.
+- **Tests:** written first, 7 new unit tests (539 pass), and 285 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - with a ₱2,000 extra on SPayLater, payment 1 stayed ₱4,000 (Late), payment 3 showed ₱2,000, and the Plan's Nov 15 item synced back to ₱4,000
+  - paying ₱6,000 (₱4,000 due + ₱2,000 extra) cleared payment 3 (₱0, Paid), and Debt-free by went from Jan 25 to Dec 25
+  - no console errors
+- **Known:** a payment cleared by extras reads "Jan 25 · paid from Jan 15 payday". Better copy could be "cleared early".
+- **Next:** 6e, planned vs actual on the Plan.
+
 ## 2026-11-26 · Week 6 · 6d-2 To a debt and Pay extra
 - **What:**
   - **To a debt,** the Transfer tab's fourth option:
