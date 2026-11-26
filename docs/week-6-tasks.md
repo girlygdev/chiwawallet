@@ -8,7 +8,7 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
 
 ## Tasks
 
-- [ ] **6a. Migration: Mark paid.** The app can't set `paid_at` today (5a's grants leave it out), and paying must create the transaction and tick the item together.
+- [x] **6a. Migration: Mark paid.** Done Nov 26 (`20261126120000_mark_plan_item_paid.sql`): local only; **live** after the owner's go. Undo is the existing soft delete of the payment, and a trigger un-ticks the item (owner, Nov 26), so there's no separate unmark function. The app can't set `paid_at` today (5a's grants leave it out), and paying must create the transaction and tick the item together.
   - A SQL function `mark_plan_item_paid(item, date, amount)`. In one transaction it creates the matching `transactions` row, with `plan_item_id` set, and sets the item's `paid_at`. The transaction depends on the item:
     - **Bill or one-off:** an expense in its category.
     - **Pot:** a savings deposit with `pot_id` and the Savings pot category.

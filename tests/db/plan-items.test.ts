@@ -307,16 +307,17 @@ describe("delete_category with plan items", () => {
 });
 
 describe("plan_items: permissions", () => {
-  it("can't change the origin, links or paid_at, or set the owner", async () => {
+  // paid_at can be updated since 6a (Mark paid), through mark_plan_item_paid() and its trigger.
+  it("can't change the origin or links, or set the owner", async () => {
     const s = await setUp();
     const row = await add(s, items.oneOff(s));
-    for (const fields of [{ origin: "recurring" }, { bill_id: s.billId }, { paid_at: new Date().toISOString() }, { user_id: s.user.id }]) {
+    for (const fields of [{ origin: "recurring" }, { bill_id: s.billId }, { user_id: s.user.id }]) {
       const { error } = await s.user.client.from("plan_items").update(fields).eq("id", row.id);
       expect(error?.code).toBe(PERMISSION_DENIED);
     }
   });
 
-  it("can't set paid_at when adding (Mark paid is Week 6)", async () => {
+  it("can't set paid_at when adding (only Mark paid sets it, 6a)", async () => {
     const s = await setUp();
     const { error } = await s.user.client.from("plan_items").insert(items.oneOff(s, { paid_at: new Date().toISOString() }));
     expect(error?.code).toBe(PERMISSION_DENIED);
@@ -329,13 +330,17 @@ describe("plan_items: permissions", () => {
     expect(error?.code).toBe(PERMISSION_DENIED);
   });
 
-  it("can't link a transaction to a plan item yet", async () => {
+  it("links a transaction to the user's own plan item only (6a)", async () => {
     const s = await setUp();
+    const other = await setUp();
     const row = await add(s, items.oneOff(s));
-    const { error } = await s.user.client.from("transactions").insert({
-      period_id: s.futureId, category_id: s.category.Gifts, type: "expense", amount: 250_000, date: "2027-01-20", plan_item_id: row.id,
+    const theirs = await add(other, items.oneOff(other));
+    const payment = (plan_item_id: string) => ({
+      period_id: s.futureId, category_id: s.category.Gifts, type: "expense", amount: 250_000, date: "2027-01-20", plan_item_id,
     });
-    expect(error?.code).toBe(PERMISSION_DENIED);
+    expect((await s.user.client.from("transactions").insert(payment(row.id))).error).toBeNull();
+    // The same-owner foreign key refuses someone else's item.
+    expect((await s.user.client.from("transactions").insert(payment(theirs.id))).error?.code).toBe(FOREIGN_KEY_VIOLATION);
   });
 });
 

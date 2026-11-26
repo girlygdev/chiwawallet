@@ -2,6 +2,34 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6a Mark paid migration
+- **What:**
+  - **`mark_plan_item_paid(item, paid_on, amount)`**, a SQL function that runs as the caller. It creates the transaction that pays a plan item and sets `paid_at`, all in one step, and returns the transaction's id:
+    - a pot becomes a savings deposit
+    - a debt becomes a `debt_payment` (Debt payment, or Extra debt payment for extras)
+    - a bill or one-off becomes an expense
+    - the transaction is always in the item's own category, with `plan_item_id`
+  - **Refused:** missing, removed or someone else's items (P0002); income, spending budgets, starter lines and ₱0 (22023); already paid or a closed period (55000); a date outside the period (23514, the existing trigger).
+  - **A trigger on transactions:** soft-deleting the payment clears `paid_at` (unless another live payment still covers the item), and restoring it sets `paid_at` again.
+  - **New grants:** `paid_at` updates on plan items, and `plan_item_id` inserts on transactions.
+- **Files:**
+  - New:
+    - `supabase/migrations/20261126120000_mark_plan_item_paid.sql`
+    - `tests/db/mark-paid.test.ts`
+  - Edited:
+    - `tests/db/plan-items.test.ts`: two 5a permission tests now match 6a
+    - `src/lib/supabase/types.ts`: the function's type, added by hand
+    - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - Undo uses the existing soft delete plus the trigger. There's no unmark function.
+  - The function runs as the caller with two column grants, not with elevated rights.
+- **Tests:** written first, 11 new database tests (285 pass), and 506 unit tests. Lint and typecheck pass.
+- **AI notes:**
+  - `supabase gen types --local` reformatted the whole types file (a diff of over 1,000 lines). Claude reverted it and added the 4 lines by hand. Regenerate from the live project once the migration is live.
+  - Claude's first version of the updated link test passed a row where an id was needed. Fixed.
+- **Not yet live:** the migration needs a dry run, then `npx supabase db push`, after the owner's go.
+- **Next:** 6b, Mark paid in the app.
+
 ## 2026-11-26 · Week 5 · 5i Live check (Week 5 done)
 - **What:** the owner checked Week 5 on the live site (`89e6d34`): the Plan for this and next payday, a period three months ahead, one-offs, budgets, debt payments, edit/remove/Undo, the bill sync, the budget line and Bills/Savings. All fine ("tick it").
 - **Files:** `docs/week-5-tasks.md` (5d and 5i ticked), `docs/mvp-brief.md` (Week 5's checkboxes ticked), `docs/dev-log.md`.

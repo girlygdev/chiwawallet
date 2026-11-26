@@ -685,6 +685,10 @@ export type Database = {
         }
         Returns: number
       }
+      mark_plan_item_paid: {
+        Args: { paid_amount: number; paid_on: string; target_item: string }
+        Returns: string
+      }
       record_consent: {
         Args: { name: string; version: string }
         Returns: undefined
