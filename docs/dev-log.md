@@ -2,6 +2,35 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 5 · 5h-2 The add sheet's budget line
+- **What:** once a category is picked for an expense in the current period, Add expense's impact line shows that category's budget (activity.md §3):
+  - "Groceries budget: ₱3,120 left after this."
+  - "₱1,880 over your Groceries budget." (yellow)
+  - "No Health budget yet. Set one in Plan to see what's left."
+  - Before a category is picked, or for another period, it still says "Money out this period: …" or "Goes in …".
+  - Editing an expense takes its old amount out of what's spent first.
+- **Files:**
+  - `src/lib/plan.ts`: `categoryBudgets()`, `budgetLeft()`
+  - `tests/lib/plan.test.ts`
+  - `src/app/(app)/activity/actions.ts`: `getAddSheetData` returns `budgets` (one more query for the period's budget items)
+  - `src/components/transactions/sheet-impact.ts`: `budgetLine()`
+  - `expense-form.tsx`
+  - `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - 5h is split further: 5h-2 is the budget line, and 5h-3 covers Bills and Savings.
+  - The budget is this period's budget item. A removed one means no budget. With no item yet (the plan was never opened), it's the budget per payday.
+  - Starter lines and one-offs don't count as a category's budget.
+  - The picker tiles' "₱2,760 left" stays an open item.
+- **Tests:** written first, 8 new unit tests (496 pass). Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase, with Groceries at ₱3,300:
+  - ₱180 → "₱3,120 left"; saved
+  - then ₱200 → "₱2,920 left"
+  - ₱5,000 → "₱1,880 over" in yellow
+  - Health → "No Health budget yet"
+  - editing the ₱180 expense to ₱250 → "₱3,050 left"
+  - no console errors
+- **AI notes:** Claude first subtracted an edited expense's old amount in `sheet-impact.ts`. It moved that into `budgetLeft()` with a test, so no money math lives in components.
+- **Next:** 5h-3, Bills and Savings.
+
 ## 2026-11-26 · Week 5 · 5h-1 Keep plans in sync
 - **What:** open periods (not ended) now follow their sources. Saving a bill, pot, income source or debt (including Mark paid off), a category with a budget per payday, or Set a budget "Every payday" runs `syncOpenPeriods()`, and so does opening a period. For each period, `planSync()` compares what `generatePlan()` makes now with what's there:
   - changed amounts and names are updated
@@ -34,7 +63,7 @@ Newest entry first.
   - a removed Meralco stayed removed
   - Groceries removed then Undone followed its budget change to ₱3,300, while Nov 30's "This period only" ₱4,000 stayed
   - no console errors
-- **Not yet live:** the migration. It needs a dry run, then `npx supabase db push`, after the owner's go. It must go live with or before this code.
+- **Live:** the migration was pushed Nov 26 (dry run first, owner's go), before the code.
 - **Next:** 5h-2, plan data on other screens.
 
 ## 2026-11-26 · Week 5 · 5g-2 Debt payments and the Plan options menu

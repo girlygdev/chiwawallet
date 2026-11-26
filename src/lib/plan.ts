@@ -578,3 +578,47 @@ export function planSync(generated: GeneratedItem[], existing: SyncRow[]): PlanS
   }
   return changes;
 }
+
+// ---------------------------------------------------------------------------
+// The add sheet's "budget left" line (activity.md §3, 5h-2)
+// ---------------------------------------------------------------------------
+
+export type CategoryBudget = { budget: number | null; spent: number };
+
+/**
+ * Each category's budget and spending in the current period. The budget is
+ * the period's spending budget item for the category (a "this period only"
+ * one included). Removed from this period: no budget. No item at all: the
+ * period's plan hasn't been opened yet, so the budget per payday it will get.
+ * `items` are the period's spending budget items, removed ones included;
+ * `expenses` its live expenses. Starter lines and one-offs don't count.
+ */
+export function categoryBudgets(
+  categories: { id: string; default_budget: number | null }[],
+  items: { category_id: string | null; planned_amount: number; deleted_at: string | null }[],
+  expenses: { category_id: string; amount: number }[],
+): Record<string, CategoryBudget> {
+  const result: Record<string, CategoryBudget> = {};
+  for (const c of categories) {
+    const item = items.find((i) => i.category_id === c.id);
+    const budget = item ? (item.deleted_at == null ? item.planned_amount : null) : (c.default_budget ?? null);
+    const spent = expenses.filter((e) => e.category_id === c.id).reduce((sum, e) => sum + e.amount, 0);
+    result[c.id] = { budget, spent };
+  }
+  return result;
+}
+
+/**
+ * "₱2,580 left after this", "₱120 over", or no budget to compare with.
+ * `replaced`: editing an expense already counted in `spent` (its old amount).
+ */
+export function budgetLeft(
+  budget: number | null,
+  spent: number,
+  amount: number,
+  replaced = 0,
+): { kind: "left" | "over"; amount: number } | { kind: "none" } {
+  if (budget == null) return { kind: "none" };
+  const left = budget - (spent - replaced) - amount;
+  return left >= 0 ? { kind: "left", amount: left } : { kind: "over", amount: -left };
+}

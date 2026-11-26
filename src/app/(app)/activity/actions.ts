@@ -5,6 +5,7 @@ import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { isActiveOn, receivedSourceIds, sourcePayday } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
 import { type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { type CategoryBudget, categoryBudgets } from "@/lib/plan";
 import { potBalance, potBalanceAfter } from "@/lib/pots";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
@@ -71,6 +72,8 @@ export type AddSheetData = {
   targets: Record<BudgetGroup, number>;
   /** The Savings tab's pot cards (4e), oldest first. */
   pots: SheetPot[];
+  /** Each offered category's budget and spending this period, for "Food budget: ₱2,580 left" (5h-2). */
+  budgets: Record<string, CategoryBudget>;
 };
 
 /** A pot card on the Savings tab (activity.md §3 Savings). */
@@ -92,8 +95,8 @@ export async function getAddSheetData(): Promise<AddSheetData> {
   const today = todayInManila(new Date());
   const period = await getOrCreatePeriod(supabase, budget, today);
 
-  const [categories, recent, rows, sources, first, pots] = await Promise.all([
-    supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color"),
+  const [categories, recent, rows, sources, first, pots, budgetItems] = await Promise.all([
+    supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color, default_budget"),
     supabase
       .from("transactions")
       .select("category_id")
@@ -103,7 +106,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
       .limit(RECENT_EXPENSES),
     supabase
       .from("transactions")
-      .select("type, amount, deleted_at, income_source_id")
+      .select("type, amount, deleted_at, income_source_id, category_id")
       .eq("period_id", period.id)
       .is("deleted_at", null),
     supabase
@@ -113,8 +116,18 @@ export async function getAddSheetData(): Promise<AddSheetData> {
       .order("created_at", { ascending: true }),
     firstPeriodStart(budget.id),
     loadSheetPots(),
+    // This period's spending budget items, removed ones included (5h-2).
+    supabase
+      .from("plan_items")
+      .select("category_id, planned_amount, deleted_at")
+      .eq("period_id", period.id)
+      .eq("origin", "recurring")
+      .is("income_source_id", null)
+      .is("bill_id", null)
+      .is("pot_id", null)
+      .is("debt_id", null),
   ]);
-  for (const result of [categories, recent, rows, sources]) {
+  for (const result of [categories, recent, rows, sources, budgetItems]) {
     if (result.error) throw new Error(`Couldn't load the add sheet: ${result.error.message}`, { cause: result.error });
   }
 
@@ -151,6 +164,11 @@ export async function getAddSheetData(): Promise<AddSheetData> {
     recentIds: recentCategories(categories.data!, latestIds, RECENT_TILES).map((c) => c.id),
     targets: { needs: budget.needs_pct, wants: budget.wants_pct, savings_debt: budget.savings_debt_pct },
     pots,
+    budgets: categoryBudgets(
+      categories.data!,
+      budgetItems.data!,
+      rows.data!.filter((r) => r.type === "expense"),
+    ),
   };
 }
 

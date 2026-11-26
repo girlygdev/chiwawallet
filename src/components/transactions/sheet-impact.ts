@@ -1,6 +1,7 @@
 import type { AddSheetData, EditingTransaction } from "@/app/(app)/activity/actions";
 import { formatPeso } from "@/lib/money";
 import { formatPeriodRange, getPeriod } from "@/lib/periods";
+import { budgetLeft } from "@/lib/plan";
 import { editImpact, moneyInImpact, moneyOutImpact } from "@/lib/transactions";
 
 /**
@@ -47,4 +48,48 @@ export function sheetImpact({
   if (!inside(data.currentPeriod)) return `Goes in ${range()}.`;
   const { before, after } = (kind === "out" ? moneyOutImpact : moneyInImpact)(data.periodRows, amount);
   return `${label} this period: ${formatPeso(before)} → ${formatPeso(after)}`;
+}
+
+/**
+ * Add expense's budget line (activity.md §3, task 5h-2), for an expense in
+ * the current period once a category is picked:
+ * - "Food budget: ₱2,580 left after this."
+ * - "₱120 over your Food budget." (`over`: shown in yellow)
+ * - "No Food budget yet. Set one in Plan to see what's left."
+ * Null otherwise, and sheetImpact()'s line shows instead. Editing a row in
+ * the same category takes its old amount out of what's spent first.
+ */
+export function budgetLine({
+  data,
+  editing,
+  categoryId,
+  amount,
+  date,
+}: {
+  data: AddSheetData | null;
+  editing: EditingTransaction | null;
+  categoryId: string;
+  /** Centavos, or null while the amount isn't valid. */
+  amount: number | null;
+  date: string;
+}): { text: string; over: boolean } | null {
+  if (!data || amount == null || !categoryId) return null;
+  const current = data.currentPeriod;
+  if (date < current.start || date > current.end) return null;
+  if (editing && editing.period.start !== current.start) return null;
+  const name = data.categories.find((c) => c.id === categoryId)?.name;
+  const entry = data.budgets[categoryId];
+  if (!name || !entry) return null;
+
+  // An edited expense in the same category is already in `spent`.
+  const replaced = editing?.type === "expense" && editing.categoryId === categoryId ? editing.amount : 0;
+  const result = budgetLeft(entry.budget, entry.spent, amount, replaced);
+  switch (result.kind) {
+    case "none":
+      return { text: `No ${name} budget yet. Set one in Plan to see what's left.`, over: false };
+    case "left":
+      return { text: `${name} budget: ${formatPeso(result.amount)} left after this.`, over: false };
+    case "over":
+      return { text: `${formatPeso(result.amount)} over your ${name} budget.`, over: true };
+  }
 }

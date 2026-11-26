@@ -69,11 +69,17 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
     - Only **unpaid, unedited** `recurring` items change. Items that no longer belong are soft-deleted and come back if they belong again.
     - Remove from plan marks the item `edited`, so it stays removed. Undo puts the old value back.
     - No "Update future paydays only?" question (owner, Nov 26).
-    - Migration `20261126110000_plan_items_removed_are_edited.sql`: local only. **Live:** after the owner's go.
+    - Migration `20261126110000_plan_items_removed_are_edited.sql`: local and live (Nov 26).
     - Done when: changing a bill's amount shows in next period's plan. ✅
-  - [ ] **5h-2. Plan data on other screens.**
-    - The add sheet's "budget left" impact line for categories with a planned amount (plan review, Week 3 scope).
-    - Bills and Savings: "Planned in N upcoming paydays" and "Due this period" from plan items.
+  - [x] **5h-2. The add sheet's budget line.** Done Nov 26 (checked in a browser on local Supabase). `categoryBudgets()` and `budgetLeft()` in `lib/plan.ts`; `budgetLine()` in `sheet-impact.ts`.
+    - "Food budget: ₱2,580 left after this", "₱120 over your Food budget" (yellow), or "No Food budget yet. Set one in Plan to see what's left."
+    - The budget is this period's budget item, none if removed, or the budget per payday while the period's plan hasn't been opened (owner, Nov 26). Starter lines and one-offs don't count.
+    - Skipped: "₱2,760 left" on the category picker's tiles (not in 5h). It's still an open item.
+  - [ ] **5h-3. Bills and Savings.**
+    - Bills: "₱1,000 still due this period" (summary card and desktop stat, with the next bill).
+    - Savings: "Due this period: ₱2,000 to Travel" under YOUR POTS.
+    - Delete bill and Delete pot: "Planned in N upcoming paydays".
+    - Both pages open the current period the way the Plan does, so its items exist and are in sync.
 - [ ] **5i. Live check.** Push, then plan your next three months on your phone.
 
 ## Decisions (owner, Nov 25)

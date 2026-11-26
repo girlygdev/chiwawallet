@@ -11,6 +11,7 @@ import { TextField } from "@/components/auth/text-field";
 import { CategoryForm } from "@/components/categories/category-form";
 import { formatPesoInput, parsePesoInput } from "@/lib/money";
 import { todayInManila } from "@/lib/periods";
+import { cn } from "@/lib/utils";
 import {
   type TransactionFormInput,
   type TransactionValues,
@@ -21,7 +22,7 @@ import { CategoryGrid } from "./category-grid";
 import { CategoryPicker } from "./category-picker";
 import { DateButton } from "./date-button";
 import { DeleteLink } from "./delete-link";
-import { sheetImpact } from "./sheet-impact";
+import { budgetLine, sheetImpact } from "./sheet-impact";
 
 const FIELD_ORDER = ["amount", "categoryId", "date", "note"] as const;
 
@@ -111,8 +112,11 @@ export function ExpenseForm({
   const centavos = parsePesoInput(amountText);
   const validAmount = centavos != null && centavos > 0 ? centavos : null;
 
-  // The effect in pesos before saving (CLAUDE.md UI rules).
-  const impact = sheetImpact({ data, editing, kind: "out", amount: validAmount, date });
+  // The effect in pesos before saving (CLAUDE.md UI rules): the category's
+  // budget left once one is picked (5h-2), otherwise money out this period.
+  const budget = budgetLine({ data, editing, categoryId, amount: validAmount, date });
+  const moneyOut = sheetImpact({ data, editing, kind: "out", amount: validAmount, date });
+  const impact = budget ?? (moneyOut ? { text: moneyOut, over: false } : null);
 
   const finish = (result: SaveExpenseResult) => {
     if (result.formError) setFormError(result.formError);
@@ -221,7 +225,17 @@ export function ExpenseForm({
         />
 
         <div aria-live="polite">
-          {impact && <p className="rounded-[14px] bg-mint px-4 py-3 text-sm font-bold text-link-hover">{impact}</p>}
+          {impact && (
+            // Yellow, not red, when it goes over (style-guide.md: red is for deleting only).
+            <p
+              className={cn(
+                "rounded-[14px] px-4 py-3 text-sm font-bold",
+                impact.over ? "bg-cat-yellow-bg text-cat-yellow-fg" : "bg-mint text-link-hover",
+              )}
+            >
+              {impact.text}
+            </p>
+          )}
         </div>
 
         <FormError message={formError} />

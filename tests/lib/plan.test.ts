@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
   budgetImpact,
+  budgetLeft,
+  categoryBudgets,
   editImpact,
   generatePlan,
   incomeStatus,
@@ -707,5 +709,67 @@ describe("planSync (5h-1)", () => {
     expect(planSync([food], [thisPeriodOnly])).toEqual({ insert: [], update: [], remove: [] });
     // A cleared budget per payday takes out the unedited one.
     expect(planSync([], [row({ name: "Food", category_id: "cat-food" })]).remove).toEqual(["row-1"]);
+  });
+});
+
+describe("categoryBudgets (5h-2)", () => {
+  const categories = [
+    { id: "food", default_budget: 300_000 },
+    { id: "fun", default_budget: null },
+    { id: "gifts", default_budget: 100_000 },
+    { id: "pets", default_budget: 200_000 },
+  ];
+  const budgetItem = (category_id: string, planned_amount: number, deleted_at: string | null = null) => ({
+    category_id,
+    planned_amount,
+    deleted_at,
+  });
+
+  it("uses this period's budget item, even one set for this period only", () => {
+    const result = categoryBudgets(categories, [budgetItem("food", 400_000)], []);
+    expect(result.food.budget).toBe(400_000);
+  });
+
+  it("has no budget once you removed it from this period", () => {
+    const result = categoryBudgets(categories, [budgetItem("gifts", 100_000, "2026-11-20T00:00:00Z")], []);
+    expect(result.gifts.budget).toBeNull();
+  });
+
+  it("uses the budget per payday before the period's plan is opened, and nothing without one", () => {
+    const result = categoryBudgets(categories, [], []);
+    expect(result.pets.budget).toBe(200_000);
+    expect(result.fun.budget).toBeNull();
+  });
+
+  it("adds up this period's spending per category", () => {
+    const expenses = [
+      { category_id: "food", amount: 18_000 },
+      { category_id: "food", amount: 24_000 },
+      { category_id: "fun", amount: 50_000 },
+    ];
+    const result = categoryBudgets(categories, [], expenses);
+    expect(result.food.spent).toBe(42_000);
+    expect(result.fun.spent).toBe(50_000);
+    expect(result.gifts.spent).toBe(0);
+  });
+});
+
+describe("budgetLeft (5h-2)", () => {
+  it("is what's left after this expense", () => {
+    expect(budgetLeft(300_000, 24_000, 18_000)).toEqual({ kind: "left", amount: 258_000 });
+    expect(budgetLeft(300_000, 282_000, 18_000)).toEqual({ kind: "left", amount: 0 });
+  });
+
+  it("says how much over", () => {
+    expect(budgetLeft(300_000, 290_000, 22_000)).toEqual({ kind: "over", amount: 12_000 });
+  });
+
+  it("says when there's no budget", () => {
+    expect(budgetLeft(null, 24_000, 18_000)).toEqual({ kind: "none" });
+  });
+
+  it("takes an edited expense's old amount out of what's spent first", () => {
+    // ₱180 already counted in the ₱420 spent, changed to ₱250.
+    expect(budgetLeft(300_000, 42_000, 25_000, 18_000)).toEqual({ kind: "left", amount: 251_000 });
   });
 });
