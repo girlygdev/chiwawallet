@@ -2,6 +2,33 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 5 · 5h-3 Bills and Savings
+- **What:**
+  - **Bills:** the hero now says "2 recurring bills · ₱549 still due this period". On desktop, a "Still due this period" stat card shows the next bill ("Netflix · Nov 22").
+  - **Savings:** YOUR POTS shows "Due this period: ₱2,000 to Travel". It names up to two pots, then "and N more".
+  - **Delete bill and Delete pot:** both say "Planned in N upcoming paydays. Those plan items are removed; paid ones stay."
+  - **Opening the current period:** Bills and Savings open it like the Plan does (create and sync) before reading its items.
+- **Files:**
+  - `src/lib/plan.ts`: `billDueInPeriod()` (taken out of `planItemDetail()`), `stillDue()`, `potsDueLine()`, `upcomingCounts()`, `upcomingLine()`
+  - `tests/lib/plan.test.ts`
+  - `src/lib/plan-periods.ts`: `openCurrentPlan()`, `upcomingItems()`
+  - `src/app/(app)/bills/page.tsx`, `bill-sheet.tsx`
+  - `src/app/(app)/savings/page.tsx`, `savings/details/page.tsx`
+  - `src/components/savings/delete-pot.tsx`
+  - `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - The "due" lines show now, even though logging a payment won't tick items off until Week 6.
+  - There's no "Paid this period" card until Mark paid exists.
+  - Up to two pots are named in the Savings line.
+  - Both pages open and sync the current period on view.
+- **Tests:** written first, 10 new unit tests (506 pass), and 274 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - Bills went from ₱0 to ₱549 still due after adding Netflix (due the 22nd); the desktop card said "Netflix · Nov 22"
+  - Delete Meralco said "Planned in 1 upcoming payday" (its Dec 30 item was removed earlier)
+  - a new Travel pot at ₱2,000 each payday showed "Due this period: ₱2,000 to Travel"
+  - Delete Travel said "Planned in 5 upcoming paydays"
+  - no console errors
+- **Next:** 5i, the live check: push, then plan the next three months on your phone.
+
 ## 2026-11-26 · Week 5 · 5h-2 The add sheet's budget line
 - **What:** once a category is picked for an expense in the current period, Add expense's impact line shows that category's budget (activity.md §3):
   - "Groceries budget: ₱3,120 left after this."

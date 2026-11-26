@@ -63,7 +63,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
     - The **Plan options menu** (moved from 5e): Set a budget, Use starter plan, Edit spending budgets (Settings › Categories). Period settings isn't designed yet.
     - Share 5f's payday cards and impact box between Add one-off item and Plan a debt payment.
   - Done when: a debt payment planned two periods ahead and a Food budget both show in their periods.
-- [ ] **5h. Wire-up.** Split in two (owner, Nov 26).
+- [x] **5h. Wire-up.** Split into 5h-1, 5h-2 and 5h-3 (owner, Nov 26). Done Nov 26.
   - [x] **5h-1. Keep plans in sync.** Done Nov 26 (checked in a browser on local Supabase). `planSync()` in `lib/plan.ts`, `syncOpenPeriods()` in `lib/plan-periods.ts`.
     - Saving a bill, pot, income source, debt (and Mark paid off), category, or Set a budget "Every payday" brings every open period in line. So does opening a period.
     - Only **unpaid, unedited** `recurring` items change. Items that no longer belong are soft-deleted and come back if they belong again.
@@ -75,7 +75,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
     - "Food budget: ₱2,580 left after this", "₱120 over your Food budget" (yellow), or "No Food budget yet. Set one in Plan to see what's left."
     - The budget is this period's budget item, none if removed, or the budget per payday while the period's plan hasn't been opened (owner, Nov 26). Starter lines and one-offs don't count.
     - Skipped: "₱2,760 left" on the category picker's tiles (not in 5h). It's still an open item.
-  - [ ] **5h-3. Bills and Savings.**
+  - [x] **5h-3. Bills and Savings.** Done Nov 26 (checked in a browser on local Supabase). `billDueInPeriod()`, `stillDue()`, `potsDueLine()`, `upcomingCounts()` and `upcomingLine()` in `lib/plan.ts`; `openCurrentPlan()` and `upcomingItems()` in `lib/plan-periods.ts`. No "Paid this period" until Mark paid (Week 6); "due" lines don't clear when you pay until then.
     - Bills: "₱1,000 still due this period" (summary card and desktop stat, with the next bill).
     - Savings: "Due this period: ₱2,000 to Travel" under YOUR POTS.
     - Delete bill and Delete pot: "Planned in N upcoming paydays".

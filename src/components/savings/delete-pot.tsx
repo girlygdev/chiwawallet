@@ -7,6 +7,7 @@ import { FieldShell, inputClassName } from "@/components/auth/text-field";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import { formatPeso } from "@/lib/money";
+import { upcomingLine } from "@/lib/plan";
 import { balanceAfterMove } from "@/lib/pots";
 import { cn } from "@/lib/utils";
 
@@ -28,11 +29,14 @@ export function DeletePot({
   pot,
   balance,
   destinations,
+  upcoming,
 }: {
   pot: { id: string; name: string; icon: string; color: string; is_locked: boolean };
   balance: number;
   /** The user's other pots, with their balances. */
   destinations: Destination[];
+  /** Unpaid plan items in periods that haven't ended (5h-3). */
+  upcoming: number;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -95,6 +99,9 @@ export function DeletePot({
           <p className="min-w-0 flex-1 truncate font-extrabold">{pot.name}</p>
           <p className="shrink-0 font-display text-lg font-semibold">{formatPeso(balance)}</p>
         </div>
+
+        {/* "Planned in N upcoming paydays" (delete-pattern.md §4). */}
+        {upcomingLine(upcoming) && <p className="text-sm">{upcomingLine(upcoming)}</p>}
 
         {hasMoney && (
           <fieldset className="flex flex-col gap-2">

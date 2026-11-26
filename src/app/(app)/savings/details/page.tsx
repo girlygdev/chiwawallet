@@ -14,6 +14,7 @@ import { CategoryIconTile } from "@/components/transactions/category-grid";
 import { formatPeso } from "@/lib/money";
 import { formatMonthYear, formatShortDate, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { potBalance, potGoalDate, potProgress, potScheduleLine, potStatus, potToGo } from "@/lib/pots";
+import { upcomingItems } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -74,6 +75,8 @@ async function PotDetails({ searchParams }: { searchParams: SearchParams }) {
   const schedule = scheduleFromBudget(budget);
   const today = todayInManila(new Date());
   const rowsOf = (potId: string) => savingRows.data!.filter((r) => r.pot_id === potId);
+  // Delete pot's "Planned in N upcoming paydays" (5h-3).
+  const upcoming = (await upcomingItems(supabase, budget, today)).filter((i) => i.pot_id === pot.id).length;
   const history = rowsOf(pot.id);
   const balance = potBalance(pot, history);
   const progress = potProgress(balance, pot.target_amount);
@@ -180,6 +183,7 @@ async function PotDetails({ searchParams }: { searchParams: SearchParams }) {
               pot={{ id: pot.id, name: pot.name, icon: pot.icon, color: pot.color, is_locked: pot.is_locked }}
               balance={balance}
               destinations={destinations}
+              upcoming={upcoming}
             />
           </div>
         </div>

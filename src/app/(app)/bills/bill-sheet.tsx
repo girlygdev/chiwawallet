@@ -7,6 +7,7 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { Sheet } from "@/components/sheet";
 import { billScheduleLine, billTotalsChange } from "@/lib/bills";
 import { formatPeso } from "@/lib/money";
+import { upcomingLine } from "@/lib/plan";
 import type { PaySchedule } from "@/lib/periods";
 import { addBill, deleteBill, updateBill } from "./actions";
 
@@ -18,12 +19,15 @@ import { addBill, deleteBill, updateBill } from "./actions";
 // Closing clears the address.
 export function BillSheet({
   bills,
+  upcoming,
   categories,
   defaultCategoryId,
   schedule,
   today,
 }: {
   bills: EditableBill[];
+  /** Each bill's unpaid plan items in periods that haven't ended (5h-3). */
+  upcoming: Record<string, number>;
   categories: { id: string; name: string }[];
   defaultCategoryId: string;
   schedule: PaySchedule;
@@ -72,6 +76,7 @@ export function BillSheet({
           key={deleting.id}
           bill={deleting}
           all={bills}
+          upcoming={upcoming[deleting.id] ?? 0}
           schedule={schedule}
           today={today}
           onClose={close}
@@ -86,12 +91,15 @@ export function BillSheet({
 function DeleteBillDialog({
   bill,
   all,
+  upcoming,
   schedule,
   today,
   onClose,
 }: {
   bill: EditableBill;
   all: EditableBill[];
+  /** "Planned in N upcoming paydays" (delete-pattern.md §4). */
+  upcoming: number;
   schedule: PaySchedule;
   today: string;
   onClose: () => void;
@@ -143,6 +151,7 @@ function DeleteBillDialog({
             <span className="font-extrabold">{formatPeso(line.after)}</span>
           </li>
         ))}
+        {upcomingLine(upcoming) && <li>{upcomingLine(upcoming)}</li>}
       </ul>
     </ConfirmDelete>
   );

@@ -17,6 +17,8 @@ import {
   splitHalves,
 } from "@/lib/bills";
 import { formatPeso } from "@/lib/money";
+import { stillDue, upcomingCounts } from "@/lib/plan";
+import { openCurrentPlan, upcomingItems } from "@/lib/plan-periods";
 import { formatShortDate, getPeriod, type PaySchedule, paydayLabel, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
@@ -30,7 +32,9 @@ const ADD_HREF = "/bills?add=1";
 // The Bills screen (bills.md, week-4-tasks.md 4c): what bills cost each
 // month, how they spread across paydays, and each bill with when it's due.
 // New and Edit bill open in a sheet (`?add=1`, `?edit=…`, `?delete=…`; 4c-2), like Income.
-// Paid / Still due this period and Mark paid need plan items (Week 5).
+// "Still due this period" comes from the current period's unpaid bill items
+// (5h-3), so the page opens that period like the Plan does. Paid this
+// period and Mark paid come with ticking items (Week 6).
 export default function BillsPage() {
   return (
     <PageShell>
@@ -85,6 +89,19 @@ async function BillsContent() {
   const perMonth = billsPerMonth(bills);
   const recurring = bills.length === 1 ? "1 recurring bill" : `${bills.length} recurring bills`;
 
+  // This period's unpaid bill items, and each bill's items still to come (Delete bill).
+  const [current, upcoming] = await Promise.all([
+    openCurrentPlan(supabase, budget, today),
+    upcomingItems(supabase, budget, today),
+  ]);
+  const due = stillDue(
+    current.items.filter((i) => i.bill_id != null),
+    bills,
+    current.period,
+    schedule,
+  );
+  const upcomingByBill = upcomingCounts(upcoming.map((i) => i.bill_id));
+
   return (
     <>
       <PageHeader
@@ -108,15 +125,30 @@ async function BillsContent() {
         <EmptyState />
       ) : (
         <>
-          {/* The page's one hero: Deep Green, white text, sticker border. */}
-          <section
-            aria-label="Bills each month"
-            className="flex flex-col gap-1 rounded-xl border-2 border-sticker bg-green-700 p-5 text-white shadow-sticker md:max-w-md"
-          >
-            <p className="text-sm font-bold opacity-90">Bills each month</p>
-            <p className="font-display text-[34px] leading-none font-semibold">{formatPeso(perMonth)}</p>
-            <p className="text-sm opacity-90">{recurring}</p>
-          </section>
+          <div className="flex flex-col gap-4 md:flex-row md:items-stretch">
+            {/* The page's one hero: Deep Green, white text, sticker border. */}
+            <section
+              aria-label="Bills each month"
+              className="flex flex-col gap-1 rounded-xl border-2 border-sticker bg-green-700 p-5 text-white shadow-sticker md:w-full md:max-w-md"
+            >
+              <p className="text-sm font-bold opacity-90">Bills each month</p>
+              <p className="font-display text-[34px] leading-none font-semibold">{formatPeso(perMonth)}</p>
+              <p className="text-sm opacity-90">
+                {recurring} · {formatPeso(due.total)} still due this period
+              </p>
+            </section>
+            {/* Desktop's stat card (bills.md §3). Paid this period comes with Mark paid (Week 6). */}
+            <section
+              aria-label="Still due this period"
+              className="hidden flex-col gap-1 rounded-xl border-[1.5px] border-line bg-surface p-5 md:flex md:min-w-56"
+            >
+              <p className="text-xs font-extrabold tracking-wide text-text-3 uppercase">Still due this period</p>
+              <p className="font-display text-[28px] leading-none font-semibold text-ink">{formatPeso(due.total)}</p>
+              <p className="text-sm text-text-3">
+                {due.next ? `${due.next.name} · ${formatShortDate(due.next.date)}` : "Nothing due"}
+              </p>
+            </section>
+          </div>
 
           <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
             <div className="flex flex-col gap-6">
@@ -139,6 +171,7 @@ async function BillsContent() {
 
       <BillSheet
         bills={bills}
+        upcoming={upcomingByBill}
         categories={categories}
         defaultCategoryId={defaultCategoryId}
         schedule={schedule}

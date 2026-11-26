@@ -19,6 +19,8 @@ import {
   potToGo,
   totalSaved,
 } from "@/lib/pots";
+import { potsDueLine } from "@/lib/plan";
+import { openCurrentPlan } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { PotSheet } from "./pot-sheet";
@@ -85,6 +87,10 @@ async function SavingsContent() {
   const schedule = scheduleFromBudget(budget);
   const today = todayInManila(new Date());
   const period = getPeriod(today, schedule);
+  // "Due this period: ₱2,000 to Travel" (savings.md §2, 5h-3): this period's
+  // unpaid pot items. Paying doesn't tick them off until Week 6.
+  const current = await openCurrentPlan(supabase, budget, today);
+  const potsDue = potsDueLine(current.items.filter((i) => i.pot_id != null));
   const cards = pots.map((pot) => {
     const potRows = rows.filter((r) => r.pot_id === pot.id);
     return {
@@ -146,6 +152,7 @@ async function SavingsContent() {
             <h2 id="pots-title" className="text-xs font-extrabold tracking-wide text-text-3 uppercase">
               Your pots
             </h2>
+            {potsDue && <p className="text-sm font-bold text-text-2">{potsDue}</p>}
             <ul className="grid gap-3 lg:grid-cols-2">
               {cards.map((card) => (
                 <li key={card.pot.id}>

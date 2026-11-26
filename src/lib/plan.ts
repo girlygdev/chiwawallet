@@ -2,6 +2,7 @@ import { addDays, addMonths, format, parseISO, subDays } from "date-fns";
 import { billDueDates, type BillFrequency, type BillTiming, splitHalves } from "@/lib/bills";
 import { type DebtTerms, debtSchedule, paydayFor } from "@/lib/debts";
 import { isActiveOn } from "@/lib/income";
+import { formatPeso } from "@/lib/money";
 import { formatShortDate, getPeriod, type PaySchedule, type Period, type PaySlot, paydayLabel } from "@/lib/periods";
 import type { BudgetGroup } from "@/lib/transactions";
 
@@ -349,6 +350,19 @@ export type DetailContext = {
 const GROUP_NAMES: Record<BudgetGroup, string> = { needs: "Needs", wants: "Wants", savings_debt: "Savings & debt" };
 
 /**
+ * The due date a period pays for a bill, by the same rule as generatePlan()
+ * (a split bill: either half). Empty when the period pays none of it.
+ */
+export function billDueInPeriod(bill: BillTiming & { pay_slot: string }, period: Period, schedule: PaySchedule): string | null {
+  const split = bill.pay_slot === "split" && schedule.frequency === "semi_monthly";
+  const slots = split ? ["payday_1", "payday_2"] : [bill.pay_slot];
+  const due = billDueDates(bill, period.start, shift(period.end, 31)).find((d) =>
+    slots.some((slot) => payingPeriodStart(d, slot, schedule) === period.start),
+  );
+  return due ?? null;
+}
+
+/**
  * A tick row's detail line (plan.md §3 "Detail lines"): "Due Dec 10",
  * "Split · half each payday · Due Dec 10", "Payment 2 of 3 · Due Dec 25",
  * "Every 15th", "Needed by Dec 5". Spending budgets get their group.
@@ -362,10 +376,7 @@ export function planItemDetail(item: SectionItem & { needed_by: string | null },
       const bill = ctx.bill;
       if (!bill) return "Recurring bill";
       const split = bill.pay_slot === "split" && schedule.frequency === "semi_monthly";
-      // The due date this period pays, by the same rule as generatePlan().
-      const due = billDueDates(bill, period.start, shift(period.end, 31)).find((d) =>
-        (split ? ["payday_1", "payday_2"] : [bill.pay_slot]).some((slot) => payingPeriodStart(d, slot, schedule) === period.start),
-      );
+      const due = billDueInPeriod(bill, period, schedule);
       if (!due) return "Recurring bill";
       const prefix = split ? "Split · half each payday · " : bill.frequency === "monthly" ? "" : `${bill.frequency === "quarterly" ? "Quarterly" : "Yearly"} · `;
       return `${prefix}Due ${formatShortDate(due)}`;
@@ -621,4 +632,56 @@ export function budgetLeft(
   if (budget == null) return { kind: "none" };
   const left = budget - (spent - replaced) - amount;
   return left >= 0 ? { kind: "left", amount: left } : { kind: "over", amount: -left };
+}
+
+// ---------------------------------------------------------------------------
+// Bills and Savings (bills.md §1–3, savings.md §2, delete-pattern.md §4; 5h-3)
+// ---------------------------------------------------------------------------
+
+/**
+ * "₱1,000 still due this period" and the next bill ("Subscriptions · Nov 22"):
+ * the current period's unpaid bill items (the caller passes only those).
+ */
+export function stillDue(
+  items: { bill_id: string | null; name: string; planned_amount: number }[],
+  bills: (BillTiming & { id: string; pay_slot: string })[],
+  period: Period,
+  schedule: PaySchedule,
+): { total: number; next: { name: string; date: string } | null } {
+  let next: { name: string; date: string } | null = null;
+  let total = 0;
+  for (const item of items) {
+    total += item.planned_amount;
+    const bill = bills.find((b) => b.id === item.bill_id);
+    const date = bill ? billDueInPeriod(bill, period, schedule) : null;
+    if (date && (next == null || date < next.date)) next = { name: item.name, date };
+  }
+  return { total, next };
+}
+
+/**
+ * YOUR POTS' reminder (savings.md §2): "Due this period: ₱2,000 to Travel",
+ * naming up to two pots, then "and 2 more". Empty when nothing is due.
+ */
+export function potsDueLine(items: { name: string; planned_amount: number }[]): string | null {
+  if (items.length === 0) return null;
+  const named = items.slice(0, 2).map((i) => `${formatPeso(i.planned_amount)} to ${i.name}`);
+  const more = items.length - named.length;
+  const list = more > 0 ? `${named.join(", ")} and ${more} more` : named.join(" and ");
+  return `Due this period: ${list}`;
+}
+
+/** How many items each bill or pot has (ids, one per item; empty links skipped). */
+export function upcomingCounts(ids: (string | null)[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const id of ids) if (id) counts[id] = (counts[id] ?? 0) + 1;
+  return counts;
+}
+
+/** Delete bill and Delete pot's effect line (delete-pattern.md §4); empty for 0. */
+export function upcomingLine(count: number): string | null {
+  if (count <= 0) return null;
+  return count === 1
+    ? "Planned in 1 upcoming payday. That plan item is removed; paid ones stay."
+    : `Planned in ${count} upcoming paydays. Those plan items are removed; paid ones stay.`;
 }

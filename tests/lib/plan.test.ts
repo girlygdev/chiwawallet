@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
+  billDueInPeriod,
   budgetImpact,
   budgetLeft,
   categoryBudgets,
@@ -19,6 +20,10 @@ import {
   planSection,
   planSummary,
   planSync,
+  potsDueLine,
+  stillDue,
+  upcomingCounts,
+  upcomingLine,
   plannablePeriods,
   resolvePlanStart,
   removeImpact,
@@ -771,5 +776,74 @@ describe("budgetLeft (5h-2)", () => {
   it("takes an edited expense's old amount out of what's spent first", () => {
     // ₱180 already counted in the ₱420 spent, changed to ₱250.
     expect(budgetLeft(300_000, 42_000, 25_000, 18_000)).toEqual({ kind: "left", amount: 251_000 });
+  });
+});
+
+describe("billDueInPeriod (5h-3)", () => {
+  it("is the due date the period pays", () => {
+    // Due the 10th, paid from the 30th: Nov 30 pays Dec 10.
+    expect(billDueInPeriod(bill("b", 10, "payday_2"), NOV_30, SEMI)).toBe("2026-12-10");
+    // Due the 20th, paid from the 15th: Nov 15 pays Nov 20.
+    expect(billDueInPeriod(bill("b", 20, "payday_1"), NOV_15, SEMI)).toBe("2026-11-20");
+  });
+
+  it("is empty when the period pays none of it", () => {
+    expect(billDueInPeriod(bill("b", 20, "payday_1"), NOV_30, SEMI)).toBeNull();
+  });
+
+  it("finds a split bill's due date from either half", () => {
+    expect(billDueInPeriod(bill("b", 10, "split"), NOV_30, SEMI)).toBe("2026-12-10");
+    expect(billDueInPeriod(bill("b", 10, "split"), NOV_15, SEMI)).toBe("2026-12-10");
+  });
+});
+
+describe("stillDue (5h-3)", () => {
+  const bills = [bill("meralco", 20, "payday_1"), bill("netflix", 22, "payday_1")];
+
+  it("adds up this period's unpaid bill items, and names the next one", () => {
+    const items = [
+      { bill_id: "netflix", name: "Netflix", planned_amount: 54_900 },
+      { bill_id: "meralco", name: "Meralco", planned_amount: 250_000 },
+    ];
+    expect(stillDue(items, bills, NOV_15, SEMI)).toEqual({
+      total: 304_900,
+      next: { name: "Meralco", date: "2026-11-20" },
+    });
+  });
+
+  it("is ₱0 with nothing next when every bill item is paid (or none is planned)", () => {
+    expect(stillDue([], bills, NOV_15, SEMI)).toEqual({ total: 0, next: null });
+  });
+});
+
+describe("potsDueLine (5h-3)", () => {
+  const pot = (name: string, planned_amount: number) => ({ name, planned_amount });
+
+  it("names the pots due this period", () => {
+    expect(potsDueLine([pot("Travel", 200_000)])).toBe("Due this period: ₱2,000 to Travel");
+    expect(potsDueLine([pot("Travel", 200_000), pot("Emergency Fund", 300_000)])).toBe(
+      "Due this period: ₱2,000 to Travel and ₱3,000 to Emergency Fund",
+    );
+  });
+
+  it("names two, then says how many more", () => {
+    const four = [pot("Travel", 200_000), pot("Emergency Fund", 300_000), pot("Laptop", 100_000), pot("Gifts", 50_000)];
+    expect(potsDueLine(four)).toBe("Due this period: ₱2,000 to Travel, ₱3,000 to Emergency Fund and 2 more");
+  });
+
+  it("is empty when nothing is due", () => {
+    expect(potsDueLine([])).toBeNull();
+  });
+});
+
+describe("upcomingCounts and upcomingLine (5h-3)", () => {
+  it("counts each source's items", () => {
+    expect(upcomingCounts(["meralco", "meralco", "netflix", null, "meralco"])).toEqual({ meralco: 3, netflix: 1 });
+  });
+
+  it("says how many upcoming paydays", () => {
+    expect(upcomingLine(3)).toBe("Planned in 3 upcoming paydays. Those plan items are removed; paid ones stay.");
+    expect(upcomingLine(1)).toBe("Planned in 1 upcoming payday. That plan item is removed; paid ones stay.");
+    expect(upcomingLine(0)).toBeNull();
   });
 });

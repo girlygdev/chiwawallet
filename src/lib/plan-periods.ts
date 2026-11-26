@@ -223,6 +223,68 @@ export async function syncOpenPeriods(supabase: Client, budget: Budget, today: s
   }
 }
 
+/** A current-period item as Bills and Savings use it (5h-3). */
+export type CurrentItem = { id: string; name: string; planned_amount: number; bill_id: string | null; pot_id: string | null };
+
+/**
+ * The current period's live, unpaid items, for Bills' "still due this
+ * period" and Savings' "Due this period" (5h-3). Opens the period the way
+ * the Plan does: created if needed and synced, so its items exist and are up
+ * to date even if the Plan wasn't opened this payday. A failed sync is
+ * logged and the items are read as they are.
+ */
+export async function openCurrentPlan(
+  supabase: Client,
+  budget: Budget,
+  today: string,
+): Promise<{ period: Period; items: CurrentItem[] }> {
+  const row = await getOrCreatePeriod(supabase, budget, today);
+  const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
+  try {
+    await syncPeriods(supabase, [{ id: row.id, period }], scheduleFromBudget(budget), await loadSources(supabase, budget));
+  } catch (error) {
+    console.error("plan: couldn't sync the current period", error);
+  }
+  const { data, error } = await supabase
+    .from("plan_items")
+    .select("id, name, planned_amount, bill_id, pot_id")
+    .eq("period_id", row.id)
+    .is("deleted_at", null)
+    .is("paid_at", null)
+    .order("created_at");
+  if (error) fail("load this period's plan", error);
+  return { period, items: data! };
+}
+
+/**
+ * Unpaid items in every period that hasn't ended: what deleting a bill or
+ * pot takes out (delete-pattern.md §4, "Planned in N upcoming paydays").
+ */
+export async function upcomingItems(
+  supabase: Client,
+  budget: Budget,
+  today: string,
+): Promise<{ bill_id: string | null; pot_id: string | null }[]> {
+  const { data: periods, error } = await supabase
+    .from("budget_periods")
+    .select("id")
+    .eq("budget_id", budget.id)
+    .gte("end_date", today);
+  if (error) fail("load open periods", error);
+  if (!periods?.length) return [];
+  const { data, error: itemsError } = await supabase
+    .from("plan_items")
+    .select("bill_id, pot_id")
+    .in(
+      "period_id",
+      periods.map((p) => p.id),
+    )
+    .is("deleted_at", null)
+    .is("paid_at", null);
+  if (itemsError) fail("load upcoming plan items", itemsError);
+  return data!;
+}
+
 /**
  * Applies planSync() to each period: new items through add_plan_items()
  * (skips any another tab just added), then the updates and removals. Each
