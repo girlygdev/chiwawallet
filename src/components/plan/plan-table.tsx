@@ -3,7 +3,7 @@ import { formatPeso } from "@/lib/money";
 import { formatPeriodRange } from "@/lib/periods";
 import type { PlanSummary } from "@/lib/plan";
 import type { PlanRow } from "@/lib/plan-periods";
-import { editHref, PLAN_SECTIONS } from "@/components/plan/plan-groups";
+import { addOneOffHref, editHref, PLAN_SECTIONS } from "@/components/plan/plan-groups";
 
 // The desktop plan table (plan.md §4): one table, each group a header row
 // with its total. ACTUAL and STATUS come with ticking items paid (Week 6);
@@ -88,6 +88,19 @@ export function PlanTable({
                     href={editStart && editHref(editStart, i.id)}
                   />
                 ))
+              )}
+              {key === "one_off" && editStart && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-1">
+                    <Link
+                      href={addOneOffHref(editStart)}
+                      scroll={false}
+                      className="inline-flex min-h-11 items-center rounded-sm font-extrabold text-link outline-link hover:underline focus-visible:outline-2"
+                    >
+                      + Add one-off item
+                    </Link>
+                  </td>
+                </tr>
               )}
             </tbody>
           );

@@ -466,3 +466,28 @@ export function missingStarterItems(
   const have = new Set(items.filter((i) => i.origin === "starter").map((i) => i.budget_group));
   return starter.filter((s) => !have.has(s.budget_group));
 }
+
+// ---------------------------------------------------------------------------
+// Add one-off item (plan.md §6, 5f)
+// ---------------------------------------------------------------------------
+
+/**
+ * The payday to suggest for something needed by `neededBy`: the last offered
+ * period that starts on or before it ("the payday just before Dec 5"). A
+ * date before every period gets the first; one beyond them gets the last.
+ * `periods` are oldest first; empty when none is offered.
+ */
+export function suggestedPeriodStart(neededBy: string, periods: { start: string }[]): string | null {
+  if (periods.length === 0) return null;
+  const before = periods.filter((p) => p.start <= neededBy);
+  return (before.at(-1) ?? periods[0]).start;
+}
+
+/**
+ * The impact box: the chosen period's Not assigned yet before and after the
+ * one-off, and `over`, how much more than the period has left (0 when it fits).
+ */
+export function oneOffImpact(notAssigned: number, amount: number): { before: number; after: number; over: number } {
+  const after = notAssigned - amount;
+  return { before: notAssigned, after, over: Math.max(0, -after) };
+}

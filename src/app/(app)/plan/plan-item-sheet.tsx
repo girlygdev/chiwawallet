@@ -2,15 +2,26 @@
 
 import { LoaderCircle } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, useCallback, useContext, useState, useTransition } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useTransition } from "react";
+import { type AddSheetData, getAddSheetData } from "@/app/(app)/activity/actions";
 import { FormError } from "@/components/auth/form-error";
 import { ConfirmDelete } from "@/components/confirm-delete";
+import { OneOffForm, type PaydayCard } from "@/components/plan/one-off-form";
 import { type EditableItem, PlanItemForm } from "@/components/plan/plan-item-form";
 import { Sheet } from "@/components/sheet";
 import { Toast, type ToastMessage } from "@/components/toast";
+import type { ExpenseView } from "@/components/transactions/expense-form";
 import { formatPeso } from "@/lib/money";
 import { type PlanSummary, removeImpact } from "@/lib/plan";
-import { addStarterPlan, removePlanItem, restorePlanItem, updatePlanItem } from "./actions";
+import {
+  type AddOneOffResult,
+  addOneOffItem,
+  addStarterPlan,
+  getPeriodNotAssigned,
+  removePlanItem,
+  restorePlanItem,
+  updatePlanItem,
+} from "./actions";
 
 /** A row as Edit item and Remove from plan need it. */
 export type SheetItem = EditableItem & {
@@ -29,6 +40,7 @@ const ToastContext = createContext<(toast: ToastMessage) => void>(() => {});
 // address like Bills, so plan rows can be plain links:
 //   /plan?start=2026-11-30&edit=<id>     Edit item
 //   /plan?start=2026-11-30&remove=<id>   Remove … from this plan?
+//   /plan?start=2026-11-30&add=1         Add one-off item (5f)
 // Closing goes back to the period. It also owns the toast, so "Meralco
 // removed · Undo" stays up after the dialog closes, and the starter button
 // (inside `children`) can use it after the empty plan is gone.
@@ -36,11 +48,14 @@ export function PlanEditor({
   items,
   summary,
   periodStart,
+  cards,
   children,
 }: {
   items: SheetItem[];
   summary: Summary;
   periodStart: string;
+  /** Add one-off item's payday cards; empty when the period has ended (no adding). */
+  cards: PaydayCard[];
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -54,6 +69,57 @@ export function PlanEditor({
   const removing = find("remove");
   const periodHref = `${pathname}?start=${periodStart}`;
   const close = () => router.replace(periodHref, { scroll: false });
+
+  // Add one-off item: the add sheet's categories load when it opens, fresh
+  // each time. Closing resets the view and, through the key, the form.
+  const adding = params.get("add") != null && cards.length > 0;
+  const [addData, setAddData] = useState<AddSheetData | null>(null);
+  const [addView, setAddView] = useState<ExpenseView>("form");
+  const [addCount, setAddCount] = useState(0);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const reloadAddData = useCallback(async () => setAddData(await getAddSheetData()), []);
+  useEffect(() => {
+    if (!adding) return;
+    getAddSheetData()
+      .then(setAddData)
+      .catch((error) => console.error("plan: couldn't load categories", error));
+  }, [adding]);
+  const closeAdd = () => {
+    close();
+    setAddView("form");
+    setAddData(null);
+    setAddCount((n) => n + 1);
+  };
+  const loadNotAssigned = useCallback(async (start: string) => (await getPeriodNotAssigned(start))?.notAssigned ?? null, []);
+
+  // After adding: go to the period that pays for it, with Undo for 5 seconds.
+  const onAdded = (saved: NonNullable<AddOneOffResult["saved"]>) => {
+    setAddView("form");
+    setAddData(null);
+    setAddCount((n) => n + 1);
+    router.replace(`${pathname}?start=${saved.periodStart}`, { scroll: false });
+    router.refresh();
+    setToast({
+      id: Date.now(),
+      text: `${saved.name} added`,
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          setToast(null);
+          const result = await removePlanItem(saved.id);
+          router.refresh();
+          setToast({ id: Date.now(), text: result.ok ? `${saved.name} removed` : (result.formError ?? "Couldn't undo.") });
+        },
+      },
+    });
+  };
+  // The back arrow and Esc go one step back: New category → picker → form.
+  const addBack =
+    addView === "new-category"
+      ? { label: "Back to Choose a category", onClick: () => setAddView("picker") }
+      : addView === "picker"
+        ? { label: "Back to Add one-off item", onClick: () => setAddView("form") }
+        : undefined;
 
   const onSaved = () => {
     router.refresh();
@@ -103,6 +169,40 @@ export function PlanEditor({
               return result;
             }}
             onRemoveRequest={() => router.replace(`${periodHref}&remove=${editing.id}`, { scroll: false })}
+          />
+        )}
+      </Sheet>
+
+      <Sheet
+        open={adding}
+        onOpenChange={(next, details) => {
+          if (!next && addBack && details.reason === "escape-key") {
+            details.cancel();
+            addBack.onClick();
+            return;
+          }
+          if (!next) closeAdd();
+        }}
+        title={addView === "picker" ? "Choose a category" : addView === "new-category" ? "New category" : "Add one-off item"}
+        description={addView === "form" ? "Something that happens once: a gift, event, fee or repair." : undefined}
+        back={addBack}
+        initialFocus={nameRef}
+      >
+        {adding && (
+          <OneOffForm
+            key={addCount}
+            cards={cards}
+            // The period being viewed, if it's offered; otherwise the current one.
+            defaultStart={cards.some((c) => c.start === periodStart) ? periodStart : cards[0].start}
+            data={addData}
+            view={addView}
+            onViewChange={setAddView}
+            onCategoriesChanged={reloadAddData}
+            loadNotAssigned={loadNotAssigned}
+            nameRef={nameRef}
+            onSave={addOneOffItem}
+            onSaved={onAdded}
+            onCancel={closeAdd}
           />
         )}
       </Sheet>

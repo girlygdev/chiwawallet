@@ -45,7 +45,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
   - **Use this starter plan** creates the three `starter` items. The Plan options menu moved to 5g (owner, Nov 26), when Edit spending budgets exists.
   - Ended periods are read-only: no edit links, no starter button, and the actions refuse them.
   - Done when: editing and deleting an item updates the summary, and Undo brings it back.
-- [ ] **5f. Add one-off item** (`plan.md` §6).
+- [x] **5f. Add one-off item** (`plan.md` §6). Done Nov 26 (checked in a browser on local Supabase). `suggestedPeriodStart()` and `oneOffImpact()` in `lib/plan.ts`; `addOneOffItem` and `getPeriodNotAssigned` in `plan/actions.ts`; `components/plan/one-off-form.tsx`. Category uses Add expense's tile grid (top 5 + More), not chips. Needed by is a plain date input. The impact box leaves out "with a reminder" until Week 7.
   - Sheet on mobile, dialog on desktop. Fields: What is it for?, Amount, Needed by (optional), Which payday pays for it? (period cards up to 3 months ahead), Category.
   - Smart default from Needed by: "Suggested: the payday just before Dec 5."
   - Impact box: "Nov 30 – Dec 14 not assigned: ₱23,200 → ₱20,700", yellow when it goes below ₱0.

@@ -1,13 +1,20 @@
 "use server";
 
 import { z } from "zod";
-import { todayInManila } from "@/lib/periods";
-import { missingStarterItems, type PlanOrigin, planSection, starterPlan } from "@/lib/plan";
+import { getOrCreatePeriod } from "@/lib/budget-periods";
+import { scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { missingStarterItems, type PlanOrigin, planSection, plannablePeriods, starterPlan } from "@/lib/plan";
+import { openPlanPeriod } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import type { BudgetGroup } from "@/lib/transactions";
 import { SOMETHING_WRONG, toFieldErrors } from "@/lib/validation/field-errors";
-import { type EditPlanItemInput, editPlanItemSchema } from "@/lib/validation/plan-item";
+import {
+  type EditPlanItemInput,
+  editPlanItemSchema,
+  type OneOffItemInput,
+  oneOffItemSchema,
+} from "@/lib/validation/plan-item";
 
 // Edit item, Remove from plan (and its Undo), and Use this starter plan
 // (plan.md §3, §5; week-5-tasks.md 5e). RLS limits every query to the
@@ -142,6 +149,80 @@ export async function addStarterPlan(periodStart: string): Promise<Result> {
   // 23505: another tab added it first, which is what was asked for.
   if (insertError && insertError.code !== "23505") return fail("add the starter plan", insertError);
   return { ok: true };
+}
+
+export type AddOneOffResult = {
+  ok?: true;
+  /** The new row, for the toast and its Undo, and the period to go to. */
+  saved?: { id: string; name: string; periodStart: string };
+  formError?: string;
+  fieldErrors?: Partial<Record<keyof OneOffItemInput, string>>;
+};
+
+/**
+ * Add one-off item (plan.md §6, task 5f): a `one_off` plan item in the
+ * chosen payday's period, created if it hasn't been opened yet. The period
+ * must be one the sheet offers: the current one or up to 3 months ahead.
+ */
+export async function addOneOffItem(input: OneOffItemInput): Promise<AddOneOffResult> {
+  const { budget } = await requireAppUser();
+  const parsed = oneOffItemSchema.safeParse(input);
+  if (!parsed.success) return { fieldErrors: toFieldErrors<OneOffItemInput>(parsed.error.issues) };
+  const values = parsed.data;
+
+  // No first period given: the list starts at the current period, never a past one.
+  const offered = plannablePeriods(todayInManila(new Date()), scheduleFromBudget(budget), null);
+  if (!offered.some((p) => p.start === values.periodStart)) {
+    return { fieldErrors: { periodStart: "Pick which payday pays for it." } };
+  }
+
+  const supabase = await createClient();
+  // A spending category of the user's own. The database would also take the
+  // system Savings pot or Debt payment ones, which aren't offered here.
+  const { data: category, error: categoryError } = await supabase
+    .from("categories")
+    .select("kind, system_key")
+    .eq("id", values.categoryId)
+    .maybeSingle();
+  if (categoryError) return fail("load category", categoryError);
+  if (!category || category.kind !== "expense" || category.system_key != null) {
+    return { fieldErrors: { categoryId: "Pick a category." } };
+  }
+
+  try {
+    const period = await getOrCreatePeriod(supabase, budget, values.periodStart);
+    const { data, error } = await supabase
+      .from("plan_items")
+      .insert({
+        period_id: period.id,
+        name: values.name,
+        planned_amount: values.amount,
+        origin: "one_off",
+        needed_by: values.neededBy,
+        category_id: values.categoryId,
+      })
+      .select("id, name")
+      .single();
+    if (error) return fail("add one-off item", error);
+    return { ok: true, saved: { ...data, periodStart: period.start_date } };
+  } catch (error) {
+    return fail("find period", error as Error);
+  }
+}
+
+/**
+ * The impact box's "before" for the payday card picked: that period's Not
+ * assigned yet, worked out exactly as its Plan shows it. Opening it is the
+ * same as tapping its chip: a future period is created with its items.
+ */
+export async function getPeriodNotAssigned(start: string): Promise<{ start: string; end: string; notAssigned: number } | null> {
+  const { budget } = await requireAppUser();
+  if (!z.iso.date().safeParse(start).success) return null;
+  const supabase = await createClient();
+  const plan = await openPlanPeriod(supabase, budget, start, todayInManila(new Date()));
+  // openPlanPeriod() falls back to the current period for one it can't open.
+  if (plan.period.start_date !== start) return null;
+  return { start, end: plan.period.end_date, notAssigned: plan.summary.notAssigned };
 }
 
 /**

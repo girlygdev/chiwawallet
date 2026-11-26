@@ -1,3 +1,4 @@
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { formatPeso } from "@/lib/money";
@@ -18,6 +19,9 @@ export const PLAN_SECTIONS: { key: Section; title: string }[] = [
 
 /** Edit item's address (5e): rows are plain links that open the sheet. */
 export const editHref = (start: string, id: string) => `/plan?start=${start}&edit=${id}`;
+
+/** Add one-off item's address (5f). */
+export const addOneOffHref = (start: string) => `/plan?start=${start}&add=1`;
 
 /** The row under the income: "Carried in" or, on the first period, "Starting balance". */
 export type CarryLabel = { name: string; detail: string };
@@ -117,6 +121,17 @@ export function PlanGroups({
                     );
                   })}
                 </ul>
+              )}
+              {key === "one_off" && editStart && (
+                // The Dashed button: "add something new" (style-guide.md "Buttons").
+                <Link
+                  href={addOneOffHref(editStart)}
+                  scroll={false}
+                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-dashed border-line-dash bg-surface px-4 text-[15px] font-extrabold text-link outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
+                >
+                  <Plus aria-hidden size={18} strokeWidth={2.5} />
+                  Add one-off item
+                </Link>
               )}
             </Group>
           );

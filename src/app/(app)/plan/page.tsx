@@ -7,7 +7,9 @@ import { PlanStats } from "@/components/plan/plan-stats";
 import { incomeLine, PlanSummary } from "@/components/plan/plan-summary";
 import { PlanTable } from "@/components/plan/plan-table";
 import { PlannedSplit } from "@/components/plan/planned-split";
-import { PageHeader } from "@/components/shell/page-header";
+import type { PaydayCard } from "@/components/plan/one-off-form";
+import { addOneOffHref } from "@/components/plan/plan-groups";
+import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { describeSchedule, formatPeriodRange, scheduleFromBudget, todayInManila } from "@/lib/periods";
@@ -26,8 +28,9 @@ export const metadata: Metadata = { title: "Plan · Chiwawallet" };
 // The period is a query string (/plan?start=2026-11-30), not a [periodId]
 // segment: a dynamic segment breaks the build, and a future period doesn't
 // need to exist before you open it. Tapping a row opens Edit item
-// (`&edit=…`, 5e) while the period hasn't ended. Still to come: Add one-off
-// item (5f), the Plan options menu (5g), ticking items paid (Week 6).
+// (`&edit=…`, 5e) and Add one-off item opens with `&add=1` (5f), while the
+// period hasn't ended. Still to come: the Plan options menu (5g), ticking
+// items paid (Week 6).
 export default function PlanPage({ searchParams }: { searchParams: Promise<{ start?: string | string[] }> }) {
   return (
     <PageShell>
@@ -48,6 +51,17 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
   const empty = isEmptyPlan(plan.items);
   // An ended period's plan is read-only: no edit links, no starter button.
   const editStart = plan.ended ? null : plan.period.start_date;
+  // Add one-off item's payday cards: now and up to 3 months ahead, labelled like the picker.
+  const nextStart = plan.periods.find((p) => p.start > plan.currentStart)?.start;
+  const cards: PaydayCard[] = editStart
+    ? plan.periods
+        .filter((p) => p.start >= plan.currentStart)
+        .map((p) => ({
+          start: p.start,
+          end: p.end,
+          label: p.start === plan.currentStart ? "Now" : p.start === nextStart ? "Next" : "Ahead",
+        }))
+    : [];
 
   // The row under the income (plan.md §3, §5): on the very first period, the
   // carry-in is the starting balance typed in during setup.
@@ -66,8 +80,13 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
 
   return (
     // No items to edit in an ended period, so an old ?edit= link opens nothing.
-    <PlanEditor items={editStart ? plan.items : []} summary={plan.summary} periodStart={plan.period.start_date}>
-      <PageHeader title="Plan" mobile="title" eyebrow={describeSchedule(scheduleFromBudget(budget))} />
+    <PlanEditor items={editStart ? plan.items : []} summary={plan.summary} periodStart={plan.period.start_date} cards={cards}>
+      <PageHeader
+        title="Plan"
+        mobile="title"
+        eyebrow={describeSchedule(scheduleFromBudget(budget))}
+        desktopAction={editStart ? <HeaderStickerLink href={addOneOffHref(editStart)}>Add one-off item</HeaderStickerLink> : undefined}
+      />
       <div className="flex flex-col gap-5">
         <PeriodPicker periods={plan.periods} selected={plan.period.start_date} current={plan.currentStart} />
 
@@ -81,7 +100,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
               action={editStart && <UseStarterPlanButton periodStart={editStart} />}
             />
             <PlanGroups {...groups} moneyInOnly />
-            <BuildRows />
+            <BuildRows addOneOff={editStart && addOneOffHref(editStart)} />
           </div>
         ) : (
           <>

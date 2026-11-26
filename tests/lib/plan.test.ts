@@ -6,6 +6,7 @@ import {
   incomeStatus,
   isEmptyPlan,
   missingStarterItems,
+  oneOffImpact,
   planCounts,
   planDone,
   periodIncome,
@@ -18,6 +19,7 @@ import {
   resolvePlanStart,
   removeImpact,
   starterPlan,
+  suggestedPeriodStart,
 } from "@/lib/plan";
 
 // 5b: generatePlan(), starterPlan() and planSummary() (week-5-tasks.md).
@@ -553,5 +555,44 @@ describe("missingStarterItems (5e)", () => {
   it("ignores a one-off or budget in the same group", () => {
     const items = [{ origin: "one_off" as const, budget_group: "needs" as const }];
     expect(missingStarterItems(starter, items)).toHaveLength(3);
+  });
+});
+
+describe("suggestedPeriodStart (5f)", () => {
+  const offered = [NOV_15, NOV_30, DEC_15];
+
+  it("is the last period starting on or before Needed by", () => {
+    expect(suggestedPeriodStart("2026-12-05", offered)).toBe("2026-11-30");
+    expect(suggestedPeriodStart("2026-12-20", offered)).toBe("2026-12-15");
+  });
+
+  it("is the period itself when Needed by is its first day", () => {
+    expect(suggestedPeriodStart("2026-11-30", offered)).toBe("2026-11-30");
+  });
+
+  it("is the first offered period when Needed by is earlier (already past)", () => {
+    expect(suggestedPeriodStart("2026-11-10", offered)).toBe("2026-11-15");
+  });
+
+  it("is the last offered period when Needed by is beyond them", () => {
+    expect(suggestedPeriodStart("2027-06-01", offered)).toBe("2026-12-15");
+  });
+
+  it("is empty when nothing is offered", () => {
+    expect(suggestedPeriodStart("2026-12-05", [])).toBeNull();
+  });
+});
+
+describe("oneOffImpact (5f)", () => {
+  it("takes the amount from the period's Not assigned yet", () => {
+    expect(oneOffImpact(2_320_000, 250_000)).toEqual({ before: 2_320_000, after: 2_070_000, over: 0 });
+  });
+
+  it("says how much more than the period has left", () => {
+    expect(oneOffImpact(200_000, 250_000)).toEqual({ before: 200_000, after: -50_000, over: 50_000 });
+  });
+
+  it("counts from below ₱0 when the period is already over", () => {
+    expect(oneOffImpact(-30_000, 20_000)).toEqual({ before: -30_000, after: -50_000, over: 50_000 });
   });
 });

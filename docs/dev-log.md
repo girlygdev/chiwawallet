@@ -2,6 +2,40 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 5 · 5f Add one-off item
+- **What:** an Add one-off item sheet (a dialog on desktop) at `/plan?start=…&add=1`. It has:
+  - **Fields:** What is it for?, Amount, Needed by, payday cards (now and up to 3 months ahead) and Category.
+  - **Suggestion:** setting Needed by picks the payday just before it, until a card is picked by hand.
+  - **Category:** the tile grid shows "Counts as Wants" for the picked category.
+  - **Impact box:** "Nov 30 – Dec 14 not assigned: ₱25,000 → ₱22,500". It turns yellow with "₱500 more than that period has left" when it goes over.
+  - **Saving:** it goes to the chosen period, with "Dad's birthday gift added · Undo".
+  - **Opens from:** the mobile ONE-OFF ITEMS group, the desktop header and table, and the empty plan's One-off items row.
+- **Files:**
+  - New: `src/components/plan/one-off-form.tsx`.
+  - Edited:
+    - `src/lib/plan.ts`: `suggestedPeriodStart()`, `oneOffImpact()`
+    - `tests/lib/plan.test.ts`
+    - `src/app/(app)/plan/actions.ts`: `addOneOffItem`, `getPeriodNotAssigned`
+    - `src/app/(app)/plan/plan-item-sheet.tsx`, `page.tsx`
+    - `src/components/plan/plan-groups.tsx`, `plan-table.tsx`, `empty-plan.tsx`
+    - `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - Category reuses Add expense's tile grid, the picker and New category, not chips of four.
+  - Needed by is a plain date input, because DateButton can't pick future dates.
+  - The impact box says "It'll show in that period's plan" without "with a reminder" until Week 7.
+  - The past period isn't offered.
+  - The impact number comes from `openPlanPeriod()` for the chosen card, so it matches that period's Plan. Picking a future card opens that period, the same as tapping its chip.
+  - The server rejects system categories (Savings pot, Debt payment). The database would accept them.
+- **Tests:** written first, 8 new unit tests (468 pass). Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - name focused, 7 payday cards, Needed by Dec 5 → Nov 30
+  - added to Nov 30 (₱25,000 → ₱22,500), then Undo
+  - the yellow over-budget box
+  - a one-off on Feb 15, 3 months ahead (₱22,000)
+  - More, then Esc back to the form
+  - desktop Cancel
+  - no console errors
+- **Next:** 5g, debt payments and spending budgets.
+
 ## 2026-11-26 · Week 5 · 5e Edit and remove plan items; starter plan
 - **What:**
   - **Edit item:** tapping a plan row opens a sheet on mobile and a dialog on desktop (`/plan?start=…&edit=<id>`). It edits the name and amount, plus Needed by for one-offs, and shows "Not assigned yet: ₱8,800 → ₱8,300" before saving. Pay that hasn't come in shows Money for this period instead. Saving sets `edited`, so 5h's sync leaves the item alone. The bill, pot or debt keeps its link and its own amount.
