@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Amount, deleteTargetFor, RowSummary } from "@/components/activity/activity-list";
+import { EMPTY_BUTTON, EmptyCard } from "@/components/dashboard/empty-card";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import { OpenAddSheetButton, useTransactionSheet } from "@/components/transactions/add-transaction-provider";
 import type { DeleteTarget } from "@/components/transactions/delete-transaction-dialog";
@@ -51,16 +52,10 @@ export function RecentActivity({ rows, today }: { rows: RecentRow[]; today: stri
 
       {rows.length === 0 ? (
         // dashboard.md §6 "Recent activity" empty state.
-        <div className="flex flex-col items-start gap-3 rounded-2xl border-[1.5px] border-line bg-surface p-5">
-          <p className="text-[15px] font-bold text-ink">Nothing logged yet</p>
-          <p className="text-sm text-text-2">
-            <span className="md:hidden">Tap the + button below to log your first expense.</span>
-            <span className="hidden md:inline">Your income and expenses will show up here.</span>
-          </p>
-          <OpenAddSheetButton className="flex h-11 items-center rounded-md bg-primary px-4 text-sm font-extrabold text-primary-foreground outline-link focus-visible:outline-2 focus-visible:outline-offset-2">
-            Log an expense
-          </OpenAddSheetButton>
-        </div>
+        <EmptyCard title="Nothing logged yet" action={<OpenAddSheetButton className={EMPTY_BUTTON}>Log an expense</OpenAddSheetButton>}>
+          <span className="md:hidden">Tap the + button below to log your first expense.</span>
+          <span className="hidden md:inline">Your income and expenses will show up here.</span>
+        </EmptyCard>
       ) : (
         <>
           <ul className="flex flex-col divide-y divide-line-soft rounded-2xl border-[1.5px] border-line bg-surface lg:hidden">

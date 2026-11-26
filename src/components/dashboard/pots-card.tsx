@@ -1,5 +1,6 @@
 import { Lock } from "lucide-react";
 import Link from "next/link";
+import { EMPTY_BUTTON, EmptyCard } from "@/components/dashboard/empty-card";
 import { formatPeso } from "@/lib/money";
 import type { potCardLine } from "@/lib/pots";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,27 @@ export type PotCard = {
 export function PotsCard({ pots }: { pots: PotCard[] }) {
   const open = pots.filter((p) => !p.line.locked);
   const locked = pots.filter((p) => p.line.locked);
+  // No pots yet (dashboard.md §4): the empty card on desktop only; phones
+  // leave the section out.
+  if (pots.length === 0) {
+    return (
+      <section aria-labelledby="pots-title" className="hidden flex-col gap-2 lg:flex">
+        <h2 id="pots-title" className="flex min-h-11 items-center text-[13px] font-extrabold tracking-wide text-text-3 uppercase">
+          Savings pots
+        </h2>
+        <EmptyCard
+          title="No pots yet"
+          action={
+            <Link href="/savings?add=1" className={EMPTY_BUTTON}>
+              Create a pot
+            </Link>
+          }
+        >
+          Most people start with an emergency fund of 3 to 6 months of needs.
+        </EmptyCard>
+      </section>
+    );
+  }
   return (
     <section aria-labelledby="pots-title" className="flex flex-col gap-2">
       <div className="flex items-center justify-between">

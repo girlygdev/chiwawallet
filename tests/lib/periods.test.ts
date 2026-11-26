@@ -4,6 +4,7 @@ import {
   formatMonthYear,
   daysLeft,
   describeSchedule,
+  periodDayLine,
   periodStatusLine,
   formatPeriodRange,
   formatShortDate,
@@ -431,5 +432,17 @@ describe("dateInMonth", () => {
 describe("formatMonthYear", () => {
   it("shows a date's month and year", () => {
     expect(formatMonthYear("2027-02-28")).toBe("Feb 2027");
+  });
+});
+
+describe("periodDayLine: 'Day 1 of 15' for the first payday period", () => {
+  const period = { start: "2026-11-15", end: "2026-11-29", paySlot: "payday_1" as const };
+
+  it.each([
+    ["2026-11-15", "Day 1 of 15"],
+    ["2026-11-22", "Day 8 of 15"],
+    ["2026-11-29", "Day 15 of 15"],
+  ])("%s → %s", (today, text) => {
+    expect(periodDayLine(period, today)).toBe(text);
   });
 });

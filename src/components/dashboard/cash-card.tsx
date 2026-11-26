@@ -17,6 +17,7 @@ export function CashCard({
   daily,
   due,
   today,
+  fresh = false,
 }: {
   numbers: DashboardNumbers;
   /** Safe to spend; can be below ₱0. */
@@ -26,6 +27,8 @@ export function CashCard({
   daily: ReturnType<typeof perDay>;
   due: DuePay | null;
   today: string;
+  /** Nothing logged and nothing planned this period yet (dashboard.md §4). */
+  fresh?: boolean;
 }) {
   const percent = Math.round(numbers.spentShare * 100);
   return (
@@ -51,9 +54,11 @@ export function CashCard({
           )}
         </p>
         <p className="text-sm opacity-90">
-          {stillDue > 0
-            ? `After ${formatPeso(stillDue)} in bills, savings and debts still due this period.`
-            : "Nothing planned is still due this period."}
+          {fresh
+            ? "Your starting balance. Nothing planned yet."
+            : stillDue > 0
+              ? `After ${formatPeso(stillDue)} in bills, savings and debts still due this period.`
+              : "Nothing planned is still due this period."}
         </p>
       </div>
 

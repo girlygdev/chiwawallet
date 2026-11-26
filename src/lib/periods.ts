@@ -181,6 +181,12 @@ export function periodStatusLine(period: Period, schedule: PaySchedule, today: s
   return `${paydayLabel(schedule, period.paySlot)} payday · ${when}`;
 }
 
+/** "Day 1 of 15": today's place in the period, for the first payday period (dashboard.md §4). */
+export function periodDayLine(period: Period, today: string): string {
+  const length = daysLeft(period.start, period.end);
+  return `Day ${length - daysLeft(today, period.end) + 1} of ${length}`;
+}
+
 /** "2026-11-15" → "Nov 15". */
 export function formatShortDate(date: string): string {
   return format(parseDate(date), "MMM d");

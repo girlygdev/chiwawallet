@@ -42,7 +42,9 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
     - Spending vs plan
     - Recent activity as a table
   - **The side column:** Savings pots, with "Manage" and "+₱3,000 this period", and the 50/30/20 check.
-- [ ] **7d. Dashboard: first-day state and the period switcher** (`dashboard.md` §4, `app-shell.md` §4).
+- [ ] **7d. Dashboard: first-day state and the period switcher** (`dashboard.md` §4, `app-shell.md` §4). Split in two (owner, Nov 26):
+  - [x] **7d-1. First-day state.** Done Nov 26 (checked in a browser on a fresh local account, 390 and 1280px). `checklistSteps()` in `lib/checklist.ts`, `periodDayLine()` in `lib/periods.ts`; `get-started-card.tsx`, `empty-card.tsx`; Dismiss is a cookie (`gs_dismissed`, per browser, owner Nov 26). The card shows in any period until all five are done or it's dismissed; the h1 stays "Your payday at a glance". See open question 5.
+  - [ ] **7d-2. Period arrows and Next period.** The arrows open the previous and next periods on the Plan (decision 2).
   - **Next period:** the desktop side column's mint card ("Nov 30 – Dec 14", "₱33,000 expected · Electricity and MP2 due", Plan ahead) and the mobile "Plan next payday" link (decision 4), both from the next period (moved from 7c, owner Nov 26).
   - **The Get started checklist** (an `<ol>`, "1 of 5 done"), and the empty section cards.
   - **The period switcher's arrows.** See open question 2.
@@ -80,6 +82,8 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
    - **The alternative:** a Dashboard for any period, which means deciding what Safe to spend means for past and future periods.
 3. **Which three categories on the Spending card** (dashboard.md fix #4 suggests the biggest planned amounts). Suggest that. The alternative is the three closest to their limit.
 4. **Mobile "Next period" link** (fix #5, optional). Suggest a small "Plan next payday" link under Recent activity, going to the next period's plan.
+
+5. **"Create a savings pot" is always done.** Onboarding creates starter pots (Emergency Fund, Sinking Funds), so the step is ticked on day one and "No pots yet" only shows if they're deleted. Suggest: tick it once any pot has money in it or a target. Asked Nov 26.
 
 ## Decisions (owner, Nov 26: "go with your suggestions")
 

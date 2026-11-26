@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CashCard, PayPrompt } from "@/components/dashboard/cash-card";
 import { DueCard } from "@/components/dashboard/due-card";
+import { GetStartedCard } from "@/components/dashboard/get-started-card";
 import { type PotCard, PotsCard } from "@/components/dashboard/pots-card";
 import { type SpendingRow, SpendingCard } from "@/components/dashboard/spending-card";
 import { SplitCard } from "@/components/dashboard/split-card";
@@ -14,6 +15,8 @@ import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import type { ActivityRow } from "@/lib/activity";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
+import { checklistSteps } from "@/lib/checklist";
+import { isChecklistDismissed } from "@/lib/checklist-cookie";
 import { duePay, expectedForPeriod, isActiveOn, receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers, perDay, periodMoneyLine, safeToSpend, spentSplit, stillDueTotal } from "@/lib/money";
 import { dueList, spendingTotal, stillDueBreakdown, topBudgets } from "@/lib/plan";
@@ -24,6 +27,7 @@ import {
   type PaySlot,
   type Period,
   paydayLabel,
+  periodDayLine,
   periodStatusLine,
   scheduleFromBudget,
   todayInManila,
@@ -43,6 +47,7 @@ const RECENT_ROWS = 5;
 // Safe to spend and Due this period come from the current period's plan
 // items (6c), then Spending and Savings pots (7a) and the 50/30/20 check
 // (7b). Desktop (7c, §3): a stat row, then a main and a side column.
+// First-day state (7d-1, §4): Get started, the empty cards, "Day 1 of 15".
 export default function DashboardPage() {
   return (
     <PageShell>
@@ -196,6 +201,45 @@ async function DashboardBody() {
       (schedule.frequency !== "semi_monthly" || s.pay_slot === "every" || s.pay_slot === period.paySlot),
   );
   const due = duePay(sources.data!, received, schedule, today);
+
+  // Get started (7d-1): until all five steps are done or it's dismissed. Its
+  // counts are skipped once dismissed. The first period gets "Day 1 of 15".
+  const dismissed = await isChecklistDismissed(budget.id);
+  const has = (q: PromiseLike<{ count: number | null; error: { message: string } | null }>) =>
+    Promise.resolve(q).then((r) => {
+      if (r.error) throw new Error(`Couldn't load the dashboard: ${r.error.message}`);
+      return (r.count ?? 0) > 0;
+    });
+  const one = { count: "exact", head: true } as const;
+  const [checks, firstPeriod] = await Promise.all([
+    dismissed
+      ? null
+      : Promise.all([
+          has(supabase.from("transactions").select("id", one).eq("type", "income").is("deleted_at", null)),
+          has(supabase.from("recurring_bills").select("id", one).eq("budget_id", budget.id)),
+          has(supabase.from("savings_pots").select("id", one)),
+          has(supabase.from("transactions").select("id", one).eq("type", "expense").is("deleted_at", null)),
+        ]),
+    supabase.from("budget_periods").select("start_date").eq("budget_id", budget.id).order("start_date").limit(1).maybeSingle(),
+  ]);
+  if (firstPeriod.error) throw new Error(`Couldn't load the dashboard: ${firstPeriod.error.message}`, { cause: firstPeriod.error });
+  const payFrom = landing[0] ?? sources.data![0] ?? null;
+  const checklist =
+    checks &&
+    checklistSteps({
+      schedule,
+      firstIncome: payFrom && { name: payFrom.name, amount: payFrom.amount },
+      hasIncome: checks[0],
+      hasBills: checks[1],
+      hasPots: checks[2],
+      hasExpense: checks[3],
+    });
+  const getStarted = checklist && !checklist.complete && (
+    <GetStartedCard list={checklist} payOptions={payFrom && { incomeSource: payFrom.id, amount: payFrom.amount }} />
+  );
+  const isFirstPeriod = firstPeriod.data?.start_date === period.start;
+  // Nothing logged and nothing planned yet: "Your starting balance."
+  const fresh = periodRows.data!.length === 0 && planned.length === 0;
   const duePrompt = due && { id: due.id, name: due.name, amount: due.amount, payday: period.start };
   const daily = perDay(safe, today, period.end);
 
@@ -207,12 +251,17 @@ async function DashboardBody() {
         <p className="font-display text-2xl leading-tight font-semibold text-ink">
           {formatPeriodRange(period.start, period.end)}
         </p>
-        <p className="text-[13px] font-bold text-text-3">{periodStatusLine(period, schedule, today)}</p>
+        <p className="text-[13px] font-bold text-text-3">
+          {isFirstPeriod ? `Your first payday period · ${periodDayLine(period, today)}` : periodStatusLine(period, schedule, today)}
+        </p>
       </section>
 
       {/* Desktop (§3): the pay prompt as a banner, then the stat row; phones
           have both inside the Cash card. */}
       {duePrompt && <PayPrompt due={duePrompt} today={today} className="hidden rounded-2xl bg-green-700 lg:flex" />}
+      {/* Get started: above the stat row on desktop, under the Cash card on
+          phones. Two copies; the hidden one is out of the accessibility tree. */}
+      {getStarted && <div className="hidden lg:block">{getStarted}</div>}
       <StatRow
         numbers={numbers}
         safe={safe}
@@ -227,8 +276,9 @@ async function DashboardBody() {
           column adds space below Recent activity, not between the cards. */}
       <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
         <div className="lg:hidden">
-          <CashCard numbers={numbers} safe={safe} stillDue={stillDue} daily={daily} due={duePrompt} today={today} />
+          <CashCard numbers={numbers} safe={safe} stillDue={stillDue} daily={daily} due={duePrompt} today={today} fresh={fresh} />
         </div>
+        {getStarted && <div className="lg:hidden">{getStarted}</div>}
         <div className="lg:col-start-1 lg:row-start-1">
           <DueCard items={dueList(planned)} periodStart={period.start} today={today} />
         </div>
@@ -239,7 +289,8 @@ async function DashboardBody() {
           </div>
         )}
         <div className="flex flex-col gap-4 md:gap-6 lg:col-start-2 lg:row-span-3 lg:row-start-1">
-          {pots.length > 0 && <PotsCard pots={pots} />}
+          {/* With no pots: the empty card on desktop only (§4). */}
+          <PotsCard pots={pots} />
           {/* Hidden until money out reaches ₱1,000 (dashboard.md §5). */}
           {split.show && <SplitCard groups={split.groups} />}
           <IncomeCard

@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import Link from "next/link";
+import { EMPTY_BUTTON, EmptyCard } from "@/components/dashboard/empty-card";
 import { MarkPaidPill } from "@/components/plan/tick-button";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import { formatPeso } from "@/lib/money";
@@ -60,16 +61,16 @@ export function DueCard({ items, periodStart, today }: { items: CurrentItem[]; p
 
       {items.length === 0 ? (
         // The empty card (dashboard.md §4).
-        <div className="flex flex-col items-center gap-2 rounded-2xl border-[1.5px] border-dashed border-line-dash bg-surface p-5 text-center">
-          <p className="font-display text-lg font-semibold text-ink">No bills or debts yet</p>
-          <p className="text-sm text-text-2">Add them once and Chiwawallet reminds you each payday.</p>
-          <Link
-            href="/bills?add=1"
-            className="flex min-h-11 items-center rounded-full bg-mint px-4 text-sm font-extrabold text-green-800 outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            Add a bill
-          </Link>
-        </div>
+        <EmptyCard
+          title="No bills or debts yet"
+          action={
+            <Link href="/bills?add=1" className={EMPTY_BUTTON}>
+              Add a bill
+            </Link>
+          }
+        >
+          Add them once and Chiwawallet reminds you each payday.
+        </EmptyCard>
       ) : (
         <ul className="flex flex-col divide-y divide-line-soft rounded-2xl border-[1.5px] border-line bg-surface">
           {items.map((item) => {

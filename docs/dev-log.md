@@ -2,6 +2,23 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 7 · 7d-1 Dashboard: first-day state
+- **What:**
+  - **Get started:** a sticker card with "3 of 5 done", an 8px bar and an `<ol>` of five link rows (tick or dashed ring). Undone steps go to their task: Add income filled in with the first source, `/bills?add=1`, `/savings?add=1`, Add expense. Done ones go to where the thing lives. Dismiss with an Undo toast.
+    - Phones: under the Cash card. Desktop: above the stat row, with "A few minutes now makes every payday easier."
+  - **Empty cards:** one shared `EmptyCard` (dashed, mascot, title, sentence, soft button) for Due this period, Recent activity and, on desktop, "No pots yet".
+  - **First period:** "Your first payday period · Day 12 of 15"; with nothing logged or planned, Safe to spend reads "Your starting balance. Nothing planned yet."
+- **Files:** src/lib/checklist.ts (new), src/lib/checklist-cookie.ts (new), src/lib/periods.ts, src/app/(app)/dashboard/actions.ts (new), src/app/(app)/dashboard/page.tsx, src/components/dashboard/get-started-card.tsx (new), empty-card.tsx (new), cash-card.tsx, due-card.tsx, pots-card.tsx, recent-activity.tsx, tests/lib/checklist.test.ts (new), tests/lib/periods.test.ts, docs/week-7-tasks.md
+- **Decisions (owner, Nov 26):**
+  - 7d split into 7d-1 (this) and 7d-2 (arrows, Next period).
+  - Dismiss is a cookie holding the budget's id: no migration, per browser, and another account on the same browser still sees its own card.
+  - The card shows in any period until all five steps are done or it's dismissed.
+  - The h1 stays "Your payday at a glance" (it renders before the data loads).
+- **Tests:** 7 new Vitest cases; lint, typecheck and `npm run test` pass. Browser on a fresh local account: 2 of 5 → 3 of 5 after logging an expense from its step; Dismiss hides it, Undo brings it back, a dismissed card stays gone after reload; the empty Due and Recent cards; phone and desktop placements.
+- **AI notes:** My first browser script reloaded before the second Dismiss finished (it matched the old toast) and looked like a bug; waiting for the card to go fixed the script, not the code. Dropped the strikethrough on done steps (not in the spec, harder to read).
+- **Open:** onboarding's starter pots tick "Create a savings pot" on day one (open question 5).
+- **Next:** 7d-2, the period arrows and Next period.
+
 ## 2026-11-26 · Week 7 · 7c Dashboard: desktop layout
 - **What:**
   - **Stat row** (1024px and up, replacing the Cash card):
