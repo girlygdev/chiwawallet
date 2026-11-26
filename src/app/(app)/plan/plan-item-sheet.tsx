@@ -33,6 +33,8 @@ import {
 /** A row as Edit item and Remove from plan need it. */
 export type SheetItem = EditableItem & {
   detail: string;
+  /** Put back by Undo after Remove (5h-1). */
+  edited: boolean;
   income_source_id: string | null;
   bill_id: string | null;
   pot_id: string | null;
@@ -173,7 +175,7 @@ export function PlanEditor({
         label: "Undo",
         onClick: async () => {
           setToast(null);
-          const result = await restorePlanItem(item.id);
+          const result = await restorePlanItem(item.id, item.edited);
           router.refresh();
           setToast({ id: Date.now(), text: result.ok ? `${item.name} is back` : (result.formError ?? "Couldn't undo.") });
         },

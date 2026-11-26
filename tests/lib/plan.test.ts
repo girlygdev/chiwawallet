@@ -16,6 +16,7 @@ import {
   payingPeriodStart,
   planSection,
   planSummary,
+  planSync,
   plannablePeriods,
   resolvePlanStart,
   removeImpact,
@@ -611,5 +612,100 @@ describe("budgetImpact (5g-1)", () => {
 
   it("can go below ₱0", () => {
     expect(budgetImpact(100_000, null, 300_000).after).toBe(-200_000);
+  });
+});
+
+describe("planSync (5h-1)", () => {
+  type Existing = Parameters<typeof planSync>[1][number];
+  const gen = (fields: Partial<GeneratedItemShape>) => ({
+    name: "Meralco",
+    category_id: "cat-bills",
+    planned_amount: 250_000,
+    origin: "recurring" as const,
+    income_source_id: null,
+    bill_id: null,
+    pot_id: null,
+    debt_id: null,
+    ...fields,
+  });
+  type GeneratedItemShape = ReturnType<typeof generatePlan>[number];
+  const row = (fields: Partial<Existing>): Existing => ({
+    id: "row-1",
+    origin: "recurring",
+    name: "Meralco",
+    category_id: "cat-bills",
+    planned_amount: 250_000,
+    edited: false,
+    paid_at: null,
+    deleted_at: null,
+    income_source_id: null,
+    bill_id: null,
+    pot_id: null,
+    debt_id: null,
+    ...fields,
+  });
+  const meralco = { bill_id: "bill-1" };
+
+  it("does nothing when the plan already matches", () => {
+    expect(planSync([gen(meralco)], [row(meralco)])).toEqual({ insert: [], update: [], remove: [] });
+  });
+
+  it("updates an unedited item's amount and name", () => {
+    expect(planSync([gen({ ...meralco, name: "Meralco (house)", planned_amount: 300_000 })], [row(meralco)]).update).toEqual([
+      { id: "row-1", name: "Meralco (house)", planned_amount: 300_000, revive: false },
+    ]);
+  });
+
+  it("adds an item for a new source", () => {
+    const pot = gen({ name: "Travel", category_id: "cat-pot", pot_id: "pot-1", planned_amount: 200_000 });
+    expect(planSync([gen(meralco), pot], [row(meralco)]).insert).toEqual([pot]);
+  });
+
+  it("takes out an unedited item that no longer belongs (bill moved to the other payday)", () => {
+    expect(planSync([], [row(meralco)]).remove).toEqual(["row-1"]);
+  });
+
+  it("brings back an item the sync took out, with the new amount", () => {
+    const removed = row({ ...meralco, deleted_at: "2026-11-26T00:00:00Z" });
+    expect(planSync([gen({ ...meralco, planned_amount: 300_000 })], [removed])).toEqual({
+      insert: [],
+      update: [{ id: "row-1", name: "Meralco", planned_amount: 300_000, revive: true }],
+      remove: [],
+    });
+  });
+
+  it("never touches edited items, nor brings back ones you removed", () => {
+    const edited = row({ ...meralco, edited: true, planned_amount: 280_000 });
+    expect(planSync([gen({ ...meralco, planned_amount: 300_000 })], [edited])).toEqual({ insert: [], update: [], remove: [] });
+    expect(planSync([], [edited]).remove).toEqual([]);
+    const youRemoved = row({ ...meralco, edited: true, deleted_at: "2026-11-26T00:00:00Z" });
+    expect(planSync([gen(meralco)], [youRemoved])).toEqual({ insert: [], update: [], remove: [] });
+  });
+
+  it("never touches paid items", () => {
+    const paid = row({ ...meralco, paid_at: "2026-11-20T00:00:00Z" });
+    expect(planSync([gen({ ...meralco, planned_amount: 300_000 })], [paid])).toEqual({ insert: [], update: [], remove: [] });
+    expect(planSync([], [paid]).remove).toEqual([]);
+  });
+
+  it("ignores one-offs, starter items and extra debt payments", () => {
+    const others = [
+      row({ id: "a", origin: "one_off", category_id: "cat-gifts" }),
+      row({ id: "b", origin: "starter", category_id: null }),
+      row({ id: "c", origin: "one_off", debt_id: "debt-1", category_id: "cat-extra" }),
+    ];
+    expect(planSync([], others)).toEqual({ insert: [], update: [], remove: [] });
+    // An extra payment doesn't stand in for the debt's scheduled one.
+    const scheduled = gen({ name: "SPayLater", category_id: "cat-debt", debt_id: "debt-1" });
+    expect(planSync([scheduled], others).insert).toEqual([scheduled]);
+  });
+
+  it("matches spending budgets by category, and leaves a this-period-only budget alone", () => {
+    const food = gen({ name: "Food", category_id: "cat-food", planned_amount: 300_000 });
+    expect(planSync([food], [row({ name: "Food", category_id: "cat-food", planned_amount: 200_000 })]).update).toHaveLength(1);
+    const thisPeriodOnly = row({ name: "Food", category_id: "cat-food", planned_amount: 400_000, edited: true });
+    expect(planSync([food], [thisPeriodOnly])).toEqual({ insert: [], update: [], remove: [] });
+    // A cleared budget per payday takes out the unedited one.
+    expect(planSync([], [row({ name: "Food", category_id: "cat-food" })]).remove).toEqual(["row-1"]);
   });
 });

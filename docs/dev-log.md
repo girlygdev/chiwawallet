@@ -2,6 +2,41 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 5 · 5h-1 Keep plans in sync
+- **What:** open periods (not ended) now follow their sources. Saving a bill, pot, income source or debt (including Mark paid off), a category with a budget per payday, or Set a budget "Every payday" runs `syncOpenPeriods()`, and so does opening a period. For each period, `planSync()` compares what `generatePlan()` makes now with what's there:
+  - changed amounts and names are updated
+  - new sources are added
+  - items that no longer belong are taken out (soft delete), for example a bill moved to the other payday, a pot set to ₱0, an ended income source, or a cleared budget
+  - items the sync took out come back if they belong again
+  - only unpaid, unedited `recurring` items change; one-offs, starter items, extra debt payments and ended periods never do
+- **Files:**
+  - New:
+    - `tests/db/plan-sync.test.ts`
+    - `supabase/migrations/20261126110000_plan_items_removed_are_edited.sql`
+  - Edited:
+    - `src/lib/plan.ts`: `planSync()`
+    - `tests/lib/plan.test.ts`
+    - `src/lib/plan-periods.ts`: `syncOpenPeriods()`; `openPlanPeriod()` syncs instead of only adding
+    - the save actions in `bills`, `savings`, `income`, `debts`, `settings/categories` and `plan`
+    - `plan-item-sheet.tsx`: Undo passes back `edited`
+    - `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - 5h is split into 5h-1 (sync) and 5h-2 (plan data on other screens).
+  - There's no "Update future paydays only?" question: changes go to the current and future open periods, unpaid and unedited items only.
+  - Your removals are marked `edited`; the sync's own removals aren't. That tells them apart without a new column.
+  - The one-time migration marks items already removed as edited, because before 5h only you removed items.
+  - Edited items are fully frozen, name included.
+  - A failed sync after a save is logged, not shown, and the period catches up on its next open.
+- **Tests:** written first, 9 new unit tests (488 pass), and 4 new database tests that run the sync on local Supabase (274 pass). Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - a new Meralco bill (₱2,500, due the 10th) showed in Nov 30 and Dec 30
+  - changing it to ₱3,000 showed in both
+  - a Meralco edited by hand to ₱2,800 on Nov 30 stayed there when the bill went to ₱3,500, while Dec 30 followed
+  - a removed Meralco stayed removed
+  - Groceries removed then Undone followed its budget change to ₱3,300, while Nov 30's "This period only" ₱4,000 stayed
+  - no console errors
+- **Not yet live:** the migration. It needs a dry run, then `npx supabase db push`, after the owner's go. It must go live with or before this code.
+- **Next:** 5h-2, plan data on other screens.
+
 ## 2026-11-26 · Week 5 · 5g-2 Debt payments and the Plan options menu
 - **What:**
   - **Plan a debt payment** (`/plan?start=…&add=debt`):

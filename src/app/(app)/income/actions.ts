@@ -1,5 +1,7 @@
 "use server";
 
+import { todayInManila } from "@/lib/periods";
+import { syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { SOMETHING_WRONG, toFieldErrors } from "@/lib/validation/field-errors";
@@ -23,6 +25,8 @@ export async function addIncomeSource(input: IncomeFormInput): Promise<Result> {
   const supabase = await createClient();
   const { error } = await supabase.from("income_sources").insert({ budget_id: budget.id, ...toRow(parsed.data) });
   if (error) return fail("add income source", error);
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true };
 }
 
@@ -38,6 +42,8 @@ export async function updateIncomeSource(id: string, input: IncomeFormInput): Pr
     .eq("id", id)
     .eq("budget_id", budget.id);
   if (error) return fail("update income source", error);
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true };
 }
 

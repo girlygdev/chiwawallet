@@ -6,7 +6,7 @@ import { debtLeft, debtPaid } from "@/lib/debts";
 import { formatPeso } from "@/lib/money";
 import { scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { missingStarterItems, type PlanOrigin, planSection, plannablePeriods, starterPlan } from "@/lib/plan";
-import { openPlanPeriod } from "@/lib/plan-periods";
+import { openPlanPeriod, syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import type { BudgetGroup } from "@/lib/transactions";
@@ -67,8 +67,9 @@ export async function updatePlanItem(id: string, input: EditPlanItemInput): Prom
 
 /**
  * Remove from plan (delete-pattern.md level 1): a soft delete, so Undo can
- * bring back the same row. A generated item stays removed for this period:
- * add_plan_items() skips deleted rows too.
+ * bring back the same row. It's also marked `edited`, a hand change, so the
+ * sync (5h) never brings a generated item back: an unedited removed item is
+ * one the sync took out itself.
  */
 export async function removePlanItem(id: string): Promise<Result> {
   const { budget } = await requireAppUser();
@@ -79,7 +80,7 @@ export async function removePlanItem(id: string): Promise<Result> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("plan_items")
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: new Date().toISOString(), edited: true })
     .eq("id", id)
     .is("deleted_at", null)
     .select("id");
@@ -88,17 +89,20 @@ export async function removePlanItem(id: string): Promise<Result> {
   return { ok: true };
 }
 
-/** Undo after Remove from plan: clears `deleted_at`. */
-export async function restorePlanItem(id: string): Promise<Result> {
+/**
+ * Undo after Remove from plan: clears `deleted_at` and puts back the
+ * `edited` the item had before, so an untouched item follows its source again.
+ */
+export async function restorePlanItem(id: string, edited: boolean): Promise<Result> {
   const { budget } = await requireAppUser();
-  if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
+  if (!z.uuid().safeParse(id).success || typeof edited !== "boolean") return { formError: SOMETHING_WRONG };
   const item = await loadItem(id, budget.id, "removed");
   if ("formError" in item) return item;
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("plan_items")
-    .update({ deleted_at: null })
+    .update({ deleted_at: null, edited })
     .eq("id", id)
     .not("deleted_at", "is", null)
     .select("id");
@@ -283,6 +287,8 @@ export async function setBudget(periodStart: string, input: SetBudgetInput): Pro
         edited,
       });
   if (error) return fail("set budget", error);
+  // Every payday: the other open periods follow the new budget per payday (5h-1).
+  if (scope === "every") await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true, saved: { name: category.data.name, amount } };
 }
 

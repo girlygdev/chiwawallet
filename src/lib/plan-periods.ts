@@ -15,10 +15,12 @@ import {
   type PlanSources,
   type PlanSummary,
   type StarterItem,
+  type SyncRow,
   periodIncome,
   planItemDetail,
   planSection,
   planSummary,
+  planSync,
   plannablePeriods,
   resolvePlanStart,
   starterPlan,
@@ -117,13 +119,8 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
 
   const [sources, money] = await Promise.all([loadSources(supabase, budget), loadMoney(supabase, row, future)]);
 
-  if (!ended) {
-    const generated = generatePlan(period, schedule, sources);
-    if (generated.length > 0) {
-      const { error } = await supabase.rpc("add_plan_items", { target_period: row.id, items: generated });
-      if (error) fail("add the plan's items", error);
-    }
-  }
+  // A period that hasn't ended follows its sources (5h-1); past ones never change.
+  if (!ended) await syncPeriods(supabase, [{ id: row.id, period }], schedule, sources);
 
   const { data: items, error } = await supabase
     .from("plan_items")
@@ -196,6 +193,87 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
       .map((d) => ({ id: d.id, name: d.name, left: debtLeft(d), flexible: d.payment_type === "flexible" }))
       .filter((d) => d.left > 0),
   };
+}
+
+/**
+ * Brings every open period (not ended) of the budget in line with its
+ * sources: called after saving a bill, pot, income source, debt or category
+ * budget (week-5-tasks.md 5h). Periods that don't exist yet get their items
+ * when first opened. A failure is logged, not thrown: the save itself
+ * worked, and the period catches up the next time it opens.
+ */
+export async function syncOpenPeriods(supabase: Client, budget: Budget, today: string): Promise<void> {
+  try {
+    const { data: rows, error } = await supabase
+      .from("budget_periods")
+      .select("id, start_date, end_date, pay_slot")
+      .eq("budget_id", budget.id)
+      .gte("end_date", today);
+    if (error) fail("load open periods", error);
+    if (!rows?.length) return;
+    const sources = await loadSources(supabase, budget);
+    const periods = rows.map((r) => ({
+      id: r.id,
+      // The column's check constraint allows only the three pay slots.
+      period: { start: r.start_date, end: r.end_date, paySlot: r.pay_slot as PaySlot },
+    }));
+    await syncPeriods(supabase, periods, scheduleFromBudget(budget), sources);
+  } catch (error) {
+    console.error("plan: couldn't sync open periods", error);
+  }
+}
+
+/**
+ * Applies planSync() to each period: new items through add_plan_items()
+ * (skips any another tab just added), then the updates and removals. Each
+ * write also checks the item is still unedited and unpaid, so a hand edit
+ * made meanwhile is never overwritten.
+ */
+async function syncPeriods(
+  supabase: Client,
+  periods: { id: string; period: Period }[],
+  schedule: ReturnType<typeof scheduleFromBudget>,
+  sources: Awaited<ReturnType<typeof loadSources>>,
+): Promise<void> {
+  const { data: existing, error } = await supabase
+    .from("plan_items")
+    .select("id, period_id, origin, name, category_id, planned_amount, edited, paid_at, deleted_at, income_source_id, bill_id, pot_id, debt_id")
+    .in(
+      "period_id",
+      periods.map((p) => p.id),
+    );
+  if (error) fail("load the plans to sync", error);
+
+  const now = new Date().toISOString();
+  for (const { id, period } of periods) {
+    // The generated types say `string` for origin; its check constraint allows only these.
+    const rows = existing!.filter((r) => r.period_id === id) as SyncRow[];
+    const changes = planSync(generatePlan(period, schedule, sources), rows);
+
+    if (changes.insert.length > 0) {
+      const { error: insertError } = await supabase.rpc("add_plan_items", { target_period: id, items: changes.insert });
+      if (insertError) fail("add the plan's items", insertError);
+    }
+    for (const u of changes.update) {
+      const { error: updateError } = await supabase
+        .from("plan_items")
+        .update({ name: u.name, planned_amount: u.planned_amount, ...(u.revive ? { deleted_at: null } : {}) })
+        .eq("id", u.id)
+        .eq("edited", false)
+        .is("paid_at", null);
+      if (updateError) fail("update the plan's items", updateError);
+    }
+    if (changes.remove.length > 0) {
+      const { error: removeError } = await supabase
+        .from("plan_items")
+        .update({ deleted_at: now })
+        .in("id", changes.remove)
+        .eq("edited", false)
+        .is("paid_at", null)
+        .is("deleted_at", null);
+      if (removeError) fail("take out the plan's items", removeError);
+    }
+  }
 }
 
 /** Everything generatePlan() and the detail lines are made from. */

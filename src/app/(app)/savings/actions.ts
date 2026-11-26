@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { todayInManila } from "@/lib/periods";
+import { syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { SOMETHING_WRONG, toFieldErrors } from "@/lib/validation/field-errors";
@@ -26,6 +27,8 @@ export async function addPot(input: PotFormInput): Promise<Result> {
   const supabase = await createClient();
   const { error } = await supabase.from("savings_pots").insert(toRow(parsed.data));
   if (error) return fail("add pot", error, parsed.data.name);
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true };
 }
 
@@ -39,6 +42,8 @@ export async function updatePot(id: string, input: PotFormInput): Promise<Result
   const { data, error } = await supabase.from("savings_pots").update(toRow(parsed.data)).eq("id", id).select("id");
   if (error) return fail("update pot", error, parsed.data.name);
   if (data.length === 0) return { formError: "That pot no longer exists. Refresh the page." };
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true };
 }
 

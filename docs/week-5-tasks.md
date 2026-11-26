@@ -63,11 +63,17 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
     - The **Plan options menu** (moved from 5e): Set a budget, Use starter plan, Edit spending budgets (Settings › Categories). Period settings isn't designed yet.
     - Share 5f's payday cards and impact box between Add one-off item and Plan a debt payment.
   - Done when: a debt payment planned two periods ahead and a Food budget both show in their periods.
-- [ ] **5h. Wire-up.**
-  - Saving a bill, pot, income source, debt or category budget updates its **unpaid, unedited** items in current and future periods that are already open, and adds it to those periods if new (`bills.md`, `savings.md` "Update future paydays only?").
-  - The add sheet's "budget left" impact line for categories with a planned amount (plan review, Week 3 scope).
-  - Bills and Savings: "Planned in N upcoming paydays" and "Due this period" from plan items.
-  - Done when: changing a bill's amount shows in next period's plan.
+- [ ] **5h. Wire-up.** Split in two (owner, Nov 26).
+  - [x] **5h-1. Keep plans in sync.** Done Nov 26 (checked in a browser on local Supabase). `planSync()` in `lib/plan.ts`, `syncOpenPeriods()` in `lib/plan-periods.ts`.
+    - Saving a bill, pot, income source, debt (and Mark paid off), category, or Set a budget "Every payday" brings every open period in line. So does opening a period.
+    - Only **unpaid, unedited** `recurring` items change. Items that no longer belong are soft-deleted and come back if they belong again.
+    - Remove from plan marks the item `edited`, so it stays removed. Undo puts the old value back.
+    - No "Update future paydays only?" question (owner, Nov 26).
+    - Migration `20261126110000_plan_items_removed_are_edited.sql`: local only. **Live:** after the owner's go.
+    - Done when: changing a bill's amount shows in next period's plan. ✅
+  - [ ] **5h-2. Plan data on other screens.**
+    - The add sheet's "budget left" impact line for categories with a planned amount (plan review, Week 3 scope).
+    - Bills and Savings: "Planned in N upcoming paydays" and "Due this period" from plan items.
 - [ ] **5i. Live check.** Push, then plan your next three months on your phone.
 
 ## Decisions (owner, Nov 25)

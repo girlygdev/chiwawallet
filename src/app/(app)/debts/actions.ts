@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { todayInManila } from "@/lib/periods";
+import { syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { type DebtFormInput, type DebtValues, debtSchema } from "@/lib/validation/debt";
@@ -19,18 +21,20 @@ const GONE = "That debt no longer exists. Refresh the page.";
 // limits every query to the user's own rows.
 
 export async function addDebt(input: DebtFormInput): Promise<Result> {
-  await requireAppUser();
+  const { budget } = await requireAppUser();
   const parsed = debtSchema.safeParse(input);
   if (!parsed.success) return { fieldErrors: toFieldErrors<DebtFormInput>(parsed.error.issues) };
 
   const supabase = await createClient();
   const { error } = await supabase.from("debts").insert(toRow(parsed.data));
   if (error) return fail("add debt", error);
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true };
 }
 
 export async function updateDebt(id: string, input: DebtFormInput): Promise<Result> {
-  await requireAppUser();
+  const { budget } = await requireAppUser();
   if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
   const parsed = debtSchema.safeParse(input);
   if (!parsed.success) return { fieldErrors: toFieldErrors<DebtFormInput>(parsed.error.issues) };
@@ -39,6 +43,8 @@ export async function updateDebt(id: string, input: DebtFormInput): Promise<Resu
   const { data, error } = await supabase.from("debts").update(toRow(parsed.data)).eq("id", id).select("id");
   if (error) return fail("update debt", error);
   if (data.length === 0) return { formError: GONE };
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true };
 }
 
@@ -48,7 +54,7 @@ export async function updateDebt(id: string, input: DebtFormInput): Promise<Resu
  * app). `paidOff: false` moves it back to active.
  */
 export async function setDebtPaidOff(id: string, paidOff: boolean): Promise<Result> {
-  await requireAppUser();
+  const { budget } = await requireAppUser();
   if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -58,6 +64,8 @@ export async function setDebtPaidOff(id: string, paidOff: boolean): Promise<Resu
     .select("id");
   if (error) return fail("mark debt paid off", error);
   if (data.length === 0) return { formError: GONE };
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true };
 }
 

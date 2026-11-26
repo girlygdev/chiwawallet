@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { todayInManila } from "@/lib/periods";
+import { syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { type BillFormInput, type BillValues, billSchemaFor } from "@/lib/validation/bill";
@@ -27,6 +29,8 @@ export async function addBill(input: BillFormInput): Promise<Result> {
   const supabase = await createClient();
   const { error } = await supabase.from("recurring_bills").insert({ budget_id: budget.id, ...toRow(parsed.data) });
   if (error) return fail("add bill", error);
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true };
 }
 
@@ -45,6 +49,8 @@ export async function updateBill(id: string, input: BillFormInput): Promise<Resu
     .select("id");
   if (error) return fail("update bill", error);
   if (data.length === 0) return { formError: GONE };
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true };
 }
 

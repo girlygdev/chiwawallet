@@ -504,3 +504,77 @@ export function oneOffImpact(notAssigned: number, amount: number): { before: num
 export function budgetImpact(notAssigned: number, current: number | null, amount: number): { before: number; after: number } {
   return { before: notAssigned, after: notAssigned + (current ?? 0) - amount };
 }
+
+// ---------------------------------------------------------------------------
+// Keeping open periods in sync with their sources (5h-1)
+// ---------------------------------------------------------------------------
+
+/** A period's plan item, removed ones included, as planSync() compares it. */
+export type SyncRow = {
+  id: string;
+  origin: PlanOrigin;
+  name: string;
+  category_id: string | null;
+  planned_amount: number;
+  edited: boolean;
+  paid_at: string | null;
+  deleted_at: string | null;
+  income_source_id: string | null;
+  bill_id: string | null;
+  pot_id: string | null;
+  debt_id: string | null;
+};
+
+export type PlanSyncChanges = {
+  /** New sources' items. */
+  insert: GeneratedItem[];
+  /** New amount or name; `revive` brings back an item the sync took out. */
+  update: { id: string; name: string; planned_amount: number; revive: boolean }[];
+  /** Items that no longer belong in the period: soft-deleted. */
+  remove: string[];
+};
+
+/**
+ * What generated an item, matching the unique indexes from 5a: its income
+ * source, bill, pot or debt, or for a spending budget its category.
+ */
+function sourceKey(i: Pick<SyncRow, "income_source_id" | "bill_id" | "pot_id" | "debt_id" | "category_id">): string {
+  if (i.income_source_id) return `income:${i.income_source_id}`;
+  if (i.bill_id) return `bill:${i.bill_id}`;
+  if (i.pot_id) return `pot:${i.pot_id}`;
+  if (i.debt_id) return `debt:${i.debt_id}`;
+  return `budget:${i.category_id}`;
+}
+
+/**
+ * How to bring one period's generated items in line with `generated`, what
+ * generatePlan() makes now (week-5-tasks.md 5h). Only `recurring` items the
+ * sync manages change: unpaid and not edited by hand. An unedited removed
+ * item was taken out by the sync, so it comes back if it belongs again;
+ * one you removed is marked edited (5e) and stays removed. One-offs,
+ * starter items and extra debt payments are never touched.
+ */
+export function planSync(generated: GeneratedItem[], existing: SyncRow[]): PlanSyncChanges {
+  const byKey = new Map(existing.filter((r) => r.origin === "recurring").map((r) => [sourceKey(r), r]));
+  const managed = (r: SyncRow) => !r.edited && r.paid_at == null;
+  const changes: PlanSyncChanges = { insert: [], update: [], remove: [] };
+  const wanted = new Set<string>();
+
+  for (const g of generated) {
+    const key = sourceKey(g);
+    wanted.add(key);
+    const row = byKey.get(key);
+    if (!row) {
+      changes.insert.push(g);
+    } else if (managed(row)) {
+      const revive = row.deleted_at != null;
+      if (revive || row.name !== g.name || row.planned_amount !== g.planned_amount) {
+        changes.update.push({ id: row.id, name: g.name, planned_amount: g.planned_amount, revive });
+      }
+    }
+  }
+  for (const [key, row] of byKey) {
+    if (!wanted.has(key) && row.deleted_at == null && managed(row)) changes.remove.push(row.id);
+  }
+  return changes;
+}

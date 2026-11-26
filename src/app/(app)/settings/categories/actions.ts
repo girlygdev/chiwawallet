@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { todayInManila } from "@/lib/periods";
+import { syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -26,7 +28,7 @@ const GONE = "That category no longer exists. Refresh the page.";
 // changing. kind is always expense: users can't make income categories.
 
 export async function createCategory(input: CategoryFormInput): Promise<CategoryResult> {
-  await requireAppUser();
+  const { budget } = await requireAppUser();
   const parsed = categorySchema.safeParse(input);
   if (!parsed.success) return { fieldErrors: toFieldErrors<CategoryFormInput>(parsed.error.issues) };
 
@@ -37,11 +39,13 @@ export async function createCategory(input: CategoryFormInput): Promise<Category
     .select("id")
     .single();
   if (error) return fail("add category", error, parsed.data.name);
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true, id: data.id };
 }
 
 export async function updateCategory(id: string, input: CategoryFormInput): Promise<CategoryResult> {
-  await requireAppUser();
+  const { budget } = await requireAppUser();
   if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
   const parsed = categorySchema.safeParse(input);
   if (!parsed.success) return { fieldErrors: toFieldErrors<CategoryFormInput>(parsed.error.issues) };
@@ -59,6 +63,8 @@ export async function updateCategory(id: string, input: CategoryFormInput): Prom
   if (error) return fail("update category", error, parsed.data.name);
   // Nothing updated: deleted, a system category, or not this user's.
   if (data.length === 0) return { formError: GONE };
+  // Open periods follow the change (5h-1).
+  await syncOpenPeriods(supabase, budget, todayInManila(new Date()));
   return { ok: true, id };
 }
 
