@@ -1,4 +1,4 @@
-import { addDays, addMonths, format, parseISO, subDays } from "date-fns";
+import { addDays, addMonths, differenceInCalendarDays, format, parseISO, subDays } from "date-fns";
 import { billDueDates, type BillFrequency, billStatus, type BillTiming, splitHalves } from "@/lib/bills";
 import { type DebtTerms, debtSchedule, paydayFor, reducedSchedule } from "@/lib/debts";
 import { isActiveOn } from "@/lib/income";
@@ -783,4 +783,66 @@ export function dueList<T extends { dueOn: string | null; paid_at: string | null
   const unpaid = items.filter((i) => i.paid_at == null).sort((a, b) => byDate(a.dueOn, b.dueOn));
   const paid = items.filter((i) => i.paid_at != null).sort((a, b) => byDate(a.paidOn, b.paidOn));
   return [...unpaid, ...paid].slice(0, max);
+}
+
+// ---------------------------------------------------------------------------
+// Planned vs actual (plan.md §3–4, 6e)
+// ---------------------------------------------------------------------------
+
+/**
+ * What's been spent against each spending budget and starter line this
+ * period. A budget: its category's expenses. A starter line (no category):
+ * its group's categories that have no budget of their own (owner, Nov 26).
+ * Payments made through a plan item (Mark paid, a ticked bill) are counted
+ * on that item, never here. `expenses` are the period's live expenses.
+ */
+export function spendingActuals(
+  items: { id: string; origin: PlanOrigin; category_id: string | null; budget_group: BudgetGroup | null }[],
+  expenses: { category_id: string; amount: number; plan_item_id: string | null }[],
+  groupOf: Record<string, string | null>,
+): Record<string, number> {
+  const unplanned = expenses.filter((e) => e.plan_item_id == null);
+  const budgeted = new Set(items.filter((i) => i.category_id != null).map((i) => i.category_id));
+  const result: Record<string, number> = {};
+  for (const item of items) {
+    const counts = item.category_id
+      ? (e: { category_id: string }) => e.category_id === item.category_id
+      : (e: { category_id: string }) => !budgeted.has(e.category_id) && groupOf[e.category_id] === item.budget_group;
+    result[item.id] = unplanned.filter(counts).reduce((sum, e) => sum + e.amount, 0);
+  }
+  return result;
+}
+
+/**
+ * A spending bar (plan.md §3): the share spent (the bar stops at full), its
+ * tone (green under 90%, gold from 90% to 100%, red over) and "₱2,760 left"
+ * or "₱340 over".
+ */
+export function budgetBar(planned: number, spent: number): { share: number; tone: "ok" | "near" | "over"; text: string } {
+  const ratio = planned > 0 ? spent / planned : spent > 0 ? Infinity : 0;
+  const left = planned - spent;
+  return {
+    share: Math.min(1, ratio),
+    tone: ratio > 1 ? "over" : ratio >= 0.9 ? "near" : "ok",
+    text: left >= 0 ? `${formatPeso(left)} left` : `${formatPeso(-left)} over`,
+  };
+}
+
+/** A group heading's progress: "₱1,700 of ₱2,700 paid" or "… spent". */
+export function groupProgress(rows: { planned_amount: number; actual: number }[]): { actual: number; planned: number } {
+  return rows.reduce((t, r) => ({ actual: t.actual + r.actual, planned: t.planned + r.planned_amount }), { actual: 0, planned: 0 });
+}
+
+/**
+ * A ticked item's STATUS (plan.md §4): Paid on the payment's date, Late
+ * after its due date, Due before it, or Planned when it has no date (pots).
+ */
+export function itemStatus(
+  item: { paid_at: string | null; paidOn: string | null; dueOn: string | null },
+  today: string,
+): { kind: "paid"; date: string | null } | { kind: "late"; days: number } | { kind: "due"; date: string } | { kind: "planned" } {
+  if (item.paid_at != null) return { kind: "paid", date: item.paidOn };
+  if (!item.dueOn) return { kind: "planned" };
+  if (item.dueOn < today) return { kind: "late", days: differenceInCalendarDays(parseISO(today), parseISO(item.dueOn)) };
+  return { kind: "due", date: item.dueOn };
 }

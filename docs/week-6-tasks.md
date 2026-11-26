@@ -65,7 +65,10 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
     - **Otherwise:** it's an extra payment, in Extra debt payment (Savings & debt payoff).
     - Also **Pay extra** on the Debts card (a small sheet for the amount).
   - Done when: a ₱2,000 deposit to Travel ticks off its planned item, and an extra debt payment lowers what's left.
-- [ ] **6e. Planned vs actual on the Plan.**
+- [x] **6e. Planned vs actual on the Plan.** Done Nov 26 (checked in a browser on local Supabase). `spendingActuals()`, `budgetBar()`, `groupProgress()` and `itemStatus()` in `lib/plan.ts`.
+  - Payments through a plan item don't count against a category budget.
+  - Future periods show planned amounts only.
+  - STATUS is a tag; the tick button stays beside the name.
   - **Spending budgets:** "₱3,240 / ₱6,000", the 8px bar (green, gold from 90%, red over 100%), and "₱2,760 left" or "₱340 over".
   - **Group headings:** "₱1,700 of ₱2,700 paid".
   - **Desktop table:** the ACTUAL and STATUS columns.

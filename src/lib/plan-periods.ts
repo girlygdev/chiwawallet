@@ -19,8 +19,12 @@ import {
   periodIncome,
   planItemDetail,
   planSection,
+  budgetBar,
+  groupProgress,
   isTickable,
   itemDueOn,
+  itemStatus,
+  spendingActuals,
   paidOnDate,
   planSummary,
   planSync,
@@ -53,11 +57,25 @@ export type PlanRow = PlanItem & {
   paidOn: string | null;
   /** A bill whose amount changes: Mark paid asks for the real amount. */
   varies: boolean;
+  /** When it's due this period (itemDueOn()); empty for pots and budgets. */
+  dueOn: string | null;
+  /**
+   * What actually happened (6e): the payment for a ticked item (0 until
+   * paid), what's been spent for a budget or starter line. Empty for income
+   * and in future periods, which show planned amounts only.
+   */
+  actual: number | null;
+  /** Spending budgets and starter lines: the bar (budgetBar()); empty in future periods. */
+  bar: ReturnType<typeof budgetBar> | null;
+  /** Ticked items: Paid, Late, Due or Planned (itemStatus()). */
+  status: ReturnType<typeof itemStatus> | null;
 };
 
 export type OpenedPlan = {
   /** The period shown, created if it didn't exist yet. */
   period: BudgetPeriod;
+  /** Each group's "₱1,700 of ₱2,700 paid" (or spent) (6e); empty in future periods. */
+  progress: Partial<Record<PlanSection, { actual: number; planned: number }>> | null;
   /** Every period the picker offers, oldest first. */
   periods: Period[];
   /** The current period's start, for the "Now" chip. */
@@ -155,12 +173,36 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
   // Each paid item's payment, for "Paid Nov 15" (the payment's own date).
   const paidIds = items!.filter((i) => i.paid_at != null).map((i) => i.id);
   const { data: payments, error: paymentsError } = paidIds.length
-    ? await supabase.from("transactions").select("plan_item_id, date").in("plan_item_id", paidIds).is("deleted_at", null)
+    ? await supabase.from("transactions").select("plan_item_id, date, amount").in("plan_item_id", paidIds).is("deleted_at", null)
     : { data: [], error: null };
   if (paymentsError) fail("load this period's payments", paymentsError);
   const paidOnOf = new Map(payments!.map((p) => [p.plan_item_id, p.date]));
+  const paidAmountOf = new Map(payments!.map((p) => [p.plan_item_id, p.amount]));
 
   const groupOf = new Map(sources.categoryGroups);
+  // What's been spent against each budget and starter line (6e).
+  const spent = spendingActuals(
+    // Spending budgets and starter lines: recurring or starter, with no source.
+    items!
+      .filter(
+        (i) =>
+          (i.origin === "recurring" || i.origin === "starter") &&
+          !i.income_source_id &&
+          !i.bill_id &&
+          !i.pot_id &&
+          !i.debt_id,
+      )
+      .map((i) => ({
+        id: i.id,
+        origin: i.origin as PlanOrigin,
+        category_id: i.category_id,
+        budget_group: i.budget_group as BudgetGroup | null,
+      })),
+    money.period
+      .filter((t) => t.type === "expense")
+      .map((t) => ({ category_id: t.category_id, amount: t.amount, plan_item_id: t.plan_item_id })),
+    Object.fromEntries(sources.categoryGroups),
+  );
   const rows: PlanRow[] = items!.map((item) => {
     const group = ((item.category_id ? groupOf.get(item.category_id) : item.budget_group) ?? null) as BudgetGroup | null;
     // The generated types say `string` for origin; its check constraint allows only these.
@@ -168,17 +210,35 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     const section = planSection(shaped);
     if (section === "income") {
       const received = item.income_source_id != null && receivedIds.has(item.income_source_id);
-      return { ...item, section, group, received, detail: incomeStatus(received, period.start, today).text, tickable: false, paidOn: null, varies: false };
+      return {
+        ...item,
+        section,
+        group,
+        received,
+        detail: incomeStatus(received, period.start, today).text,
+        tickable: false,
+        paidOn: null,
+        varies: false,
+        dueOn: null,
+        actual: null,
+        bar: null,
+        status: null,
+      };
     }
     const bill = sources.bills.find((b) => b.id === item.bill_id);
+    const debt = sources.debts.find((d) => d.id === item.debt_id);
     const detail = planItemDetail(shaped, {
       period,
       schedule,
       bill,
       pot: sources.pots.find((p) => p.id === item.pot_id),
-      debt: sources.debts.find((d) => d.id === item.debt_id),
+      debt,
     });
     const paidOn = item.paid_at != null ? (paidOnOf.get(item.id) ?? null) : null;
+    const tickable = isTickable({ section });
+    const dueOn = tickable ? itemDueOn(shaped, { period, schedule, bill, debt }) : null;
+    // Ticked items: what was paid. Budgets and starter lines: spent, below.
+    const actual = future ? null : tickable ? (item.paid_at != null ? (paidAmountOf.get(item.id) ?? 0) : 0) : (spent[item.id] ?? 0);
     return {
       ...item,
       section,
@@ -186,11 +246,25 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
       received: false,
       // "Paid Nov 15" replaces the detail line once paid (plan.md §3).
       detail: paidOn ? `Paid ${formatShortDate(paidOn)}` : detail,
-      tickable: isTickable({ section }),
+      tickable,
       paidOn,
       varies: bill?.amount_varies ?? false,
+      dueOn,
+      actual,
+      bar: actual != null && !tickable ? budgetBar(item.planned_amount, actual) : null,
+      status: tickable ? itemStatus({ paid_at: item.paid_at, paidOn, dueOn }, today) : null,
     };
   });
+
+  // "₱1,700 of ₱2,700 paid" per group (6e); none for future periods.
+  const progress = future
+    ? null
+    : Object.fromEntries(
+        (["bills", "debts", "savings", "spending", "one_off"] as const).map((key) => [
+          key,
+          groupProgress(rows.filter((r) => r.section === key).map((r) => ({ planned_amount: r.planned_amount, actual: r.actual ?? 0 }))),
+        ]),
+      );
 
   const income = periodIncome({
     received: numbers?.income ?? 0,
@@ -224,6 +298,7 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     starter: starterPlan(pay, budget),
     pay,
     payOn: row.closed_at != null ? null : paidOnDate(today, period),
+    progress,
     debts: sources.debts
       .map((d) => ({ id: d.id, name: d.name, left: debtLeft(d), flexible: d.payment_type === "flexible" }))
       .filter((d) => d.left > 0),
@@ -511,7 +586,7 @@ async function loadMoney(supabase: Client, row: BudgetPeriod, future: boolean) {
   const [period, earlier] = await Promise.all([
     supabase
       .from("transactions")
-      .select("type, amount, deleted_at, income_source_id")
+      .select("type, amount, deleted_at, income_source_id, category_id, plan_item_id")
       .eq("period_id", row.id)
       .is("deleted_at", null),
     supabase.from("transactions").select("type, amount, deleted_at").lt("date", row.start_date).is("deleted_at", null),
@@ -521,7 +596,11 @@ async function loadMoney(supabase: Client, row: BudgetPeriod, future: boolean) {
   }
   // The generated types say `string` for type; its check constraint allows only the four types.
   return {
-    period: period.data as (MoneyRows[number] & { income_source_id: string | null })[],
+    period: period.data as (MoneyRows[number] & {
+      income_source_id: string | null;
+      category_id: string;
+      plan_item_id: string | null;
+    })[],
     earlier: earlier.data as MoneyRows,
   };
 }

@@ -4,6 +4,7 @@ import { Plus, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { SheetCategory } from "@/app/(app)/activity/actions";
 import { inputClassName } from "@/components/auth/text-field";
+import { budgetBar, type CategoryBudget } from "@/lib/plan";
 import { type BudgetGroup, groupCategories } from "@/lib/transactions";
 import { cn } from "@/lib/utils";
 import { CategoryTile } from "./category-grid";
@@ -20,7 +21,7 @@ const HEADING = "text-xs font-extrabold tracking-wide text-text-3 uppercase";
 // place of the form. Search, RECENT, then one section per 50/30/20 group with
 // the budget's own target. `categories` never includes income or system ones.
 // The last tile, New category, opens New category in the sheet (3h-3).
-// Not yet: "₱2,760 left" on tiles (needs the Plan, Week 5).
+// Tiles of categories with a budget this period say "₱2,760 left" (6e).
 export function CategoryPicker({
   categories,
   recentIds,
@@ -28,6 +29,7 @@ export function CategoryPicker({
   value,
   onPick,
   onNew,
+  budgets = {},
 }: {
   categories: SheetCategory[];
   recentIds: string[];
@@ -36,7 +38,16 @@ export function CategoryPicker({
   onPick: (id: string) => void;
   /** New category, with the search text as a starting name. */
   onNew: (name: string) => void;
+  /** This period's budget and spending per category (5h-2), for "₱2,760 left". */
+  budgets?: Record<string, CategoryBudget>;
 }) {
+  // "₱2,760 left" or "₱340 over" for a category with a budget this period.
+  const noteOf = (id: string) => {
+    const entry = budgets[id];
+    if (entry?.budget == null) return null;
+    const bar = budgetBar(entry.budget, entry.spent);
+    return { text: bar.text, over: bar.tone === "over" };
+  };
   const [query, setQuery] = useState("");
   const regionRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +99,7 @@ export function CategoryPicker({
                 category={category}
                 selected={category.id === value}
                 onClick={() => onPick(category.id)}
+                note={noteOf(category.id)}
               />
             ))}
           </div>
@@ -106,6 +118,7 @@ export function CategoryPicker({
                 category={category}
                 selected={category.id === value}
                 onClick={() => onPick(category.id)}
+                note={noteOf(category.id)}
                 className="min-h-[92px]"
               />
             ))}

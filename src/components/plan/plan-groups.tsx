@@ -71,6 +71,7 @@ export function PlanGroups({
   editStart,
   hasDebts,
   canTick,
+  progress = null,
   moneyInOnly = false,
 }: {
   items: PlanRow[];
@@ -86,6 +87,8 @@ export function PlanGroups({
   hasDebts: boolean;
   /** The period can be paid now (started, not closed): tick circles are buttons (6b-1). */
   canTick: boolean;
+  /** Each group's actual of planned (6e); empty in future periods. */
+  progress?: Partial<Record<Section, { actual: number; planned: number }>> | null;
   moneyInOnly?: boolean;
 }) {
   const incomeRows = items.filter((i) => i.section === "income");
@@ -141,7 +144,14 @@ export function PlanGroups({
           const add = groupAddLink(key, editStart, hasDebts);
           if (!showGroup(key, rows.length, add)) return null;
           return (
-            <Group key={key} id={`plan-${key}`} title={title} total={summary.sections[key]}>
+            <Group
+              key={key}
+              id={`plan-${key}`}
+              title={title}
+              total={summary.sections[key]}
+              progress={progress?.[key]}
+              verb={key === "spending" ? "spent" : "paid"}
+            >
               {rows.length === 0 && key !== "one_off" ? null : rows.length === 0 ? (
                 <p className="rounded-2xl border-[1.5px] border-dashed border-line-dash px-4 py-3 text-sm text-text-3">
                   Gifts, events, fees or anything that only happens once. Plan them here so they don&apos;t surprise you.
@@ -201,12 +211,32 @@ function EditLink({ href, children }: { href: string | null; children: React.Rea
   );
 }
 
-function Group({ id, title, total, children }: { id: string; title: string; total: number; children: React.ReactNode }) {
+// A group's heading: the title and, on the right, its total, or once the
+// period has started "₱1,700 of ₱2,700 paid" (spent, for budgets; 6e).
+function Group({
+  id,
+  title,
+  total,
+  progress,
+  verb = "paid",
+  children,
+}: {
+  id: string;
+  title: string;
+  total: number;
+  progress?: { actual: number; planned: number };
+  verb?: "paid" | "spent";
+  children: React.ReactNode;
+}) {
   return (
     <section aria-labelledby={id} className="flex flex-col gap-2">
       <h2 id={id} className="flex justify-between gap-3 text-[13px] font-extrabold tracking-wide text-text-3 uppercase">
         <span>{title}</span>
-        <span>{formatPeso(total)}</span>
+        <span className="normal-case">
+          {progress && progress.planned > 0
+            ? `${formatPeso(progress.actual)} of ${formatPeso(progress.planned)} ${verb}`
+            : formatPeso(total)}
+        </span>
       </h2>
       {children}
     </section>
@@ -231,17 +261,38 @@ function TickRow({ item, href, canTick }: { item: PlanRow; href: string | null; 
   );
 }
 
-// A spending budget: the name, its group and the planned amount. What's
-// spent and left, with the bar, comes with planned vs actual (Week 6).
+// With planned vs actual (6e, plan.md §3 "Spending budget bar"): "₱3,240 /
+// ₱6,000", an 8px bar (green, gold from 90%, red over) and "₱2,760 left" or
+// "₱340 over". Future periods show the planned amount only.
 function SpendingRow({ item, href }: { item: PlanRow; href: string | null }) {
+  const bar = item.bar;
   return (
     <li>
-      <RowLink href={href}>
-        <span className="min-w-0 truncate">
-          <span className="font-extrabold text-ink">{item.name}</span>
-          <span className="text-text-3"> · {item.detail}</span>
+      <RowLink href={href} className={cn(bar && "flex-col items-stretch gap-1.5")}>
+        <span className="flex items-baseline justify-between gap-3">
+          <span className="min-w-0 truncate">
+            <span className="font-extrabold text-ink">{item.name}</span>
+            <span className="text-text-3"> · {item.detail}</span>
+          </span>
+          <span className="shrink-0 font-extrabold text-ink">
+            {bar ? `${formatPeso(item.actual ?? 0)} / ${formatPeso(item.planned_amount)}` : formatPeso(item.planned_amount)}
+          </span>
         </span>
-        <span className="shrink-0 font-extrabold text-ink">{formatPeso(item.planned_amount)}</span>
+        {bar && (
+          <>
+            {/* The text below says the same, so the bar is decorative. */}
+            <span aria-hidden className="block h-2 overflow-hidden rounded-full bg-track">
+              <span
+                className={cn(
+                  "block h-full rounded-full",
+                  bar.tone === "over" ? "bg-danger" : bar.tone === "near" ? "bg-gold" : "bg-green-500",
+                )}
+                style={{ width: `${bar.share * 100}%` }}
+              />
+            </span>
+            <span className={cn("text-[13px] font-bold", bar.tone === "over" ? "text-bad-fg" : "text-text-3")}>{bar.text}</span>
+          </>
+        )}
       </RowLink>
     </li>
   );

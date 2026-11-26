@@ -4,16 +4,19 @@ import {
   billDueInPeriod,
   billRowStatus,
   budgetImpact,
+  budgetBar,
   budgetLeft,
   categoryBudgets,
   debtItemToPay,
   dueList,
   editImpact,
   generatePlan,
+  groupProgress,
   incomeStatus,
   isEmptyPlan,
   isTickable,
   itemDueOn,
+  itemStatus,
   missingStarterItems,
   oneOffImpact,
   paidOnDate,
@@ -28,6 +31,7 @@ import {
   planSummary,
   planSync,
   potsDueLine,
+  spendingActuals,
   stillDue,
   upcomingCounts,
   upcomingLine,
@@ -977,5 +981,67 @@ describe("dueList (6c)", () => {
   it("shows at most five", () => {
     const items = Array.from({ length: 7 }, (_, n) => row(`b${n}`, `2026-11-2${n}`));
     expect(dueList(items)).toHaveLength(5);
+  });
+});
+
+describe("spendingActuals (6e)", () => {
+  const groupOf = { food: "needs", fun: "wants", rent: "needs", bills: "needs" } as const;
+  const items = [
+    { id: "food-budget", origin: "recurring" as const, category_id: "food", budget_group: null },
+    { id: "needs-line", origin: "starter" as const, category_id: null, budget_group: "needs" as const },
+    { id: "wants-line", origin: "starter" as const, category_id: null, budget_group: "wants" as const },
+  ];
+  const expenses = [
+    { category_id: "food", amount: 18_000, plan_item_id: null },
+    { category_id: "food", amount: 24_000, plan_item_id: null },
+    { category_id: "rent", amount: 500_000, plan_item_id: null },
+    { category_id: "fun", amount: 30_000, plan_item_id: null },
+    // Paid through a plan item (Mark paid on a bill): counted there, not here.
+    { category_id: "bills", amount: 54_900, plan_item_id: "netflix-item" },
+  ];
+
+  it("a budget's spent is its category's spending, not plan-item payments", () => {
+    expect(spendingActuals(items, expenses, groupOf)["food-budget"]).toBe(42_000);
+  });
+
+  it("a starter line's spent is its group's categories without a budget of their own", () => {
+    const actuals = spendingActuals(items, expenses, groupOf);
+    // Needs: rent only (food has its own budget; the bill was paid through its item).
+    expect(actuals["needs-line"]).toBe(500_000);
+    expect(actuals["wants-line"]).toBe(30_000);
+  });
+});
+
+describe("budgetBar (6e)", () => {
+  it("is green with what's left under 90%", () => {
+    expect(budgetBar(600_000, 324_000)).toEqual({ share: 0.54, tone: "ok", text: "₱2,760 left" });
+  });
+
+  it("is gold from 90% to 100%", () => {
+    expect(budgetBar(600_000, 588_000)).toMatchObject({ tone: "near", text: "₱120 left" });
+    expect(budgetBar(600_000, 600_000)).toMatchObject({ tone: "near", text: "₱0 left", share: 1 });
+  });
+
+  it("is red over 100%, says how much over, and the bar stops at full", () => {
+    expect(budgetBar(600_000, 634_000)).toEqual({ share: 1, tone: "over", text: "₱340 over" });
+  });
+});
+
+describe("groupProgress (6e)", () => {
+  it("adds up actual of planned", () => {
+    expect(groupProgress([{ planned_amount: 170_000, actual: 170_000 }, { planned_amount: 100_000, actual: 0 }])).toEqual({
+      actual: 170_000,
+      planned: 270_000,
+    });
+  });
+});
+
+describe("itemStatus (6e)", () => {
+  const today = "2026-11-26";
+  it("is Paid with its date, Late after the due date, Due before it, or Planned without one", () => {
+    expect(itemStatus({ paid_at: "x", paidOn: "2026-11-20", dueOn: "2026-11-22" }, today)).toEqual({ kind: "paid", date: "2026-11-20" });
+    expect(itemStatus({ paid_at: null, paidOn: null, dueOn: "2026-11-25" }, today)).toEqual({ kind: "late", days: 1 });
+    expect(itemStatus({ paid_at: null, paidOn: null, dueOn: "2026-11-28" }, today)).toEqual({ kind: "due", date: "2026-11-28" });
+    expect(itemStatus({ paid_at: null, paidOn: null, dueOn: null }, today)).toEqual({ kind: "planned" });
   });
 });

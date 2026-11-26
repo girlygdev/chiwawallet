@@ -85,6 +85,8 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
     hasDebts: plan.debts.length > 0,
     // Started and not closed: today, or an earlier period's last day (6b-1).
     canTick: plan.payOn != null,
+    // Planned vs actual per group (6e).
+    progress: plan.progress,
   };
   // The Plan options menu, while the period can change. Use starter plan
   // only while a starter group is missing and pay is expected.
@@ -166,6 +168,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
                   editStart={editStart}
                   hasDebts={plan.debts.length > 0}
                   canTick={plan.payOn != null}
+                  progress={plan.progress}
                 />
                 <PlannedSplit split={plan.summary.split} income={plan.income} />
               </div>

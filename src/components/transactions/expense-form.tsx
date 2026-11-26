@@ -176,6 +176,7 @@ export function ExpenseForm({
     <>
       {view === "picker" && data && (
         <CategoryPicker
+          budgets={data.budgets}
           categories={data.categories}
           recentIds={data.recentIds}
           targets={data.targets}

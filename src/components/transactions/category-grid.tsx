@@ -134,11 +134,14 @@ export function CategoryTile({
   selected,
   onClick,
   className,
+  note,
 }: {
   category: TileCategory;
   selected: boolean;
   onClick: () => void;
   className?: string;
+  /** Under the name, e.g. the picker's "₱2,760 left" (6e). */
+  note?: { text: string; over: boolean } | null;
 }) {
   return (
     <button
@@ -153,6 +156,7 @@ export function CategoryTile({
     >
       <CategoryIconTile icon={category.icon} color={category.color} />
       <span className="line-clamp-2 text-center leading-tight">{category.name}</span>
+      {note && <span className={cn("text-[11px] font-bold", note.over ? "text-bad-fg" : "text-text-3")}>{note.text}</span>}
     </button>
   );
 }

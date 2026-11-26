@@ -2,6 +2,37 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6e Planned vs actual on the Plan
+- **What:**
+  - **Spending budgets and starter lines:** "₱3,180 / ₱3,300", an 8px bar (green, gold from 90%, red over 100%), and "₱120 left" or "₱380 over".
+    - A starter line's spending is its group's categories that have no budget of their own.
+    - Payments made through a plan item don't count against a category budget.
+  - **Group headings:** "₱575 of ₱549 paid", "₱3,680 of ₱25,800 spent".
+  - **The desktop table:** ACTUAL (paid or spent, or "—") and STATUS: Paid Nov 26, Late · 1 day, Due Nov 22, Planned, the budget's "₱380 over", and Received or Expected for income.
+  - **The category picker's tiles:** "₱2,760 left" or "₱380 over".
+  - **Future periods:** planned amounts only.
+- **Files:**
+  - `src/lib/plan.ts`: `spendingActuals()`, `budgetBar()`, `groupProgress()`, `itemStatus()`
+  - `tests/lib/plan.test.ts`
+  - `src/lib/plan-periods.ts`:
+    - rows get `dueOn`, `actual`, `bar` and `status`; the plan gets `progress`
+    - the period's transactions load `category_id` and `plan_item_id`
+  - `src/components/plan/plan-groups.tsx`, `plan-table.tsx`, `src/app/(app)/plan/page.tsx`
+  - `src/components/transactions/category-grid.tsx` (the tile `note`), `category-picker.tsx`, `expense-form.tsx`, `src/components/plan/plan-category.tsx`
+  - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - Plan-item payments stay out of category budgets.
+  - Future periods show planned amounts only.
+  - STATUS is a tag.
+- **Tests:** written first, 7 new unit tests (546 pass), and 285 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - Groceries ₱180 → ₱3,180 ("₱120 left", gold) → ₱3,680 ("₱380 over", red)
+  - the picker tile said "₱380 over"
+  - headings showed actual of planned
+  - the desktop columns filled in
+  - Nov 30 showed planned only
+  - no console errors
+- **Next:** 6f, Give leftover a job.
+
 ## 2026-11-26 · Week 6 · Extra debt payments lower the last payments first
 - **What:** fixes the 6d-2 open question. Extra payments (Extra debt payment category) now shrink a debt's schedule from the last payment (debts.md §5), and scheduled payments still fill it from the oldest.
   - **Where it shows:** the Debts page (schedule, statuses, next payment, Debt-free by), the More page's debt line, and plan generation (`debtAmount`), which the sync then applies to open periods.

@@ -38,6 +38,7 @@ export function CategoryViews({
   if (view === "picker") {
     return (
       <CategoryPicker
+        budgets={data.budgets}
         categories={data.categories}
         recentIds={data.recentIds}
         targets={data.targets}
