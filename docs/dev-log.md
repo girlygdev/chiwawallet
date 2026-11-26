@@ -26,9 +26,11 @@ Newest entry first.
   - The wording is "Remove from plan", not "Delete", following delete-pattern.md.
   - On mobile, the whole row is the link. On an income row only the name is, because the I got paid pill is its own button. On desktop, the item name is the link.
   - The starter button uses the Primary look, not Hero, because the starter card is already the area's sticker.
-- **Tests:** written first, 9 new unit tests (460 pass). Lint, typecheck and the build pass. Database tests not run: Docker wasn't running and `.env.test.local` is missing. 5e adds no migration. Not checked in a browser yet.
+- **Tests:** written first, 9 new unit tests (460 pass). Lint, typecheck and the build pass. 269 database tests pass, after writing `.env.test.local` (gitignored) and starting local Supabase.
+  - Checked in a browser with Playwright against local Supabase: a new user's starter plan, editing Needs, removing Wants and Undo, all with the right totals. The desktop table's links also work. Not checked: an ended period being read-only, because a new user has no past period.
+  - Noticed, from 5d-1: starter rows read "Needs · Needs", because the detail repeats the group.
 - **AI notes:** Claude first ran Prettier on `plan-groups.tsx`, but the project has no Prettier config, so it reformatted the whole file. Claude reverted that and redid the edit by hand.
-- **Next:** check 5e in a browser (edit, remove, Undo, starter plan), then 5f, Add one-off item.
+- **Next:** 5f, Add one-off item.
 
 ## 2026-11-25 · Week 5 · 5d-2 Plan desktop table and empty state
 - **What:**
