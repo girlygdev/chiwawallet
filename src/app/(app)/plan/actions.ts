@@ -3,9 +3,9 @@
 import { z } from "zod";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { debtLeft, debtPaid } from "@/lib/debts";
-import { formatPeso } from "@/lib/money";
+import { formatPeso, parsePesoInput } from "@/lib/money";
 import { scheduleFromBudget, todayInManila } from "@/lib/periods";
-import { missingStarterItems, type PlanOrigin, planSection, plannablePeriods, starterPlan } from "@/lib/plan";
+import { missingStarterItems, type PlanOrigin, paidOnDate, planSection, plannablePeriods, starterPlan } from "@/lib/plan";
 import { openPlanPeriod, syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
@@ -76,6 +76,7 @@ export async function removePlanItem(id: string): Promise<Result> {
   if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
   const item = await loadItem(id, budget.id, "live");
   if ("formError" in item) return item;
+  if (item.paid) return { formError: "Paid. To remove it, delete its payment in Activity first." };
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -374,6 +375,101 @@ export async function getPeriodNotAssigned(start: string): Promise<{ start: stri
   return { start, end: plan.period.end_date, notAssigned: plan.summary.notAssigned };
 }
 
+export type MarkPaidResult = {
+  ok?: true;
+  /** The payment, for Undo; the item's name and paid amount, for the toast. */
+  saved?: { transactionId: string; name: string; amount: number; kind: "pot" | "other" };
+  formError?: string;
+};
+
+/**
+ * Mark paid (plan.md §3, 6b-1): pays one item through mark_plan_item_paid()
+ * (6a), which creates the payment and ticks the item together. The date is
+ * today, or the period's last day for an earlier period that hasn't closed;
+ * a future period can't be paid yet. `amount` is a variable bill's real
+ * amount; otherwise the planned amount is paid.
+ */
+export async function markPaid(id: string, amountText?: string): Promise<MarkPaidResult> {
+  const { budget } = await requireAppUser();
+  if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
+  let amount: number | undefined;
+  if (amountText !== undefined) {
+    const centavos = parsePesoInput(amountText);
+    if (centavos == null || centavos <= 0) return { formError: "Enter an amount above ₱0." };
+    amount = centavos;
+  }
+
+  const found = await loadPayable(id, budget.id);
+  if ("formError" in found) return found;
+  const { item, paidOn } = found;
+  const supabase = await createClient();
+
+  const paid = amount ?? item.planned_amount;
+  const { data: transactionId, error: payError } = await supabase.rpc("mark_plan_item_paid", {
+    target_item: id,
+    paid_on: paidOn,
+    paid_amount: paid,
+  });
+  if (payError) {
+    // mark_plan_item_paid()'s codes (6a).
+    if (payError.code === "P0002") return { formError: GONE };
+    if (payError.code === "55000") return { formError: "That's already paid." };
+    if (payError.code === "22023") return { formError: "This item isn't ticked off." };
+    return fail("mark paid", payError);
+  }
+  return { ok: true, saved: { transactionId, name: item.name, amount: paid, kind: item.pot_id ? "pot" : "other" } };
+}
+
+/**
+ * Un-ticks a paid item: soft-deletes its payment, and the 6a trigger clears
+ * paid_at. Returns the payment's id, so Undo can restore it with
+ * restoreTransaction(), which ticks the item again.
+ */
+export async function unmarkPaid(id: string): Promise<{ ok?: true; transactionId?: string; formError?: string }> {
+  const { budget } = await requireAppUser();
+  if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
+  const found = await loadPayable(id, budget.id);
+  if ("formError" in found) return found;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("plan_item_id", id)
+    .is("deleted_at", null)
+    .select("id");
+  if (error) return fail("un-tick plan item", error);
+  if (data.length === 0) return { formError: "That's already due again." };
+  return { ok: true, transactionId: data[0].id };
+}
+
+/**
+ * An item Mark paid can tick or un-tick, with the date a payment gets: in
+ * this budget, not removed, and in a period that has started and isn't
+ * closed. Unlike loadItem(), an earlier period that has ended still counts
+ * until it closes (6b-1).
+ */
+async function loadPayable(
+  id: string,
+  budgetId: string,
+): Promise<{ item: { name: string; planned_amount: number; pot_id: string | null }; paidOn: string } | { formError: string }> {
+  const supabase = await createClient();
+  const { data: item, error } = await supabase
+    .from("plan_items")
+    .select("name, planned_amount, pot_id, deleted_at, period:budget_periods(budget_id, start_date, end_date, closed_at)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) return fail("load plan item", error);
+  // Each item has exactly one period.
+  const period = item?.period as unknown as
+    | { budget_id: string; start_date: string; end_date: string; closed_at: string | null }
+    | undefined;
+  if (!item || item.deleted_at != null || !period || period.budget_id !== budgetId) return { formError: GONE };
+  if (period.closed_at != null) return { formError: "This period is closed, so its plan can't change." };
+  const paidOn = paidOnDate(todayInManila(new Date()), { start: period.start_date, end: period.end_date });
+  if (!paidOn) return { formError: "This payday hasn't started yet, so it can't be paid." };
+  return { item, paidOn };
+}
+
 /**
  * The item, if it's in one of this budget's periods that hasn't ended.
  * `state` says whether it should be live (edit, remove) or removed (undo).
@@ -382,11 +478,11 @@ async function loadItem(
   id: string,
   budgetId: string,
   state: "live" | "removed",
-): Promise<{ origin: string } | { formError: string }> {
+): Promise<{ origin: string; paid: boolean } | { formError: string }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("plan_items")
-    .select("origin, deleted_at, period:budget_periods(budget_id, end_date)")
+    .select("origin, deleted_at, paid_at, period:budget_periods(budget_id, end_date)")
     .eq("id", id)
     .maybeSingle();
   if (error) return fail("load plan item", error);
@@ -397,7 +493,7 @@ async function loadItem(
     return { formError: state === "live" ? GONE : "That item is already back." };
   }
   if (period.end_date < todayInManila(new Date())) return { formError: ENDED };
-  return { origin: data.origin };
+  return { origin: data.origin, paid: data.paid_at != null };
 }
 
 function fail(what: string, error: { code?: string; message: string }): { formError: string } {

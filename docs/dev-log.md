@@ -2,6 +2,44 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6b-1 Mark paid on the Plan
+- **What:**
+  - **Tick circles are buttons** on bills, debt payments, savings and one-offs, on mobile rows and in the desktop table ("Mark Netflix paid", "Mark Travel added").
+    - A fixed amount pays in one tap, with "Netflix paid · Undo" or "Added ₱2,000 to Travel · Undo".
+    - A variable bill asks "How much was Netflix?" first, filled in with the estimate.
+  - **Paid rows** show a solid green circle and "Paid Nov 26", the payment's date.
+  - **Tapping a paid circle** un-ticks it: "Netflix is due again · Undo", and Undo restores the same payment.
+  - **Dates:** today in the current period, or the last day of an earlier period that hasn't closed. Future periods' circles aren't buttons.
+  - **Removing:** paid items can't be removed ("delete its payment in Activity first"), and the server refuses it too.
+- **Files:**
+  - New: `src/components/plan/tick-button.tsx`.
+  - Edited:
+    - `src/lib/plan.ts`: `paidOnDate()`, `isTickable()`
+    - `tests/lib/plan.test.ts`
+    - `src/lib/plan-periods.ts`:
+      - each row gets `tickable`, `paidOn` and `varies`; the plan gets `payOn`
+      - one query for the period's payments
+      - bills load `amount_varies`
+    - `src/app/(app)/plan/actions.ts`: `markPaid`, `unmarkPaid`, the shared `loadPayable()`, and the paid check in `removePlanItem`
+    - `plan-groups.tsx`, `plan-table.tsx`, `plan-item-form.tsx`, `page.tsx`
+    - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - 6b is split into 6b-1 (the Plan) and 6b-2 (Bills and Debts).
+  - Future periods can't be ticked.
+  - Un-ticking has no dialog, only Undo.
+  - Variable bills ask for the real amount.
+- **Tests:** written first, 5 new unit tests (511 pass), and 285 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - ticking Netflix showed "Paid Nov 26", and Bills went to ₱0 still due
+  - un-tick + Undo, and pay + Undo, both worked
+  - Travel's tick cleared the Savings due line
+  - a paid item offered no Remove
+  - a variable Netflix paid ₱620 showed in Activity
+  - Nov 30 had no tick buttons
+  - the desktop table had them
+  - no console errors
+- **AI notes:** `unmarkPaid` first reused `loadItem()`, which refuses ended periods. Claude moved both actions onto a shared `loadPayable()`, so un-ticking works wherever ticking does.
+- **Next:** 6b-2, Mark paid on Bills and Debts.
+
 ## 2026-11-26 · Week 6 · 6a Mark paid migration
 - **What:**
   - **`mark_plan_item_paid(item, paid_on, amount)`**, a SQL function that runs as the caller. It creates the transaction that pays a plan item and sets `paid_at`, all in one step, and returns the transaction's id:
@@ -27,7 +65,7 @@ Newest entry first.
 - **AI notes:**
   - `supabase gen types --local` reformatted the whole types file (a diff of over 1,000 lines). Claude reverted it and added the 4 lines by hand. Regenerate from the live project once the migration is live.
   - Claude's first version of the updated link test passed a row where an id was needed. Fixed.
-- **Not yet live:** the migration needs a dry run, then `npx supabase db push`, after the owner's go.
+- **Live:** pushed Nov 26 (dry run first, owner's go). Types generated from the live project match the hand-added lines.
 - **Next:** 6b, Mark paid in the app.
 
 ## 2026-11-26 · Week 5 · 5i Live check (Week 5 done)

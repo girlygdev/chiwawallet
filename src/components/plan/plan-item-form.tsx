@@ -22,6 +22,8 @@ export type EditableItem = {
   section: PlanSection;
   /** Income rows: whether the pay came in. */
   received: boolean;
+  /** Paid (6b-1): it can't be removed while its payment exists. */
+  paid_at: string | null;
 };
 
 export type PlanItemFormResult = { ok?: true; formError?: string; fieldErrors?: Partial<Record<string, string>> };
@@ -148,14 +150,19 @@ export function PlanItemForm({
         Save changes
       </SubmitButton>
 
-      {/* "Remove" takes it out of the plan (delete-pattern.md word list). */}
-      <button
-        type="button"
-        onClick={onRemoveRequest}
-        className="h-11 self-center rounded-md px-3 text-[15px] font-extrabold text-danger outline-link focus-visible:outline-2"
-      >
-        Remove from plan
-      </button>
+      {/* "Remove" takes it out of the plan (delete-pattern.md word list). A
+          paid item keeps its payment, so it stays until that's deleted. */}
+      {item.paid_at ? (
+        <p className="text-center text-sm text-text-3">Paid. To remove it, delete its payment in Activity first.</p>
+      ) : (
+        <button
+          type="button"
+          onClick={onRemoveRequest}
+          className="h-11 self-center rounded-md px-3 text-[15px] font-extrabold text-danger outline-link focus-visible:outline-2"
+        >
+          Remove from plan
+        </button>
+      )}
     </form>
   );
 }

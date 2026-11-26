@@ -8,7 +8,7 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
 
 ## Tasks
 
-- [x] **6a. Migration: Mark paid.** Done Nov 26 (`20261126120000_mark_plan_item_paid.sql`): local only; **live** after the owner's go. Undo is the existing soft delete of the payment, and a trigger un-ticks the item (owner, Nov 26), so there's no separate unmark function. The app can't set `paid_at` today (5a's grants leave it out), and paying must create the transaction and tick the item together.
+- [x] **6a. Migration: Mark paid.** Done Nov 26 (`20261126120000_mark_plan_item_paid.sql`): local and live (Nov 26). Undo is the existing soft delete of the payment, and a trigger un-ticks the item (owner, Nov 26), so there's no separate unmark function. The app can't set `paid_at` today (5a's grants leave it out), and paying must create the transaction and tick the item together.
   - A SQL function `mark_plan_item_paid(item, date, amount)`. In one transaction it creates the matching `transactions` row, with `plan_item_id` set, and sets the item's `paid_at`. The transaction depends on the item:
     - **Bill or one-off:** an expense in its category.
     - **Pot:** a savings deposit with `pot_id` and the Savings pot category.
@@ -19,7 +19,12 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
   - Only items in periods that aren't closed. Income items aren't ticked (they use **I got paid**). Spending budgets and starter items aren't ticked either: their actual is what's spent.
   - **RLS** with user A can't mark user B's items tests in `tests/db/`. **Live:** dry run, then the owner's go.
   - Done when: `npm run test:db` passes.
-- [ ] **6b. Mark paid in the app.**
+- [ ] **6b. Mark paid in the app.** Split in two (owner, Nov 26).
+  - [x] **6b-1. The Plan.** Done Nov 26 (checked in a browser on local Supabase). `paidOnDate()` and `isTickable()` in `lib/plan.ts`; `markPaid` and `unmarkPaid` in `plan/actions.ts`; `components/plan/tick-button.tsx`.
+    - Tapping a paid circle un-ticks it, with Undo and no dialog.
+    - Future periods can't be ticked.
+    - Paid items can't be removed.
+  - [ ] **6b-2. Bills and Debts:** the rest of the list below.
   - **Plan tick circles** become buttons ("Mark Meralco paid", "Mark Travel pot added"). Paid shows a solid circle and "Paid Nov 15".
     - Undo toast: "Meralco paid · Undo".
     - A variable bill (`amount_varies`) asks for the real amount first.

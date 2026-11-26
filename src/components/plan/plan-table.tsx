@@ -3,7 +3,8 @@ import { formatPeso } from "@/lib/money";
 import { formatPeriodRange } from "@/lib/periods";
 import type { PlanSummary } from "@/lib/plan";
 import type { PlanRow } from "@/lib/plan-periods";
-import { editHref, groupAddLink, PLAN_SECTIONS, showGroup } from "@/components/plan/plan-groups";
+import { editHref, groupAddLink, PLAN_SECTIONS, showGroup, tickItem } from "@/components/plan/plan-groups";
+import { TickButton } from "@/components/plan/tick-button";
 
 // The desktop plan table (plan.md §4): one table, each group a header row
 // with its total. ACTUAL and STATUS come with ticking items paid (Week 6);
@@ -18,6 +19,7 @@ export function PlanTable({
   summary,
   editStart,
   hasDebts,
+  canTick,
 }: {
   period: { start: string; end: string };
   items: PlanRow[];
@@ -29,6 +31,8 @@ export function PlanTable({
   /** The period's start while its plan can change; empty once it has ended. */
   editStart: string | null;
   hasDebts: boolean;
+  /** The period can be paid now: tick circles are buttons (6b-1). */
+  canTick: boolean;
 }) {
   const incomeRows = items.filter((i) => i.section === "income");
 
@@ -89,6 +93,7 @@ export function PlanTable({
                     detail={i.detail}
                     amount={formatPeso(i.planned_amount)}
                     href={editStart && editHref(editStart, i.id)}
+                    tick={i.tickable ? <TickButton item={tickItem(i)} canTick={canTick} /> : undefined}
                   />
                 ))
               )}
@@ -124,22 +129,38 @@ function GroupRow({ title, total }: { title: string; total: number }) {
   );
 }
 
-function ItemRow({ name, detail, amount, href }: { name: string; detail: string; amount: string; href?: string | null }) {
+function ItemRow({
+  name,
+  detail,
+  amount,
+  href,
+  tick,
+}: {
+  name: string;
+  detail: string;
+  amount: string;
+  href?: string | null;
+  /** Bills, debts, savings and one-offs: the Mark paid circle before the name. */
+  tick?: React.ReactNode;
+}) {
   return (
     <tr className="border-t border-line-soft">
       <th scope="row" className="px-4 py-3 font-extrabold text-ink">
-        {href ? (
-          <Link
-            href={href}
-            scroll={false}
-            // A 44px tap area without making the row taller.
-            className="-mx-1 -my-2.5 inline-block rounded-sm px-1 py-2.5 outline-link hover:text-link hover:underline focus-visible:outline-2"
-          >
-            {name}
-          </Link>
-        ) : (
-          name
-        )}
+        <span className="flex items-center gap-3">
+          {tick}
+          {href ? (
+            <Link
+              href={href}
+              scroll={false}
+              // A 44px tap area without making the row taller.
+              className="-mx-1 -my-2.5 inline-block rounded-sm px-1 py-2.5 outline-link hover:text-link hover:underline focus-visible:outline-2"
+            >
+              {name}
+            </Link>
+          ) : (
+            name
+          )}
+        </span>
       </th>
       <td className="px-4 py-3 text-text-3">{detail}</td>
       <td className="px-4 py-3 text-right font-extrabold text-ink">{amount}</td>

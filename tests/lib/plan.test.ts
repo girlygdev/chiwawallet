@@ -9,8 +9,10 @@ import {
   generatePlan,
   incomeStatus,
   isEmptyPlan,
+  isTickable,
   missingStarterItems,
   oneOffImpact,
+  paidOnDate,
   planCounts,
   planDone,
   periodIncome,
@@ -845,5 +847,34 @@ describe("upcomingCounts and upcomingLine (5h-3)", () => {
     expect(upcomingLine(3)).toBe("Planned in 3 upcoming paydays. Those plan items are removed; paid ones stay.");
     expect(upcomingLine(1)).toBe("Planned in 1 upcoming payday. That plan item is removed; paid ones stay.");
     expect(upcomingLine(0)).toBeNull();
+  });
+});
+
+describe("paidOnDate (6b-1)", () => {
+  it("is today in the current period", () => {
+    expect(paidOnDate("2026-11-26", NOV_15)).toBe("2026-11-26");
+    expect(paidOnDate("2026-11-15", NOV_15)).toBe("2026-11-15");
+  });
+
+  it("is the period's last day for an earlier period that hasn't closed", () => {
+    expect(paidOnDate("2026-12-02", NOV_15)).toBe("2026-11-29");
+  });
+
+  it("is empty for a future period: that money hasn't come in yet", () => {
+    expect(paidOnDate("2026-11-26", NOV_30)).toBeNull();
+  });
+});
+
+describe("isTickable (6b-1)", () => {
+  it("is bills, debt payments, savings and one-offs", () => {
+    for (const section of ["bills", "debts", "savings", "one_off"] as const) {
+      expect(isTickable({ section })).toBe(true);
+    }
+  });
+
+  it("isn't income (I got paid), spending budgets or starter lines (measured by spending)", () => {
+    for (const section of ["income", "spending"] as const) {
+      expect(isTickable({ section })).toBe(false);
+    }
   });
 });

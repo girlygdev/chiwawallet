@@ -6,7 +6,7 @@ import type { Budget } from "@/lib/current-budget";
 import { type DebtTerms, debtLeft, debtPaid } from "@/lib/debts";
 import { receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers } from "@/lib/money";
-import { getPeriod, type Period, type PaySlot, scheduleFromBudget } from "@/lib/periods";
+import { formatShortDate, getPeriod, type Period, type PaySlot, scheduleFromBudget } from "@/lib/periods";
 import {
   generatePlan,
   incomeStatus,
@@ -19,6 +19,8 @@ import {
   periodIncome,
   planItemDetail,
   planSection,
+  isTickable,
+  paidOnDate,
   planSummary,
   planSync,
   plannablePeriods,
@@ -44,6 +46,12 @@ export type PlanRow = PlanItem & {
   detail: string;
   /** Income rows only: whether the pay came in. */
   received: boolean;
+  /** Bills, debt payments, savings and one-offs get a tick button (6b-1). */
+  tickable: boolean;
+  /** Paid: the payment's date ("Paid Nov 15"); empty while due. */
+  paidOn: string | null;
+  /** A bill whose amount changes: Mark paid asks for the real amount. */
+  varies: boolean;
 };
 
 export type OpenedPlan = {
@@ -74,6 +82,11 @@ export type OpenedPlan = {
   starter: StarterItem[];
   /** This payday's expected pay, for "a 50/30/20 split of your ₱25,000 pay". */
   pay: number;
+  /**
+   * The date Mark paid uses here (6b-1): today, or the last day of an earlier
+   * period that hasn't closed; empty for a future or closed period.
+   */
+  payOn: string | null;
   /** Plan a debt payment's choices (5g-2): debts not paid off, with what's left, oldest first. */
   debts: PlanDebt[];
 };
@@ -138,6 +151,14 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     ? new Set<string>()
     : receivedSourceIds(money.period, { start: period.start, paySlot: period.paySlot, first_pay_received: row.first_pay_received }, sources.incomeSources, schedule);
 
+  // Each paid item's payment, for "Paid Nov 15" (the payment's own date).
+  const paidIds = items!.filter((i) => i.paid_at != null).map((i) => i.id);
+  const { data: payments, error: paymentsError } = paidIds.length
+    ? await supabase.from("transactions").select("plan_item_id, date").in("plan_item_id", paidIds).is("deleted_at", null)
+    : { data: [], error: null };
+  if (paymentsError) fail("load this period's payments", paymentsError);
+  const paidOnOf = new Map(payments!.map((p) => [p.plan_item_id, p.date]));
+
   const groupOf = new Map(sources.categoryGroups);
   const rows: PlanRow[] = items!.map((item) => {
     const group = ((item.category_id ? groupOf.get(item.category_id) : item.budget_group) ?? null) as BudgetGroup | null;
@@ -146,16 +167,28 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     const section = planSection(shaped);
     if (section === "income") {
       const received = item.income_source_id != null && receivedIds.has(item.income_source_id);
-      return { ...item, section, group, received, detail: incomeStatus(received, period.start, today).text };
+      return { ...item, section, group, received, detail: incomeStatus(received, period.start, today).text, tickable: false, paidOn: null, varies: false };
     }
+    const bill = sources.bills.find((b) => b.id === item.bill_id);
     const detail = planItemDetail(shaped, {
       period,
       schedule,
-      bill: sources.bills.find((b) => b.id === item.bill_id),
+      bill,
       pot: sources.pots.find((p) => p.id === item.pot_id),
       debt: sources.debts.find((d) => d.id === item.debt_id),
     });
-    return { ...item, section, group, received: false, detail };
+    const paidOn = item.paid_at != null ? (paidOnOf.get(item.id) ?? null) : null;
+    return {
+      ...item,
+      section,
+      group,
+      received: false,
+      // "Paid Nov 15" replaces the detail line once paid (plan.md §3).
+      detail: paidOn ? `Paid ${formatShortDate(paidOn)}` : detail,
+      tickable: isTickable({ section }),
+      paidOn,
+      varies: bill?.amount_varies ?? false,
+    };
   });
 
   const income = periodIncome({
@@ -189,6 +222,7 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     moneyOut: numbers?.moneyOut ?? null,
     starter: starterPlan(pay, budget),
     pay,
+    payOn: row.closed_at != null ? null : paidOnDate(today, period),
     debts: sources.debts
       .map((d) => ({ id: d.id, name: d.name, left: debtLeft(d), flexible: d.payment_type === "flexible" }))
       .filter((d) => d.left > 0),
@@ -344,7 +378,7 @@ async function loadSources(supabase: Client, budget: Budget) {
     supabase.from("income_sources").select("id, name, amount, pay_slot, start_date, end_date").eq("budget_id", budget.id),
     supabase
       .from("recurring_bills")
-      .select("id, name, amount, category_id, frequency, due_day, first_due_month, pay_slot")
+      .select("id, name, amount, amount_varies, category_id, frequency, due_day, first_due_month, pay_slot")
       .eq("budget_id", budget.id),
     supabase.from("savings_pots").select("id, name, pay_slot, planned_contribution"),
     supabase

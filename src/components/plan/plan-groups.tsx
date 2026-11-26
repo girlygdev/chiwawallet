@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { TickButton, type TickItem } from "@/components/plan/tick-button";
 import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { formatPeso } from "@/lib/money";
 import type { PlanSummary } from "@/lib/plan";
@@ -41,6 +42,16 @@ export function groupAddLink(key: Section, editStart: string | null, hasDebts: b
 /** Whether a group shows: when it has rows or an add link, and always for One-off items (its empty card). */
 export const showGroup = (key: Section, rows: number, add: unknown) => rows > 0 || key === "one_off" || add != null;
 
+/** A row as its tick button needs it (6b-1). */
+export const tickItem = (i: PlanRow): TickItem => ({
+  id: i.id,
+  name: i.name,
+  planned_amount: i.planned_amount,
+  paid: i.paid_at != null,
+  pot: i.pot_id != null,
+  varies: i.varies,
+});
+
 /** The row under the income: "Carried in" or, on the first period, "Starting balance". */
 export type CarryLabel = { name: string; detail: string };
 
@@ -59,6 +70,7 @@ export function PlanGroups({
   future,
   editStart,
   hasDebts,
+  canTick,
   moneyInOnly = false,
 }: {
   items: PlanRow[];
@@ -72,6 +84,8 @@ export function PlanGroups({
   editStart: string | null;
   /** Any debt not paid off: DEBT PAYMENTS shows with "+ Plan a debt payment". */
   hasDebts: boolean;
+  /** The period can be paid now (started, not closed): tick circles are buttons (6b-1). */
+  canTick: boolean;
   moneyInOnly?: boolean;
 }) {
   const incomeRows = items.filter((i) => i.section === "income");
@@ -139,7 +153,7 @@ export function PlanGroups({
                     return key === "spending" ? (
                       <SpendingRow key={i.id} item={i} href={href} />
                     ) : (
-                      <TickRow key={i.id} item={i} href={href} />
+                      <TickRow key={i.id} item={i} href={href} canTick={canTick} />
                     );
                   })}
                 </ul>
@@ -167,10 +181,10 @@ const ROW = "flex min-h-14 items-center justify-between gap-3 px-4 py-3";
 const FOCUS = "outline-link focus-visible:outline-2 focus-visible:-outline-offset-2";
 
 /** A row's content: a link to Edit item, or plain once the period has ended. */
-function RowLink({ href, children }: { href: string | null; children: React.ReactNode }) {
-  if (!href) return <div className={ROW}>{children}</div>;
+function RowLink({ href, className, children }: { href: string | null; className?: string; children: React.ReactNode }) {
+  if (!href) return <div className={cn(ROW, className)}>{children}</div>;
   return (
-    <Link href={href} scroll={false} className={cn(ROW, FOCUS, "hover:bg-bg")}>
+    <Link href={href} scroll={false} className={cn(ROW, FOCUS, "hover:bg-bg", className)}>
       {children}
     </Link>
   );
@@ -199,19 +213,17 @@ function Group({ id, title, total, children }: { id: string; title: string; tota
   );
 }
 
-// A bill, debt payment, savings or one-off row (plan.md §3 "Tick row"). The
-// circle is drawn but hidden from screen readers: it becomes the Mark paid
-// button in Week 6, and a button that does nothing is worse than none.
-function TickRow({ item, href }: { item: PlanRow; href: string | null }) {
+// A bill, debt payment, savings or one-off row (plan.md §3 "Tick row").
+// The circle is its own button (Mark paid, 6b-1), beside the edit link, since
+// a button can't sit inside a link.
+function TickRow({ item, href, canTick }: { item: PlanRow; href: string | null; canTick: boolean }) {
   return (
-    <li>
-      <RowLink href={href}>
-        <div className="flex min-w-0 items-center gap-3">
-          <span aria-hidden className="size-7 shrink-0 rounded-full border-2 border-line-dash bg-surface" />
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate font-extrabold text-ink">{item.name}</span>
-            <span className="text-[13px] text-text-3">{item.detail}</span>
-          </div>
+    <li className="flex items-center pl-4">
+      <TickButton item={tickItem(item)} canTick={canTick && item.tickable} />
+      <RowLink href={href} className="min-w-0 flex-1 pl-3">
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate font-extrabold text-ink">{item.name}</span>
+          <span className={cn("text-[13px]", item.paid_at ? "font-bold text-link-hover" : "text-text-3")}>{item.detail}</span>
         </div>
         <span className="shrink-0 font-extrabold text-ink">{formatPeso(item.planned_amount)}</span>
       </RowLink>

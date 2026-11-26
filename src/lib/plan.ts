@@ -685,3 +685,26 @@ export function upcomingLine(count: number): string | null {
     ? "Planned in 1 upcoming payday. That plan item is removed; paid ones stay."
     : `Planned in ${count} upcoming paydays. Those plan items are removed; paid ones stay.`;
 }
+
+// ---------------------------------------------------------------------------
+// Mark paid (plan.md §3 "Tick row", 6b-1)
+// ---------------------------------------------------------------------------
+
+/**
+ * The date a payment from the Plan gets: today in the current period, the
+ * last day of an earlier period that hasn't closed (never after its end,
+ * owner Nov 26), and none for a future period, which can't be paid yet.
+ */
+export function paidOnDate(today: string, period: { start: string; end: string }): string | null {
+  if (today < period.start) return null;
+  return today > period.end ? period.end : today;
+}
+
+/**
+ * Whether an item gets a tick button: bills, debt payments, savings and
+ * one-offs. Income has I got paid; spending budgets and starter lines are
+ * measured by what's spent. The same rule as mark_plan_item_paid() (6a).
+ */
+export function isTickable(item: { section: PlanSection }): boolean {
+  return item.section !== "income" && item.section !== "spending";
+}
