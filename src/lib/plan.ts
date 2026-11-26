@@ -1173,3 +1173,15 @@ export function paydayPreview(
   const money = newPeriodMoney(expected, leftover, moved);
   return { carriedIn: leftover - moved, money, notAssigned: money - planned };
 }
+
+/**
+ * The Dashboard's Spending card (dashboard.md fix #4, owner Nov 26): the
+ * category budgets with the biggest planned amounts, biggest first (ties by
+ * name). Starter lines, which have no category, stay on the Plan.
+ */
+export function topBudgets<T extends { name: string; planned_amount: number; category_id: string | null }>(rows: T[], count = 3): T[] {
+  return rows
+    .filter((r) => r.category_id != null)
+    .sort((a, b) => b.planned_amount - a.planned_amount || a.name.localeCompare(b.name))
+    .slice(0, count);
+}

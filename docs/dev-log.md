@@ -2,6 +2,31 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 7 · 7a Dashboard: Spending and Savings pots
+- **What:**
+  - **Spending:** the three category budgets with the biggest planned amounts. Each shows "₱3,880 / ₱3,300", the Plan's bar and "₱580 over", plus a "Plan" link.
+  - **Savings pots:** a card per pot with its balance, an 8px bar and "17% of ₱3,000". Without a target, "No target"; a locked pot shows a lock, a full line-dash bar and "Locked savings". They scroll sideways on phones, with "See all".
+  - **Both stay hidden** when there's nothing to show.
+- **Files:**
+  - New: `src/components/dashboard/spending-card.tsx`, `pots-card.tsx`.
+  - Edited:
+    - `src/lib/plan.ts`: `topBudgets()`
+    - `src/lib/pots.ts`: `potCardLine()`
+    - `tests/lib/plan.test.ts`, `tests/lib/pots.test.ts`
+    - `src/lib/plan-periods.ts`: `openCurrentPlan` items get `category_id`, `spent` and `bar`
+    - `src/app/(app)/dashboard/page.tsx`
+    - `docs/week-7-tasks.md`
+- **Decisions (owner, Nov 26):**
+  - The Spending card shows the three biggest planned budgets.
+  - Starter lines stay on the Plan.
+- **Tests:** written first, 6 new unit tests (589 pass), and 292 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - Groceries went from ₱3,680 to ₱3,880 against ₱3,300 after a ₱200 expense
+  - Sinking Funds went from ₱0 to ₱1,000 after a deposit
+  - the pots scroll sideways
+  - with a temporary target and lock: "17% of ₱3,000" and "Locked savings"
+  - no console errors
+- **Next:** 7b, the 50/30/20 check.
+
 ## 2026-11-26 · Week 6 · 6i Live check (Week 6 done)
 - **What:** the owner checked Week 6 on the live site (`358adf4`). The checklist covered the payday screen, Safe to spend and Due this period, Mark paid and Undo, spending bars, the Transfer tab, Mark paid and Pay extra on Debts, and Give leftover a job. All fine ("tick it").
 - **Files:** `docs/week-6-tasks.md` (6i ticked), `docs/mvp-brief.md` (Week 6's checkboxes ticked), `docs/dev-log.md`.

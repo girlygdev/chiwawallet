@@ -245,3 +245,21 @@ export function potTransfer(
     to: { before: toBalance, after: toBalance + amount },
   };
 }
+
+const wholePercent = new Intl.NumberFormat("en-PH", { style: "percent", maximumFractionDigits: 0 });
+
+/**
+ * A Dashboard pot card's bar and line (dashboard.md §2 "Pot card"): how far
+ * along its target ("43% of ₱30,000"), "No target" without one (no bar), or
+ * for a locked pot a full bar and "Locked savings".
+ */
+export function potCardLine(
+  balance: number,
+  target: number | null,
+  locked: boolean,
+): { share: number | null; text: string; locked: boolean } {
+  if (locked) return { share: 1, text: "Locked savings", locked };
+  const share = potProgress(balance, target);
+  if (share == null || target == null) return { share: null, text: "No target", locked };
+  return { share, text: `${wholePercent.format(share)} of ${formatPeso(target)}`, locked };
+}

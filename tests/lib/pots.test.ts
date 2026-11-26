@@ -6,6 +6,7 @@ import {
   monthlySavingPlan,
   potBalance,
   potBalanceAfter,
+  potCardLine,
   potGoalDate,
   potProgress,
   potTransfer,
@@ -244,5 +245,19 @@ describe("potTransfer (6d-1)", () => {
       from: { before: 800_000, after: 600_000 },
       to: { before: 1_300_000, after: 1_500_000 },
     });
+  });
+});
+
+describe("potCardLine (7a, dashboard.md §2 Pot card)", () => {
+  it("a pot with a target: how far along, of the target", () => {
+    expect(potCardLine(1_300_000, 3_000_000, false)).toEqual({ share: 1_300_000 / 3_000_000, text: "43% of ₱30,000", locked: false });
+  });
+
+  it("no target: no bar, 'No target'", () => {
+    expect(potCardLine(600_000, null, false)).toEqual({ share: null, text: "No target", locked: false });
+  });
+
+  it("a locked pot: a full bar and 'Locked savings'", () => {
+    expect(potCardLine(4_850_000, null, true)).toEqual({ share: 1, text: "Locked savings", locked: true });
   });
 });

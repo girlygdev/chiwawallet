@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CashCard } from "@/components/dashboard/cash-card";
 import { DueCard } from "@/components/dashboard/due-card";
+import { type PotCard, PotsCard } from "@/components/dashboard/pots-card";
+import { type SpendingRow, SpendingCard } from "@/components/dashboard/spending-card";
 import { IncomeCard } from "@/components/dashboard/income-card";
 import { RecentActivity, type RecentRow } from "@/components/dashboard/recent-activity";
 import { PageHeader } from "@/components/shell/page-header";
@@ -12,8 +14,9 @@ import type { ActivityRow } from "@/lib/activity";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { duePay, expectedForPeriod, isActiveOn, receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers, perDay, safeToSpend, stillDueTotal } from "@/lib/money";
-import { dueList } from "@/lib/plan";
+import { dueList, topBudgets } from "@/lib/plan";
 import { closeEndedPeriodsOnVisit, openCurrentPlan } from "@/lib/plan-periods";
+import { potBalance, potCardLine } from "@/lib/pots";
 import {
   formatPeriodRange,
   type PaySlot,
@@ -36,7 +39,8 @@ const RECENT_ROWS = 4;
 // now with the spend bar and the pay prompt, income expected vs received, and
 // Recent activity. Its money in and money out match Activity's totals.
 // Safe to spend and Due this period come from the current period's plan
-// items (6c). Spending, Savings pots and 50/30/20 come in Week 7.
+// items (6c), then Spending and Savings pots (7a). The 50/30/20 check and
+// the desktop layout come next in Week 7.
 export default function DashboardPage() {
   return (
     <PageShell>
@@ -101,6 +105,31 @@ async function DashboardBody() {
   const planned = current.items.filter((i) => i.tickable);
   const stillDue = stillDueTotal(planned);
   const safe = safeToSpend(numbers.cashNow, stillDue);
+
+  // Spending (7a): the three biggest category budgets, with the Plan's bars.
+  // Savings pots (7a): each pot's balance and its bar.
+  const [categoryRows, potRows, savingRows] = await Promise.all([
+    supabase.from("categories").select("id, icon, color"),
+    supabase.from("savings_pots").select("id, name, starting_balance, target_amount, is_locked").order("created_at").order("name"),
+    supabase.from("transactions").select("pot_id, amount, deleted_at").eq("type", "savings").not("pot_id", "is", null).is("deleted_at", null),
+  ]);
+  for (const result of [categoryRows, potRows, savingRows]) {
+    if (result.error) throw new Error(`Couldn't load the dashboard: ${result.error.message}`, { cause: result.error });
+  }
+  const look = new Map(categoryRows.data!.map((c) => [c.id, c]));
+  const spending: SpendingRow[] = topBudgets(current.items.filter((i) => i.section === "spending" && i.bar != null)).map((i) => ({
+    id: i.id,
+    name: i.name,
+    icon: look.get(i.category_id!)?.icon ?? "shopping-basket",
+    color: look.get(i.category_id!)?.color ?? "green",
+    planned: i.planned_amount,
+    spent: i.spent ?? 0,
+    bar: i.bar!,
+  }));
+  const pots: PotCard[] = potRows.data!.map((p) => {
+    const balance = potBalance(p, savingRows.data!.filter((r) => r.pot_id === p.id));
+    return { id: p.id, name: p.name, balance, line: potCardLine(balance, p.target_amount, p.is_locked) };
+  });
 
   // Recent rows open Edit transaction, whose Delete link shows the effect on
   // the row's own period. Rows from earlier periods need those periods' rows
@@ -169,6 +198,9 @@ async function DashboardBody() {
             today={today}
           />
           <DueCard items={dueList(planned)} periodStart={period.start} />
+          {/* Hidden until there's something to show (dashboard.md §4). */}
+          {spending.length > 0 && <SpendingCard rows={spending} planHref={`/plan?start=${period.start}`} />}
+          {pots.length > 0 && <PotsCard pots={pots} />}
           <IncomeCard
             received={numbers.income}
             expected={expectedForPeriod(sources.data!, schedule, period)}

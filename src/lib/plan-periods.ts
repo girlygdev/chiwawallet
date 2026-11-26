@@ -345,6 +345,8 @@ export type CurrentItem = {
   id: string;
   name: string;
   planned_amount: number;
+  /** A budget's category (7a); empty for starter lines. */
+  category_id: string | null;
   bill_id: string | null;
   pot_id: string | null;
   debt_id: string | null;
@@ -359,6 +361,9 @@ export type CurrentItem = {
   dueOn: string | null;
   /** A bill whose amount changes: Mark paid asks for the amount. */
   varies: boolean;
+  /** Spending budgets and starter lines (7a): spent so far and the bar, as on the Plan (6e). */
+  spent: number | null;
+  bar: ReturnType<typeof budgetBar> | null;
 };
 
 /**
@@ -398,6 +403,23 @@ export async function openCurrentPlan(
   if (paymentsError) fail("load this period's payments", paymentsError);
   const paymentOf = new Map(payments!.map((p) => [p.plan_item_id, p]));
   const groupOf = new Map(sources?.categoryGroups ?? []);
+
+  // What's been spent against each budget and starter line, as on the Plan (6e).
+  const { data: expenses, error: expensesError } = await supabase
+    .from("transactions")
+    .select("category_id, amount, plan_item_id")
+    .eq("period_id", row.id)
+    .eq("type", "expense")
+    .is("deleted_at", null);
+  if (expensesError) fail("load this period's spending", expensesError);
+  const spentOf = spendingActuals(
+    data!
+      .filter((i) => (i.origin === "recurring" || i.origin === "starter") && !i.income_source_id && !i.bill_id && !i.pot_id && !i.debt_id)
+      .map((i) => ({ id: i.id, origin: i.origin as PlanOrigin, category_id: i.category_id, budget_group: i.budget_group as BudgetGroup | null })),
+    expenses!,
+    Object.fromEntries(sources?.categoryGroups ?? []),
+  );
+
   const items = data!.map((i) => {
     const payment = i.paid_at != null ? paymentOf.get(i.id) : undefined;
     // The generated types say `string`; the check constraints allow only these.
@@ -414,6 +436,8 @@ export async function openCurrentPlan(
       tickable: isTickable({ section }),
       dueOn: itemDueOn({ ...i, origin }, { period, schedule, bill, debt }),
       varies: bill?.amount_varies ?? false,
+      spent: section === "spending" ? (spentOf[i.id] ?? 0) : null,
+      bar: section === "spending" ? budgetBar(i.planned_amount, spentOf[i.id] ?? 0) : null,
     };
   });
   return { period, items };

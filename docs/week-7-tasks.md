@@ -14,7 +14,7 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
 
 ## Tasks
 
-- [ ] **7a. Dashboard: Spending and Savings pots** (`dashboard.md` §2.4–2.5, fix #4).
+- [x] **7a. Dashboard: Spending and Savings pots** Done Nov 26 (checked in a browser on local Supabase). `topBudgets()` in `lib/plan.ts`, `potCardLine()` in `lib/pots.ts`; `openCurrentPlan` items get `spent` and `bar`; `spending-card.tsx`, `pots-card.tsx`. Starter lines stay off the Spending card. (`dashboard.md` §2.4–2.5, fix #4).
   - **Spending card:** the three spending budgets with the biggest planned amounts. Each shows "₱3,240 / ₱6,000" and an 8px bar (6e's `budgetBar()`), then a "Plan" link.
   - **Savings pots:** pot cards with the balance, a bar and "43% of ₱30,000".
     - **No target:** "No target".

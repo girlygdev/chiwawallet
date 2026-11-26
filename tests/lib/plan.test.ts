@@ -49,6 +49,7 @@ import {
   potsDueLine,
   spendingActuals,
   stepAssign,
+  topBudgets,
   stillDue,
   upcomingCounts,
   upcomingLine,
@@ -1341,5 +1342,22 @@ describe("the payday screen (6h-2)", () => {
   it("coverFromPot: up to the pot's balance; the rest still carries", () => {
     expect(coverFromPot(120_000, 1_300_000)).toEqual({ covered: 120_000, stillOver: 0 });
     expect(coverFromPot(120_000, 50_000)).toEqual({ covered: 50_000, stillOver: 70_000 });
+  });
+});
+
+describe("topBudgets (7a)", () => {
+  const b = (name: string, planned_amount: number, category_id: string | null = name) => ({ name, planned_amount, category_id });
+
+  it("the three category budgets with the biggest planned amounts, biggest first", () => {
+    const rows = [b("Food", 600_000), b("Fun", 150_000), b("Transport", 300_000), b("Pets", 200_000)];
+    expect(topBudgets(rows).map((r) => r.name)).toEqual(["Food", "Transport", "Pets"]);
+  });
+
+  it("leaves out starter lines, which have no category", () => {
+    expect(topBudgets([b("Needs", 1_000_000, null), b("Food", 600_000)]).map((r) => r.name)).toEqual(["Food"]);
+  });
+
+  it("breaks ties by name", () => {
+    expect(topBudgets([b("Pets", 200_000), b("Fun", 200_000)], 1).map((r) => r.name)).toEqual(["Fun"]);
   });
 });
