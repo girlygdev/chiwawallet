@@ -12,7 +12,7 @@ import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { duePay, expectedForPeriod, isActiveOn, receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers, perDay, safeToSpend, stillDueTotal } from "@/lib/money";
 import { dueList } from "@/lib/plan";
-import { openCurrentPlan } from "@/lib/plan-periods";
+import { closeEndedPeriodsOnVisit, openCurrentPlan } from "@/lib/plan-periods";
 import {
   formatPeriodRange,
   type PaySlot,
@@ -54,7 +54,9 @@ async function DashboardBody() {
   const schedule = scheduleFromBudget(budget);
   const today = todayInManila(new Date());
 
-  // Creates this period's row the first time it's opened (task 2c).
+  // Close any period that has ended (6h-1), then create this period's row
+  // the first time it's opened (task 2c).
+  await closeEndedPeriodsOnVisit(supabase, budget, today);
   const row = await getOrCreatePeriod(supabase, budget, today);
   const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
 

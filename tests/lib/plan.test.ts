@@ -39,6 +39,7 @@ import {
   planSummary,
   planSync,
   potAssignCap,
+  periodsToClose,
   potsDueLine,
   spendingActuals,
   stepAssign,
@@ -1224,5 +1225,32 @@ describe("carry-over (6g)", () => {
       expect(chain[i].carriedIn).toBe(dashboard.carryIn);
       expect(chain[i].leftover).toBe(dashboard.cashNow);
     });
+  });
+});
+
+describe("periodsToClose (6h-1)", () => {
+  const p = (id: string, start: string, end: string, closed_at: string | null = null) => ({ id, start_date: start, end_date: end, closed_at });
+  const periods = [
+    p("oct30", "2026-10-30", "2026-11-14", "2026-11-15T00:00:00Z"),
+    p("nov15", "2026-11-15", "2026-11-29"),
+    p("nov30", "2026-11-30", "2026-12-14"),
+    p("dec15", "2026-12-15", "2026-12-29"),
+  ];
+
+  it("on payday, the period that just ended waits for the payday screen", () => {
+    expect(periodsToClose(periods, "2026-11-30", true)).toEqual({ close: [], awaiting: "nov15" });
+  });
+
+  it("missed periods close in order with Carry; only the most recent waits", () => {
+    expect(periodsToClose(periods, "2026-12-20", true)).toEqual({ close: ["nov15"], awaiting: "nov30" });
+    expect(periodsToClose(periods, "2027-01-05", true)).toEqual({ close: ["nov15", "nov30"], awaiting: "dec15" });
+  });
+
+  it("with Ask on payday off, everything that ended closes, and nothing waits", () => {
+    expect(periodsToClose(periods, "2026-12-20", false)).toEqual({ close: ["nov15", "nov30"], awaiting: null });
+  });
+
+  it("closes nothing that hasn't ended or is already closed, in any order given", () => {
+    expect(periodsToClose([...periods].reverse(), "2026-11-20", true)).toEqual({ close: [], awaiting: null });
   });
 });

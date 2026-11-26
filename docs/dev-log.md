@@ -2,6 +2,36 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6h-1 Closing a period
+- **What:** Dashboard and Plan visits close every period that has ended (payday-rollover.md §1), oldest first.
+  - **Each one:** the next period (created if needed) gets `carried_in` = the leftover (6g's `carryOver()`, a record), then the period gets `closed_at` and `leftover_choice = "carry"`.
+  - **With Ask on payday on,** the most recent ended period waits for the payday screen (6h-2). Its own `carried_in` is recorded.
+  - **Running it twice** changes nothing.
+  - **On the Plan,** a closed period shows "Closed · This period is closed, so its plan can't change." It was already read-only.
+  - **A closing failure** is logged and never breaks the page.
+- **Files:**
+  - New: `tests/db/close-periods.test.ts`.
+  - Edited:
+    - `src/lib/plan.ts`: `periodsToClose()`
+    - `tests/lib/plan.test.ts`
+    - `src/lib/plan-periods.ts`: `closeEndedPeriods()`, `closeEndedPeriodsOnVisit()`
+    - `src/app/(app)/dashboard/page.tsx`, `src/app/(app)/plan/page.tsx`
+    - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - Closing runs on Dashboard and Plan visits.
+  - Transactions in closed periods stay editable.
+  - `carried_in` is a record only.
+- **Tests:** written first, 4 new unit tests (572 pass) and 5 new database tests (290 pass). Lint, typecheck and the build pass.
+  - The database tests cover the "Done when": three periods with transactions (₱3,000 opening; ₱8,000 left, then −₱3,000, then ₱0) close in order with the right `carried_in`.
+  - They also cover: the latest waits with ask on and closes with ask off (creating Feb 28 – Mar 14); a second run changes nothing; nothing closes before it ends; user B can't close A's periods.
+  - In a browser, with two earlier periods added to the test user:
+    - ask on: Oct 15 closed, and Oct 30 waited (carrying ₱5,000)
+    - ask off: Oct 30 closed, Nov 15 carried ₱4,000 (after a ₱1,000 expense), and Oct 30's Plan showed Closed with no edit links
+    - no console errors
+- **Known:** a closed period with nothing planned still shows the empty-plan card (from 5d).
+- **AI notes:** Claude's database test first expected the next period on Mar 1. In 2027 the 30th payday falls on Feb 28, so the code was right and the test was fixed.
+- **Next:** 6h-2, the payday screen.
+
 ## 2026-11-26 · Week 6 · 6g Carry-over math
 - **What:**
   - **`carryOver(carriedIn, rows)`:** a period's money, what it used, its leftover (below ₱0 when overspent) and the result (surplus, overspent or zero).

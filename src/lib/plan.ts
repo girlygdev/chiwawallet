@@ -1017,3 +1017,26 @@ export function carryForward(
     return entry;
   });
 }
+
+// ---------------------------------------------------------------------------
+// Closing periods (payday-rollover.md §1, 6h-1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Which periods to close on a visit: every one that has ended and isn't
+ * closed, oldest first, with Carry. With Ask on payday on (the default),
+ * the most recent of them waits instead (\`awaiting\`), for the payday screen
+ * to ask what to do with its leftover; missed ones before it close silently.
+ */
+export function periodsToClose(
+  periods: { id: string; start_date: string; end_date: string; closed_at: string | null }[],
+  today: string,
+  askOnPayday: boolean,
+): { close: string[]; awaiting: string | null } {
+  const ended = periods
+    .filter((p) => p.closed_at == null && p.end_date < today)
+    .sort((a, b) => a.start_date.localeCompare(b.start_date))
+    .map((p) => p.id);
+  if (!askOnPayday || ended.length === 0) return { close: ended, awaiting: null };
+  return { close: ended.slice(0, -1), awaiting: ended[ended.length - 1] };
+}

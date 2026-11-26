@@ -94,7 +94,9 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
   - Also a three-period case: test data across three periods, closed one after another, gives the right carry-in for each.
   - It must agree with the Dashboard's carry-in (`dashboardNumbers()`). See open question 1.
 - [ ] **6h. Close a period: the payday screen** (`payday-rollover.md`). Likely two sessions:
-  - [ ] **6h-1. Closing.**
+  - [x] **6h-1. Closing.** Done Nov 26 (checked in a browser on local Supabase). `periodsToClose()` in `lib/plan.ts`; `closeEndedPeriods()` and `closeEndedPeriodsOnVisit()` in `lib/plan-periods.ts`, run on Dashboard and Plan visits; the Plan's Closed tag.
+    - Transactions in closed periods stay editable, and `carried_in` is a record (owner, Nov 26).
+    - Known: a closed period with nothing planned still shows the empty-plan card.
     - The first visit on or after a payday closes the previous period: `closed_at`, `leftover_choice`, and `carried_in` per open question 1.
     - Several missed periods close in order with Carry.
     - With `ask_on_payday` off, it closes silently with Carry.

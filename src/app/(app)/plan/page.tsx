@@ -17,7 +17,7 @@ import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { describeSchedule, formatPeriodRange, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { isEmptyPlan, missingStarterItems, type PlanOrigin, planCounts, planDone } from "@/lib/plan";
 import type { BudgetGroup } from "@/lib/transactions";
-import { assignTargets, loadAssignData, openPlanPeriod } from "@/lib/plan-periods";
+import { assignTargets, closeEndedPeriodsOnVisit, loadAssignData, openPlanPeriod } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { PlanEditor, UseStarterPlanButton } from "./plan-item-sheet";
@@ -49,6 +49,8 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
   const { start } = await searchParams;
   const { budget } = await requireAppUser();
   const supabase = await createClient();
+  // Close any period that has ended first (6h-1), so a closed one shows as closed.
+  await closeEndedPeriodsOnVisit(supabase, budget, todayInManila(new Date()));
   const plan = await openPlanPeriod(supabase, budget, start, todayInManila(new Date()));
   const period = { start: plan.period.start_date, end: plan.period.end_date };
   const empty = isEmptyPlan(plan.items);
@@ -129,6 +131,13 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
       />
       <div className="flex flex-col gap-5">
         <PeriodPicker periods={plan.periods} selected={plan.period.start_date} current={plan.currentStart} />
+        {plan.period.closed_at && (
+          // A closed period is read-only (6h-1): say so in words.
+          <p className="flex items-center gap-2 text-sm text-text-2">
+            <span className="rounded-full bg-track px-2 py-0.5 text-xs font-extrabold text-text-2">Closed</span>
+            This period is closed, so its plan can&apos;t change.
+          </p>
+        )}
 
         {empty ? (
           <div className="flex flex-col gap-5 md:max-w-2xl">

@@ -21,6 +21,7 @@ import {
   planItemDetail,
   planSection,
   budgetBar,
+  carryOver,
   debtAssignCap,
   groupProgress,
   isTickable,
@@ -29,6 +30,7 @@ import {
   spendingActuals,
   paidOnDate,
   planSummary,
+  periodsToClose,
   planSync,
   plannablePeriods,
   potAssignCap,
@@ -36,7 +38,7 @@ import {
   starterPlan,
 } from "@/lib/plan";
 import type { Database, Tables } from "@/lib/supabase/types";
-import type { BudgetGroup } from "@/lib/transactions";
+import { type BudgetGroup, cashOnHand } from "@/lib/transactions";
 
 // Opening a period on the Plan (week-5-tasks.md 5c, 5d-1). Server only: it
 // reads and writes with the logged-in user's client, so RLS limits
@@ -121,6 +123,7 @@ const fail = (what: string, error: { message: string }): never => {
   throw new Error(`Couldn't ${what}: ${error.message}`, { cause: error });
 };
 
+const dayAfter = (date: string) => format(addDays(parseISO(date), 1), "yyyy-MM-dd");
 const dayBefore = (date: string) => format(addDays(parseISO(date), -1), "yyyy-MM-dd");
 
 /**
@@ -479,6 +482,87 @@ export async function loadAssignData(
   ];
   const next = getPeriod(format(addDays(parseISO(plan.period.end_date), 1), "yyyy-MM-dd"), scheduleFromBudget(budget));
   return { destinations, next: formatPeriodRange(next.start, next.end) };
+}
+
+/**
+ * Closes the periods that have ended (payday-rollover.md §1, 6h-1), on a
+ * Dashboard or Plan visit. Each one, oldest first:
+ * 1. the next period (created if needed) gets `carried_in`: the leftover,
+ *    from carryOver() (a record; carry-in itself is worked out from
+ *    transactions, 6g);
+ * 2. the period gets `closed_at` and `leftover_choice = "carry"`.
+ * With Ask on payday on, the most recent one waits for the payday screen
+ * (`awaiting`; 6h-2). Running it again changes nothing: only periods with
+ * no `closed_at` are touched. If step 2 fails, the next visit redoes both.
+ */
+export async function closeEndedPeriods(supabase: Client, budget: Budget, today: string): Promise<{ awaiting: string | null }> {
+  const { data: periods, error } = await supabase
+    .from("budget_periods")
+    .select("id, start_date, end_date, closed_at")
+    .eq("budget_id", budget.id);
+  if (error) fail("load periods", error);
+  const { close, awaiting } = periodsToClose(periods!, today, budget.ask_on_payday);
+  if (close.length === 0 && awaiting == null) return { awaiting: null };
+
+  if (close.length > 0) {
+    // Every transaction up to the last period being closed, for the leftovers.
+    const lastEnd = periods!.filter((p) => close.includes(p.id)).reduce((end, p) => (p.end_date > end ? p.end_date : end), "");
+    const { data: rows, error: rowsError } = await supabase
+      .from("transactions")
+      .select("type, amount, deleted_at, date")
+      .lte("date", lastEnd)
+      .is("deleted_at", null);
+    if (rowsError) fail("load transactions to close periods", rowsError);
+    type Row = Parameters<typeof cashOnHand>[1][number] & { date: string };
+    // The generated types say `string` for type; its check constraint allows only the four.
+    const all = rows as Row[];
+
+    for (const id of close) {
+      const period = periods!.find((p) => p.id === id)!;
+      const carriedIn = cashOnHand(budget.opening_balance, all.filter((r) => r.date < period.start_date));
+      const { leftover } = carryOver(
+        carriedIn,
+        all.filter((r) => r.date >= period.start_date && r.date <= period.end_date),
+      );
+      const next = await getOrCreatePeriod(supabase, budget, dayAfter(period.end_date));
+      const { error: carryError } = await supabase.from("budget_periods").update({ carried_in: leftover }).eq("id", next.id);
+      if (carryError) fail("carry the leftover", carryError);
+      const { error: closeError } = await supabase
+        .from("budget_periods")
+        .update({ closed_at: new Date().toISOString(), leftover_choice: "carry" })
+        .eq("id", id)
+        .is("closed_at", null);
+      if (closeError) fail("close the period", closeError);
+    }
+  }
+
+  // The waiting period's own carry-in, so its record is right too.
+  if (awaiting) {
+    const period = periods!.find((p) => p.id === awaiting)!;
+    const { data: rows, error: rowsError } = await supabase
+      .from("transactions")
+      .select("type, amount, deleted_at")
+      .lt("date", period.start_date)
+      .is("deleted_at", null);
+    if (rowsError) fail("load transactions", rowsError);
+    const carriedIn = cashOnHand(budget.opening_balance, rows as Parameters<typeof cashOnHand>[1]);
+    const { error: carryError } = await supabase.from("budget_periods").update({ carried_in: carriedIn }).eq("id", awaiting);
+    if (carryError) fail("record the carry-in", carryError);
+  }
+  return { awaiting };
+}
+
+/**
+ * closeEndedPeriods() for a page load: a failure is logged, never shown.
+ * The page still works, and the next visit tries again.
+ */
+export async function closeEndedPeriodsOnVisit(supabase: Client, budget: Budget, today: string): Promise<{ awaiting: string | null }> {
+  try {
+    return await closeEndedPeriods(supabase, budget, today);
+  } catch (error) {
+    console.error("plan: couldn't close ended periods", error);
+    return { awaiting: null };
+  }
 }
 
 /**
