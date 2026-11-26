@@ -35,7 +35,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
   - Safe from two tabs at once: the unique keys from 5a plus SQL's bare `on conflict do nothing`. The API's `upsert({ ignoreDuplicates })` only targets the primary key and fails on the partial keys (found in 5a), so this needs a small SQL function (a migration), for example `add_plan_items(period, items)`.
   - Only periods from one before the current one to 3 months ahead can be opened; anything else falls back to the current period.
   - Done when: opening a period three months ahead creates it with the right items, and opening it again adds nothing.
-- [ ] **5d. Plan screen** (built; ticked after the "Done when" check on your phone) (`plan.md` §1–5). Likely two sessions:
+- [x] **5d. Plan screen** (ticked Nov 26 after the live check, 5i) (`plan.md` §1–5). Likely two sessions:
   - [x] **5d-1. Picker, summary and groups.** Done Nov 25: `periodIncome()`, `incomeStatus()` and `planItemDetail()` in `lib/plan.ts`; `components/plan/`. Spending budgets show the planned amount only and headings show group totals until planned vs actual (Week 6); the "I got paid" pill came in 5d-2. Period picker (one past, now, future up to 3 months; chips are links, the current one has `aria-current`), summary card, MONEY IN, BILLS, DEBT PAYMENTS, SAVINGS, SPENDING BUDGETS and ONE-OFF ITEMS. Tick circles are display only (Week 6). Past periods read-only with a "Closed" tag once closed (Week 6).
   - [x] **5d-2. Desktop table and empty state.** Done Nov 25: `isEmptyPlan()` (nothing but income), `planCounts()` and `planDone()`. The table has ITEM, DETAILS and PLANNED until Week 6. The starter card's button is 5e. Also the I got paid pill and "Starting balance · From setup". Stat cards, the plan table, the Planned split of income card. Empty plan with the starter plan card and the "Or build it yourself" rows. No Copy last period's plan, no Give leftover a job side card (Week 6).
   - Done when: your real current and next periods show the right items and totals.
@@ -80,7 +80,7 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
     - Savings: "Due this period: ₱2,000 to Travel" under YOUR POTS.
     - Delete bill and Delete pot: "Planned in N upcoming paydays".
     - Both pages open the current period the way the Plan does, so its items exist and are in sync.
-- [ ] **5i. Live check.** Push, then plan your next three months on your phone.
+- [x] **5i. Live check.** Push, then plan your next three months on your phone. Done Nov 26: the owner checked the live site (`89e6d34`) and said "tick it".
 
 ## Decisions (owner, Nov 25)
 

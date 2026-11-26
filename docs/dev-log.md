@@ -2,6 +2,17 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 5 · 5i Live check (Week 5 done)
+- **What:** the owner checked Week 5 on the live site (`89e6d34`): the Plan for this and next payday, a period three months ahead, one-offs, budgets, debt payments, edit/remove/Undo, the bill sync, the budget line and Bills/Savings. All fine ("tick it").
+- **Files:** `docs/week-5-tasks.md` (5d and 5i ticked), `docs/mvp-brief.md` (Week 5's checkboxes ticked), `docs/dev-log.md`.
+- **Decisions:** none.
+- **Tests:** at `89e6d34`, 506 unit and 274 database tests pass. Lint, typecheck and the build pass. Both of today's migrations are live.
+- **Known, for Week 6:**
+  - Logging a payment doesn't tick its plan item yet, so "due" lines stay.
+  - Future periods show "—" for carried in.
+  - "₱2,760 left" on the category picker's tiles is still open.
+- **Next:** Week 6, plan vs actual and carry-over.
+
 ## 2026-11-26 · Week 5 · 5h-3 Bills and Savings
 - **What:**
   - **Bills:** the hero now says "2 recurring bills · ₱549 still due this period". On desktop, a "Still due this period" stat card shows the next bill ("Netflix · Nov 22").

@@ -277,11 +277,11 @@ Each task fits in one session and ends with something you can check. Deploy from
 
 **Done when:** tests pass for generated 15th and 30th plans, and you can open and edit a period three months ahead.
 
-- [ ] `plan_items` table + RLS
-- [ ] Pure function `generatePlan(period, budget)` that builds items from income sources, bills (split = two halves), pot contributions for that pay slot, scheduled debt payments due in the period and spending budgets (decided Nov 25)
-- [ ] Vitest cases: a 15th period, a 30th period, a split bill, a pot that only contributes on the 30th
-- [ ] Plan screen with a period picker (one previous, current, and future periods up to 3 months ahead)
-- [ ] Add, edit and delete one-off items; plan debt payments in any period; one-tap 50/30/20 starter plan for new users (uses the budget's needs_pct, wants_pct and savings_debt_pct)
+- [x] `plan_items` table + RLS
+- [x] Pure function `generatePlan(period, budget)` that builds items from income sources, bills (split = two halves), pot contributions for that pay slot, scheduled debt payments due in the period and spending budgets (decided Nov 25)
+- [x] Vitest cases: a 15th period, a 30th period, a split bill, a pot that only contributes on the 30th
+- [x] Plan screen with a period picker (one previous, current, and future periods up to 3 months ahead)
+- [x] Add, edit and delete one-off items; plan debt payments in any period; one-tap 50/30/20 starter plan for new users (uses the budget's needs_pct, wants_pct and savings_debt_pct)
 
 ### Week 6: Plan vs actual and carry-over
 
