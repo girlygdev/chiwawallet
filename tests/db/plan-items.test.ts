@@ -110,6 +110,12 @@ describe("plan_items: owner's own rows", () => {
     expect(row).toMatchObject({ user_id: s.user.id, edited: false, paid_at: null, deleted_at: null, budget_group: null });
   });
 
+  it("adds a spending budget already marked edited (Set a budget, this period only; 5g-1)", async () => {
+    const s = await setUp();
+    const row = await add(s, { ...items.budget(s), edited: true });
+    expect(row).toMatchObject({ origin: "recurring", edited: true });
+  });
+
   it("adds every kind of generated item, and starter items with a group and no category", async () => {
     const s = await setUp();
     for (const row of [items.income(s), items.bill(s), items.pot(s), items.debt(s), items.budget(s), items.starter(s)]) {

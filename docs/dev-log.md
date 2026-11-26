@@ -2,6 +2,45 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 5 · 5g-1 Spending budgets
+- **What:**
+  - **Budget per payday** on New and Edit category. Its note says "₱3,000 added to every payday's plan, starting with this one." The category list shows "₱3,000 per payday".
+  - **Set a budget sheet** (`/plan?start=…&add=budget`): Category, Amount, and Every payday or This period only.
+    - The amount starts at the budget the category already has in this period.
+    - The impact box reads "Not assigned yet: ₱7,500 → ₱4,500".
+    - It opens from SPENDING BUDGETS (now shown even when empty), the desktop table, and the empty plan's Spending budgets row.
+- **Files:**
+  - New:
+    - `src/components/plan/set-budget-form.tsx`
+    - `src/components/plan/plan-category.tsx`: the category grid, picker and New category, now shared with Add one-off item
+    - `supabase/migrations/20261126100000_plan_items_insert_edited.sql`
+  - Edited:
+    - `src/lib/plan.ts`: `budgetImpact()`
+    - `src/lib/validation/category.ts`: `budgetPerPayday`
+    - `src/lib/validation/plan-item.ts`: `setBudgetSchema`
+    - `src/app/(app)/plan/actions.ts`: `setBudget`
+    - `src/app/(app)/settings/categories/actions.ts`, the categories and edit pages
+    - `src/components/categories/category-form.tsx`, `category-list.tsx`
+    - `src/components/plan/one-off-form.tsx`, `plan-groups.tsx`, `plan-table.tsx`, `empty-plan.tsx`
+    - `src/app/(app)/plan/plan-item-sheet.tsx`, `page.tsx`
+    - Tests: `tests/lib/plan.test.ts`, `tests/lib/validation/category.test.ts`, `tests/lib/validation/plan-item.test.ts`, `tests/db/plan-items.test.ts`
+    - `docs/week-5-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - 5g is split into 5g-1 (spending budgets) and 5g-2 (debt payments and the Plan options menu).
+  - Budget per payday starts with the current period, because generation adds it to every open period.
+  - "This period only" is a `recurring` item marked `edited`, so it shows under SPENDING BUDGETS and 5h's sync leaves it alone. Inserting with `edited` needed a one-line grant (a migration, not a data model change).
+  - Setting a budget twice changes the amount. A removed budget item is brought back rather than re-added, because the unique key counts removed rows.
+- **Tests:** written first, 4 new unit tests (475 pass) and 1 new database test (270 pass). Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase:
+  - Groceries ₱3,000 every payday on Nov 15 (₱7,500 → ₱4,500)
+  - Nov 30 got Groceries ₱3,000 from the budget per payday
+  - "This period only" ₱4,000 on Nov 30 (prefilled ₱3,000; ₱22,000 → ₱21,000), while Dec 15 and Nov 15 stayed at ₱3,000
+  - Settings › Categories shows "₱3,000 per payday", and the edit field has 3,000
+  - desktop "+ Set a budget"
+  - 5f's checks still pass
+  - no console errors
+- **Not yet live:** the migration. It needs `npx supabase db push` after the owner's go.
+- **Next:** 5g-2, debt payments and the Plan options menu.
+
 ## 2026-11-26 · Week 5 · 5f Add one-off item
 - **What:** an Add one-off item sheet (a dialog on desktop) at `/plan?start=…&add=1`. It has:
   - **Fields:** What is it for?, Amount, Needed by, payday cards (now and up to 3 months ahead) and Category.

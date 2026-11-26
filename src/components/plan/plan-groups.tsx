@@ -22,6 +22,18 @@ export const editHref = (start: string, id: string) => `/plan?start=${start}&edi
 
 /** Add one-off item's address (5f). */
 export const addOneOffHref = (start: string) => `/plan?start=${start}&add=1`;
+/** Set a budget's address (5g-1). */
+export const setBudgetHref = (start: string) => `/plan?start=${start}&add=budget`;
+
+/** The "add" link under a group while the plan can change (shared with the desktop table). */
+export const GROUP_ADD_LINKS: Partial<Record<Section, { label: string; href: (start: string) => string }>> = {
+  spending: { label: "Set a budget", href: setBudgetHref },
+  one_off: { label: "Add one-off item", href: addOneOffHref },
+};
+
+/** Whether a group shows: when it has rows, or always for One-off items (its empty card) and, while it can be added to, Spending budgets. */
+export const showGroup = (key: Section, rows: number, editStart: string | null) =>
+  rows > 0 || key === "one_off" || (key === "spending" && editStart != null);
 
 /** The row under the income: "Carried in" or, on the first period, "Starting balance". */
 export type CarryLabel = { name: string; detail: string };
@@ -103,10 +115,11 @@ export function PlanGroups({
       {!moneyInOnly &&
         PLAN_SECTIONS.map(({ key, title }) => {
           const rows = items.filter((i) => i.section === key);
-          if (rows.length === 0 && key !== "one_off") return null;
+          if (!showGroup(key, rows.length, editStart)) return null;
+          const add = GROUP_ADD_LINKS[key];
           return (
             <Group key={key} id={`plan-${key}`} title={title} total={summary.sections[key]}>
-              {rows.length === 0 ? (
+              {rows.length === 0 && key === "spending" ? null : rows.length === 0 ? (
                 <p className="rounded-2xl border-[1.5px] border-dashed border-line-dash px-4 py-3 text-sm text-text-3">
                   Gifts, events, fees or anything that only happens once. Plan them here so they don&apos;t surprise you.
                 </p>
@@ -122,15 +135,15 @@ export function PlanGroups({
                   })}
                 </ul>
               )}
-              {key === "one_off" && editStart && (
+              {add && editStart && (
                 // The Dashed button: "add something new" (style-guide.md "Buttons").
                 <Link
-                  href={addOneOffHref(editStart)}
+                  href={add.href(editStart)}
                   scroll={false}
                   className="flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-dashed border-line-dash bg-surface px-4 text-[15px] font-extrabold text-link outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
                 >
                   <Plus aria-hidden size={18} strokeWidth={2.5} />
-                  Add one-off item
+                  {add.label}
                 </Link>
               )}
             </Group>

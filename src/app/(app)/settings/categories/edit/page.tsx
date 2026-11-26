@@ -45,7 +45,7 @@ async function EditCategoryForm({ searchParams }: { searchParams: Promise<{ id?:
   // All the user's categories (the delete dialog's "Move them to" choices)
   // and every transaction using this one, deleted ones included (3h-2).
   const [categories, rows, bills, planItems] = await Promise.all([
-    supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color"),
+    supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color, default_budget"),
     supabase.from("transactions").select("amount, deleted_at").eq("category_id", id),
     // Bills and plan items move with the transactions (4a-1, 5a); only the
     // counts are needed. Plan items include deleted ones, which move too.

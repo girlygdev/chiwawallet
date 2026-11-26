@@ -8,6 +8,7 @@ import { FormError } from "@/components/auth/form-error";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { OneOffForm, type PaydayCard } from "@/components/plan/one-off-form";
 import { type EditableItem, PlanItemForm } from "@/components/plan/plan-item-form";
+import { SetBudgetForm } from "@/components/plan/set-budget-form";
 import { Sheet } from "@/components/sheet";
 import { Toast, type ToastMessage } from "@/components/toast";
 import type { ExpenseView } from "@/components/transactions/expense-form";
@@ -20,6 +21,8 @@ import {
   getPeriodNotAssigned,
   removePlanItem,
   restorePlanItem,
+  type SetBudgetResult,
+  setBudget,
   updatePlanItem,
 } from "./actions";
 
@@ -41,6 +44,7 @@ const ToastContext = createContext<(toast: ToastMessage) => void>(() => {});
 //   /plan?start=2026-11-30&edit=<id>     Edit item
 //   /plan?start=2026-11-30&remove=<id>   Remove … from this plan?
 //   /plan?start=2026-11-30&add=1         Add one-off item (5f)
+//   /plan?start=2026-11-30&add=budget    Set a budget (5g-1)
 // Closing goes back to the period. It also owns the toast, so "Meralco
 // removed · Undo" stays up after the dialog closes, and the starter button
 // (inside `children`) can use it after the empty plan is gone.
@@ -49,6 +53,8 @@ export function PlanEditor({
   summary,
   periodStart,
   cards,
+  budgets,
+  periodLabel,
   children,
 }: {
   items: SheetItem[];
@@ -56,6 +62,10 @@ export function PlanEditor({
   periodStart: string;
   /** Add one-off item's payday cards; empty when the period has ended (no adding). */
   cards: PaydayCard[];
+  /** Set a budget: this period's spending budgets, category id → amount. */
+  budgets: Record<string, number>;
+  /** "Nov 15 – 29" */
+  periodLabel: string;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -70,9 +80,12 @@ export function PlanEditor({
   const periodHref = `${pathname}?start=${periodStart}`;
   const close = () => router.replace(periodHref, { scroll: false });
 
-  // Add one-off item: the add sheet's categories load when it opens, fresh
-  // each time. Closing resets the view and, through the key, the form.
-  const adding = params.get("add") != null && cards.length > 0;
+  // Add one-off item (`add=1`) and Set a budget (`add=budget`): the add
+  // sheet's categories load when one opens, fresh each time. Closing resets
+  // the view and, through the key, the form. Not in an ended period.
+  const addKind = cards.length > 0 ? params.get("add") : null;
+  const settingBudget = addKind === "budget";
+  const adding = addKind != null;
   const [addData, setAddData] = useState<AddSheetData | null>(null);
   const [addView, setAddView] = useState<ExpenseView>("form");
   const [addCount, setAddCount] = useState(0);
@@ -118,8 +131,15 @@ export function PlanEditor({
     addView === "new-category"
       ? { label: "Back to Choose a category", onClick: () => setAddView("picker") }
       : addView === "picker"
-        ? { label: "Back to Add one-off item", onClick: () => setAddView("form") }
+        ? { label: settingBudget ? "Back to Set a budget" : "Back to Add one-off item", onClick: () => setAddView("form") }
         : undefined;
+
+  // After Set a budget: the plan and its totals update.
+  const onBudgetSet = (saved: NonNullable<SetBudgetResult["saved"]>) => {
+    closeAdd();
+    router.refresh();
+    setToast({ id: Date.now(), text: `${saved.name} budget set · ${formatPeso(saved.amount)}` });
+  };
 
   const onSaved = () => {
     router.refresh();
@@ -183,12 +203,42 @@ export function PlanEditor({
           }
           if (!next) closeAdd();
         }}
-        title={addView === "picker" ? "Choose a category" : addView === "new-category" ? "New category" : "Add one-off item"}
-        description={addView === "form" ? "Something that happens once: a gift, event, fee or repair." : undefined}
+        title={
+          addView === "picker"
+            ? "Choose a category"
+            : addView === "new-category"
+              ? "New category"
+              : settingBudget
+                ? "Set a budget"
+                : "Add one-off item"
+        }
+        description={
+          addView !== "form"
+            ? undefined
+            : settingBudget
+              ? "A spending limit for a category, like Food."
+              : "Something that happens once: a gift, event, fee or repair."
+        }
         back={addBack}
-        initialFocus={nameRef}
+        // Set a budget starts with the category tiles (Base UI's default).
+        initialFocus={settingBudget ? undefined : nameRef}
       >
-        {adding && (
+        {settingBudget && (
+          <SetBudgetForm
+            key={addCount}
+            data={addData}
+            view={addView}
+            onViewChange={setAddView}
+            onCategoriesChanged={reloadAddData}
+            budgets={budgets}
+            notAssigned={summary.notAssigned}
+            periodLabel={periodLabel}
+            onSave={(input) => setBudget(periodStart, input)}
+            onSaved={onBudgetSet}
+            onCancel={closeAdd}
+          />
+        )}
+        {adding && !settingBudget && (
           <OneOffForm
             key={addCount}
             cards={cards}

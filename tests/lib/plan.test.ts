@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
+  budgetImpact,
   editImpact,
   generatePlan,
   incomeStatus,
@@ -594,5 +595,21 @@ describe("oneOffImpact (5f)", () => {
 
   it("counts from below ₱0 when the period is already over", () => {
     expect(oneOffImpact(-30_000, 20_000)).toEqual({ before: -30_000, after: -50_000, over: 50_000 });
+  });
+});
+
+describe("budgetImpact (5g-1)", () => {
+  it("takes a new budget from Not assigned yet", () => {
+    expect(budgetImpact(880_000, null, 300_000)).toEqual({ before: 880_000, after: 580_000 });
+  });
+
+  it("only moves by the change when the category already has a budget", () => {
+    // Food ₱2,000 → ₱3,000: ₱1,000 less to assign.
+    expect(budgetImpact(880_000, 200_000, 300_000)).toEqual({ before: 880_000, after: 780_000 });
+    expect(budgetImpact(880_000, 300_000, 200_000)).toEqual({ before: 880_000, after: 980_000 });
+  });
+
+  it("can go below ₱0", () => {
+    expect(budgetImpact(100_000, null, 300_000).after).toBe(-200_000);
   });
 });

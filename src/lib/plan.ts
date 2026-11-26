@@ -491,3 +491,16 @@ export function oneOffImpact(notAssigned: number, amount: number): { before: num
   const after = notAssigned - amount;
   return { before: notAssigned, after, over: Math.max(0, -after) };
 }
+
+// ---------------------------------------------------------------------------
+// Set a budget (plan.md fix #2, 5g-1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Setting a category's budget in a period to `amount`: Not assigned yet
+ * before and after. `current` is the category's budget already in that
+ * period (null if none), so only the change counts.
+ */
+export function budgetImpact(notAssigned: number, current: number | null, amount: number): { before: number; after: number } {
+  return { before: notAssigned, after: notAssigned + (current ?? 0) - amount };
+}

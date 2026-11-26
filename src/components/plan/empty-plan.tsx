@@ -68,15 +68,14 @@ const ROWS = [
   { title: "Bills", sentence: "Electricity, internet, rent. Added once, planned every payday.", action: "Add a bill", href: "/bills?add=1", Icon: Receipt },
   { title: "Debt payments", sentence: "Cards, loans or SPayLater. We schedule each payment.", action: "Add a debt", href: "/debts?add=1", Icon: CreditCard },
   { title: "Savings", sentence: "Pay yourself first. Start with an emergency fund.", action: "Create a pot", href: "/savings?add=1", Icon: PiggyBank },
-  // Set a budget gets its button in 5g.
-  { title: "Spending budgets", sentence: "Limits for food, transport and fun.", action: null, href: null, Icon: ShoppingBasket },
-  // Its address depends on the period: filled in by BuildRows.
+  // These two open sheets on this period: their addresses are filled in by BuildRows.
+  { title: "Spending budgets", sentence: "Limits for food, transport and fun.", action: "Set a budget", href: "budget", Icon: ShoppingBasket },
   { title: "One-off items", sentence: "Gifts, events or fees happening once.", action: "Add one-off", href: "one-off", Icon: Sparkles },
 ];
 
 // OR BUILD IT YOURSELF (plan.md §5): five rows, each with a tile, a sentence
 // and a soft button to where that kind of item is added.
-export function BuildRows({ addOneOff }: { addOneOff: string | null }) {
+export function BuildRows({ addOneOff, setBudget }: { addOneOff: string | null; setBudget: string | null }) {
   return (
     <section aria-labelledby="build-title" className="flex flex-col gap-2">
       <h2 id="build-title" className="text-[13px] font-extrabold tracking-wide text-text-3 uppercase">
@@ -85,8 +84,8 @@ export function BuildRows({ addOneOff }: { addOneOff: string | null }) {
       </h2>
       <ul className="flex flex-col divide-y divide-line-soft rounded-2xl border-[1.5px] border-line bg-surface">
         {ROWS.map(({ title, sentence, action, href: rowHref, Icon }) => {
-          // One-off items opens Add one-off item on this period; not once it has ended.
-          const href = rowHref === "one-off" ? addOneOff : rowHref;
+          // Not once the period has ended (both are then empty).
+          const href = rowHref === "one-off" ? addOneOff : rowHref === "budget" ? setBudget : rowHref;
           return (
           <li key={title} className="flex items-center gap-3 px-4 py-3">
             <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-mint text-green-800">

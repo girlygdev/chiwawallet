@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { parsePesoInput } from "@/lib/money";
 
 // New and Edit category (more-and-categories.md §2). Shared by the form and
-// its Server Actions. "Budget per payday" is left out until the Plan exists
-// (Week 5, owner Nov 24), so saving never touches default_budget.
+// its Server Actions. "Budget per payday" (5g-1) is saved as
+// categories.default_budget; generatePlan() copies it into each period.
 
 export const BUDGET_GROUPS = ["needs", "wants", "savings_debt"] as const;
 
@@ -63,6 +64,19 @@ export const categorySchema = z.object({
   budgetGroup: z.enum(BUDGET_GROUPS, { error: "Pick a group." }),
   icon: z.enum(iconNames, { error: "Pick an icon." }),
   color: z.enum(colorNames, { error: "Pick a colour." }),
+  /** Optional, as typed ("3,000"): empty means no budget (null), else centavos above 0. */
+  budgetPerPayday: z
+    .string()
+    .optional()
+    .transform((text, ctx) => {
+      if (!text?.trim()) return null;
+      const centavos = parsePesoInput(text);
+      if (centavos == null || centavos <= 0) {
+        ctx.addIssue({ code: "custom", message: "Enter an amount above ₱0, or leave it empty." });
+        return z.NEVER;
+      }
+      return centavos;
+    }),
 });
 
 export type CategoryFormInput = z.input<typeof categorySchema>;

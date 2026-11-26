@@ -5,19 +5,15 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import type { AddSheetData } from "@/app/(app)/activity/actions";
 import type { AddOneOffResult } from "@/app/(app)/plan/actions";
-import { createCategory } from "@/app/(app)/settings/categories/actions";
 import { FormError } from "@/components/auth/form-error";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { TextField } from "@/components/auth/text-field";
-import { CategoryForm } from "@/components/categories/category-form";
 import { MoneyInput } from "@/components/money-input";
-import { CategoryGrid } from "@/components/transactions/category-grid";
-import { CategoryPicker } from "@/components/transactions/category-picker";
+import { CategoryGridField, CategoryViews } from "@/components/plan/plan-category";
 import type { ExpenseView } from "@/components/transactions/expense-form";
 import { formatPeso, parsePesoInput } from "@/lib/money";
 import { formatPeriodRange, formatShortDate } from "@/lib/periods";
 import { oneOffImpact, suggestedPeriodStart } from "@/lib/plan";
-import type { BudgetGroup } from "@/lib/transactions";
 import { cn } from "@/lib/utils";
 import { type OneOffItem, type OneOffItemInput, oneOffItemSchema } from "@/lib/validation/plan-item";
 
@@ -25,7 +21,6 @@ import { type OneOffItem, type OneOffItemInput, oneOffItemSchema } from "@/lib/v
 export type PaydayCard = { start: string; end: string; label: "Now" | "Next" | "Ahead" };
 
 const FIELD_ORDER = ["name", "amount", "neededBy", "periodStart", "categoryId"] as const;
-const GROUP_NAMES: Record<BudgetGroup, string> = { needs: "Needs", wants: "Wants", savings_debt: "Savings & debt payoff" };
 
 /**
  * Add one-off item (plan.md §6, task 5f). Which payday pays for it follows
@@ -111,24 +106,11 @@ export function OneOffForm({
   const range = card ? formatPeriodRange(card.start, card.end) : "";
   const before = periodStart ? notAssigned[periodStart] : undefined;
   const impact = centavos != null && centavos > 0 && before != null ? oneOffImpact(before, centavos) : null;
-  const category = data?.categories.find((c) => c.id === categoryId);
-
-  // Back to the form from the picker: focus the chosen tile, or More.
-  const gridRef = useRef<HTMLDivElement>(null);
-  const wasAway = useRef(false);
-  useEffect(() => {
-    if (wasAway.current && view === "form") {
-      const grid = gridRef.current;
-      (grid?.querySelector<HTMLElement>('[aria-pressed="true"]') ?? grid?.querySelector<HTMLElement>("[data-more]"))?.focus();
-    }
-    wasAway.current = view !== "form";
-  }, [view]);
 
   const pick = (id: string) => {
     setValue("categoryId", id, { shouldValidate: errors.categoryId != null });
     onViewChange("form");
   };
-  const [newName, setNewName] = useState("");
 
   const onSubmit = () => {
     setFormError(undefined);
@@ -151,34 +133,14 @@ export function OneOffForm({
 
   return (
     <>
-      {view === "picker" && data && (
-        <CategoryPicker
-          categories={data.categories}
-          recentIds={data.recentIds}
-          targets={data.targets}
-          value={categoryId || undefined}
-          onPick={pick}
-          onNew={(name) => {
-            setNewName(name);
-            onViewChange("new-category");
-          }}
-        />
-      )}
-      {view === "new-category" && data && (
-        <CategoryForm
-          targets={data.targets}
-          defaultName={newName}
-          onSave={createCategory}
-          onSaved={async (id) => {
-            try {
-              await onCategoriesChanged();
-            } catch (error) {
-              console.error("plan: couldn't reload categories", error);
-            }
-            pick(id);
-          }}
-        />
-      )}
+      <CategoryViews
+        view={view}
+        data={data}
+        value={categoryId}
+        onPick={pick}
+        onViewChange={onViewChange}
+        onCategoriesChanged={onCategoriesChanged}
+      />
 
       <form noValidate onSubmit={handleSubmit(onSubmit)} hidden={view !== "form"} className="flex flex-col gap-4">
         <TextField
@@ -252,22 +214,14 @@ export function OneOffForm({
           )}
         </fieldset>
 
-        <div className="flex flex-col gap-1.5">
-          <CategoryGrid
-            categories={data?.categories ?? null}
-            topCount={data?.topCount ?? 5}
-            loading={data == null}
-            value={categoryId || undefined}
-            onChange={(id) => setValue("categoryId", id, { shouldValidate: errors.categoryId != null })}
-            onMore={() => onViewChange("picker")}
-            error={errors.categoryId?.message}
-            ref={gridRef}
-          />
-          {/* Which 50/30/20 group it counts in (plan.md §6). */}
-          <p aria-live="polite" className="text-[13px] text-text-3">
-            {category?.budget_group ? `Counts as ${GROUP_NAMES[category.budget_group as BudgetGroup]}` : ""}
-          </p>
-        </div>
+        <CategoryGridField
+          view={view}
+          data={data}
+          value={categoryId}
+          onChange={(id) => setValue("categoryId", id, { shouldValidate: errors.categoryId != null })}
+          onMore={() => onViewChange("picker")}
+          error={errors.categoryId?.message}
+        />
 
         {/* The effect in pesos before saving: yellow, not red, below ₱0. */}
         <div aria-live="polite">

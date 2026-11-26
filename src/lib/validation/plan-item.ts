@@ -58,3 +58,17 @@ export const editPlanItemSchema = z.object({
 
 export type EditPlanItemInput = z.input<typeof editPlanItemSchema>;
 export type EditPlanItem = z.output<typeof editPlanItemSchema>;
+
+/**
+ * Set a budget (plan.md fix #2, 5g-1): a spending category's budget in the
+ * period being viewed. "every" also saves it as the category's budget per
+ * payday; "period" changes this period only.
+ */
+export const setBudgetSchema = z.object({
+  categoryId: z.uuid("Pick a category."),
+  amount: amountField,
+  scope: z.enum(["every", "period"], { error: "Pick how often." }),
+});
+
+export type SetBudgetInput = z.input<typeof setBudgetSchema>;
+export type SetBudget = z.output<typeof setBudgetSchema>;

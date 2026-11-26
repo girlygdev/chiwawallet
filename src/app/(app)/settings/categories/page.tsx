@@ -32,7 +32,7 @@ export default function CategoriesPage() {
 async function CategoriesContent() {
   const { budget } = await requireAppUser();
   const supabase = await createClient();
-  const { data, error } = await supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color");
+  const { data, error } = await supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color, default_budget");
   if (error) throw new Error(`Couldn't load categories: ${error.message}`, { cause: error });
 
   return (

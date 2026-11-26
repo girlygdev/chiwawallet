@@ -2,9 +2,10 @@ import { ArrowLeft, ChevronRight, Lock, Plus } from "lucide-react";
 import Link from "next/link";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import { CATEGORIES_HREF, categoryListSections, type ListCategory } from "@/lib/categories";
+import { formatPeso } from "@/lib/money";
 import type { BudgetGroup } from "@/lib/transactions";
 
-export type CategoryRow = ListCategory & { icon: string; color: string };
+export type CategoryRow = ListCategory & { icon: string; color: string; default_budget: number | null };
 
 const SECTION_NAMES: Record<BudgetGroup | "income", string> = {
   needs: "Needs",
@@ -27,8 +28,8 @@ const ROW = "flex min-h-14 items-center gap-3 px-3.5 py-3";
 /**
  * The category list (more-and-categories.md §3, not on the canvas): the
  * picker's group sections as rows. The user's own rows open Edit category;
- * system rows are locked and read-only (owner, Nov 24). "Budget per payday"
- * joins the rows with the Plan (Week 5).
+ * system rows are locked and read-only (owner, Nov 24). Rows with a budget
+ * per payday show it (5g-1).
  */
 export function CategoryList({
   categories,
@@ -66,7 +67,12 @@ export function CategoryList({
                     className={`${ROW} outline-link hover:bg-bg focus-visible:outline-2 focus-visible:-outline-offset-2`}
                   >
                     <CategoryIconTile icon={category.icon} color={category.color} size="md" />
-                    <span className="min-w-0 flex-1 truncate font-extrabold text-ink">{category.name}</span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate font-extrabold text-ink">{category.name}</span>
+                      {category.default_budget != null && (
+                        <span className="text-[13px] text-text-3">{formatPeso(category.default_budget)} per payday</span>
+                      )}
+                    </span>
                     <ChevronRight aria-hidden size={20} className="shrink-0 text-text-3" />
                   </Link>
                 )}

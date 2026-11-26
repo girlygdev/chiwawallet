@@ -7,8 +7,10 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { FormError } from "@/components/auth/form-error";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { TextField } from "@/components/auth/text-field";
+import { MoneyInput } from "@/components/money-input";
 import { CategoryIcon, CategoryIconTile } from "@/components/transactions/category-grid";
 import { CATEGORIES_HREF } from "@/lib/categories";
+import { formatPeso, formatPesoInput, parsePesoInput } from "@/lib/money";
 import type { BudgetGroup } from "@/lib/transactions";
 import { cn } from "@/lib/utils";
 import {
@@ -27,7 +29,14 @@ export type CategoryFormResult = {
   fieldErrors?: Partial<Record<string, string>>;
 };
 
-export type EditableCategory = { id: string; name: string; budget_group: string; icon: string; color: string };
+export type EditableCategory = {
+  id: string;
+  name: string;
+  budget_group: string;
+  icon: string;
+  color: string;
+  default_budget: number | null;
+};
 
 const GROUPS: { value: BudgetGroup; label: string; hint: string }[] = [
   { value: "needs", label: "Needs", hint: "Must-pays like food, bills, rent" },
@@ -75,12 +84,12 @@ export function CategoryPageForm(props: Omit<React.ComponentProps<typeof Categor
     />
   );
 }
-const fieldOrder = ["name", "budgetGroup", "icon", "color"] as const;
+const fieldOrder = ["name", "budgetGroup", "icon", "color", "budgetPerPayday"] as const;
 
 /**
  * New or Edit category (more-and-categories.md §2). Used by the category
- * pages now and by the add sheet's picker in 3h-3. "Budget per payday" waits
- * for the Plan (Week 5, owner Nov 24).
+ * pages now and by the add sheet's picker in 3h-3. "Budget per payday"
+ * (5g-1) is optional and starts with the current period's plan.
  */
 export function CategoryForm({
   targets,
@@ -118,21 +127,25 @@ export function CategoryForm({
           budgetGroup: category.budget_group as CategoryFormInput["budgetGroup"],
           icon: category.icon as CategoryFormInput["icon"],
           color: category.color as CategoryFormInput["color"],
+          budgetPerPayday: category.default_budget ? formatPesoInput(category.default_budget) : "",
         }
-      : // The spec's defaults: Needs, the paw, orange.
-        { name: defaultName, budgetGroup: "needs", icon: "paw-print", color: "orange" },
+      : // The spec's defaults: Needs, the paw, orange, no budget.
+        { name: defaultName, budgetGroup: "needs", icon: "paw-print", color: "orange", budgetPerPayday: "" },
   });
 
   const name = useWatch({ control, name: "name" });
   const budgetGroup = useWatch({ control, name: "budgetGroup" });
   const icon = useWatch({ control, name: "icon" });
   const color = useWatch({ control, name: "color" });
+  const budgetText = useWatch({ control, name: "budgetPerPayday" }) ?? "";
+  const budget = parsePesoInput(budgetText);
   const group = GROUPS.find((g) => g.value === budgetGroup);
 
   const onSubmit = (values: CategoryValues) => {
     setFormError(undefined);
     startTransition(async () => {
-      const result = await onSave(values);
+      // The budget as typed: the Server Action parses it again with the same schema.
+      const result = await onSave({ ...values, budgetPerPayday: budgetText });
       if (result.formError) setFormError(result.formError);
       const firstBad = fieldOrder.find((f) => result.fieldErrors?.[f]);
       for (const f of fieldOrder) {
@@ -259,6 +272,20 @@ export function CategoryForm({
             </div>
           </fieldset>
         )}
+      />
+
+      {/* Budget per payday (more-and-categories.md §2): its effect in pesos, every payday. */}
+      <MoneyInput
+        id={`${idPrefix}-budget`}
+        label="Budget per payday (optional)"
+        placeholder="3,000"
+        hint={
+          budget != null && budget > 0
+            ? `${formatPeso(budget)} added to every payday's plan, starting with this one.`
+            : "Added to every payday's plan, starting with this one."
+        }
+        error={errors.budgetPerPayday?.message}
+        {...register("budgetPerPayday")}
       />
 
       <FormError message={formError} />

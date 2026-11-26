@@ -8,7 +8,7 @@ import { incomeLine, PlanSummary } from "@/components/plan/plan-summary";
 import { PlanTable } from "@/components/plan/plan-table";
 import { PlannedSplit } from "@/components/plan/planned-split";
 import type { PaydayCard } from "@/components/plan/one-off-form";
-import { addOneOffHref } from "@/components/plan/plan-groups";
+import { addOneOffHref, setBudgetHref } from "@/components/plan/plan-groups";
 import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
@@ -62,6 +62,10 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
           label: p.start === plan.currentStart ? "Now" : p.start === nextStart ? "Next" : "Ahead",
         }))
     : [];
+  // Set a budget: this period's spending budgets by category, to start from and for the impact line.
+  const budgets = Object.fromEntries(
+    plan.items.filter((i) => i.section === "spending" && i.category_id).map((i) => [i.category_id!, i.planned_amount]),
+  );
 
   // The row under the income (plan.md §3, §5): on the very first period, the
   // carry-in is the starting balance typed in during setup.
@@ -80,7 +84,14 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
 
   return (
     // No items to edit in an ended period, so an old ?edit= link opens nothing.
-    <PlanEditor items={editStart ? plan.items : []} summary={plan.summary} periodStart={plan.period.start_date} cards={cards}>
+    <PlanEditor
+      items={editStart ? plan.items : []}
+      summary={plan.summary}
+      periodStart={plan.period.start_date}
+      cards={cards}
+      budgets={budgets}
+      periodLabel={formatPeriodRange(period.start, period.end)}
+    >
       <PageHeader
         title="Plan"
         mobile="title"
@@ -100,7 +111,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
               action={editStart && <UseStarterPlanButton periodStart={editStart} />}
             />
             <PlanGroups {...groups} moneyInOnly />
-            <BuildRows addOneOff={editStart && addOneOffHref(editStart)} />
+            <BuildRows addOneOff={editStart && addOneOffHref(editStart)} setBudget={editStart && setBudgetHref(editStart)} />
           </div>
         ) : (
           <>

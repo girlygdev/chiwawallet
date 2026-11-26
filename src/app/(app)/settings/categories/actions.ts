@@ -91,7 +91,13 @@ export async function deleteCategory(id: string, moveTo: string | null): Promise
 const MOVE_MESSAGE = "Pick a category to move them to.";
 
 function toRow(values: CategoryValues) {
-  return { name: values.name, budget_group: values.budgetGroup, icon: values.icon, color: values.color };
+  return {
+    name: values.name,
+    budget_group: values.budgetGroup,
+    icon: values.icon,
+    color: values.color,
+    default_budget: values.budgetPerPayday,
+  };
 }
 
 function fail(what: string, error: { code?: string; message: string }, name: string): CategoryResult {

@@ -50,10 +50,18 @@ Specs: `docs/designs/plan.md` (read its "Decided Nov 25" note first), `dashboard
   - Smart default from Needed by: "Suggested: the payday just before Dec 5."
   - Impact box: "Nov 30 – Dec 14 not assigned: ₱23,200 → ₱20,700", yellow when it goes below ₱0.
   - Done when: a one-off added to a future period shows there with the right totals.
-- [ ] **5g. Debt payments and spending budgets.**
-  - Plan a debt payment in any period: an extra amount on any active debt (including "When I can"), origin `one_off` with `debt_id`, counting as Savings & debt payoff.
-  - The **Plan options menu** (moved from 5e): Edit spending budgets, Use starter plan. Period settings isn't designed yet.
-  - **Budget per payday** on New and Edit category (`default_budget`), and the simple **Set a budget** sheet (`plan.md` fix #2): category, amount, and "every payday" (saves `default_budget`) or "this period only" (a plan item).
+- [ ] **5g. Debt payments and spending budgets.** Split in two (owner, Nov 26).
+  - [x] **5g-1. Spending budgets.** Done Nov 26 (checked in a browser on local Supabase).
+    - **Budget per payday** on New and Edit category (`default_budget`), starting with the current period. The category list shows "₱3,000 per payday".
+    - The **Set a budget** sheet (`plan.md` fix #2, `?add=budget`): category, amount, and "Every payday" or "This period only".
+      - "Every payday" saves `default_budget` and sets this period's item.
+      - "This period only" sets just this period's item, marked `edited`.
+      - Both make a `recurring` item, one per category per period.
+    - Migration `20261126100000_plan_items_insert_edited.sql` (insert `edited`): local only. **Live:** after the owner's go.
+  - [ ] **5g-2. Debt payments and the Plan options menu.**
+    - Plan a debt payment in any period: an extra amount on any active debt (including "When I can"), origin `one_off` with `debt_id`, counting as Savings & debt payoff. Capped at what's left on the debt.
+    - The **Plan options menu** (moved from 5e): Set a budget, Use starter plan, Edit spending budgets (Settings › Categories). Period settings isn't designed yet.
+    - Share 5f's payday cards and impact box between Add one-off item and Plan a debt payment.
   - Done when: a debt payment planned two periods ahead and a Food budget both show in their periods.
 - [ ] **5h. Wire-up.**
   - Saving a bill, pot, income source, debt or category budget updates its **unpaid, unedited** items in current and future periods that are already open, and adds it to those periods if new (`bills.md`, `savings.md` "Update future paydays only?").

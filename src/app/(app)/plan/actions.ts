@@ -14,6 +14,8 @@ import {
   editPlanItemSchema,
   type OneOffItemInput,
   oneOffItemSchema,
+  type SetBudgetInput,
+  setBudgetSchema,
 } from "@/lib/validation/plan-item";
 
 // Edit item, Remove from plan (and its Undo), and Use this starter plan
@@ -208,6 +210,76 @@ export async function addOneOffItem(input: OneOffItemInput): Promise<AddOneOffRe
   } catch (error) {
     return fail("find period", error as Error);
   }
+}
+
+export type SetBudgetResult = {
+  ok?: true;
+  saved?: { name: string; amount: number };
+  formError?: string;
+  fieldErrors?: Partial<Record<keyof SetBudgetInput, string>>;
+};
+
+/**
+ * Set a budget (plan.md fix #2, 5g-1) in the period being viewed: the
+ * category's spending budget item there is created or changed, never added
+ * twice (plan_items_budget_key). "Every payday" also saves the category's
+ * budget per payday, which generatePlan() copies into periods as they open;
+ * "This period only" marks the item `edited`, so 5h's sync leaves it alone.
+ */
+export async function setBudget(periodStart: string, input: SetBudgetInput): Promise<SetBudgetResult> {
+  const { budget } = await requireAppUser();
+  if (!z.iso.date().safeParse(periodStart).success) return { formError: SOMETHING_WRONG };
+  const parsed = setBudgetSchema.safeParse(input);
+  if (!parsed.success) return { fieldErrors: toFieldErrors<SetBudgetInput>(parsed.error.issues) };
+  const { categoryId, amount, scope } = parsed.data;
+  const supabase = await createClient();
+
+  const [period, category] = await Promise.all([
+    supabase.from("budget_periods").select("id, end_date").eq("budget_id", budget.id).eq("start_date", periodStart).maybeSingle(),
+    supabase.from("categories").select("name, kind, system_key").eq("id", categoryId).maybeSingle(),
+  ]);
+  if (period.error) return fail("load period", period.error);
+  if (category.error) return fail("load category", category.error);
+  if (!period.data) return { formError: SOMETHING_WRONG };
+  if (period.data.end_date < todayInManila(new Date())) return { formError: ENDED };
+  // Only the user's own spending categories have budgets (not system ones).
+  if (!category.data || category.data.kind !== "expense" || category.data.system_key != null) {
+    return { fieldErrors: { categoryId: "Pick a category." } };
+  }
+
+  if (scope === "every") {
+    const { error } = await supabase.from("categories").update({ default_budget: amount }).eq("id", categoryId);
+    if (error) return fail("save budget per payday", error);
+  }
+
+  // This period's budget item for the category, removed ones included: the
+  // unique key counts them, so a removed one is brought back, not re-added.
+  const { data: existing, error: findError } = await supabase
+    .from("plan_items")
+    .select("id")
+    .eq("period_id", period.data.id)
+    .eq("origin", "recurring")
+    .eq("category_id", categoryId)
+    .is("income_source_id", null)
+    .is("bill_id", null)
+    .is("pot_id", null)
+    .is("debt_id", null)
+    .maybeSingle();
+  if (findError) return fail("load budget item", findError);
+
+  const edited = scope === "period";
+  const { error } = existing
+    ? await supabase.from("plan_items").update({ planned_amount: amount, deleted_at: null, edited }).eq("id", existing.id)
+    : await supabase.from("plan_items").insert({
+        period_id: period.data.id,
+        name: category.data.name,
+        category_id: categoryId,
+        planned_amount: amount,
+        origin: "recurring",
+        edited,
+      });
+  if (error) return fail("set budget", error);
+  return { ok: true, saved: { name: category.data.name, amount } };
 }
 
 /**
