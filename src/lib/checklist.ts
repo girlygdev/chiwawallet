@@ -12,9 +12,19 @@ export type ChecklistState = {
   firstIncome: { name: string; amount: number } | null;
   hasIncome: boolean;
   hasBills: boolean;
+  /** potStarted(): a pot with money in it or a target, not just the starter pots. */
   hasPots: boolean;
   hasExpense: boolean;
 };
+
+/**
+ * Create a savings pot's tick (owner, Nov 26). Every account starts with
+ * two empty pots (Emergency Fund, Sinking Funds, made at sign-up), so having
+ * a pot isn't enough: one needs money in it or a target.
+ */
+export function potStarted(pots: { balance: number; target: number | null }[]): boolean {
+  return pots.some((p) => p.balance > 0 || p.target != null);
+}
 
 /**
  * The Dashboard's Get started card (dashboard.md §4, 7d-1): five steps in

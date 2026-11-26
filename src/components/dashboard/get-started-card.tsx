@@ -102,7 +102,9 @@ const DONE_HREF: Record<ChecklistKey, string> = {
   pot: "/savings",
   expense: "/activity",
 };
-const TODO_HREF: Partial<Record<ChecklistKey, string>> = { budget: "/settings", bills: "/bills?add=1", pot: "/savings?add=1" };
+// Create a savings pot goes to Savings, not the add sheet: the starter pots
+// are already there, waiting for money or a target.
+const TODO_HREF: Partial<Record<ChecklistKey, string>> = { budget: "/settings", bills: "/bills?add=1", pot: "/savings" };
 
 function StepAction({
   stepKey,

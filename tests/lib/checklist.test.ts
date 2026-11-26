@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checklistSteps } from "@/lib/checklist";
+import { checklistSteps, potStarted } from "@/lib/checklist";
 import type { PaySchedule } from "@/lib/periods";
 
 const schedule: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
@@ -38,5 +38,20 @@ describe("checklistSteps: the Get started card (dashboard.md §4)", () => {
 
   it("has no pay detail without an income source", () => {
     expect(checklistSteps({ ...fresh, firstIncome: null }).steps[1].detail).toBeNull();
+  });
+});
+
+describe("potStarted: when Create a savings pot is ticked (owner, Nov 26)", () => {
+  it("isn't for the empty starter pots", () => {
+    expect(potStarted([{ balance: 0, target: null }, { balance: 0, target: null }])).toBe(false);
+    expect(potStarted([])).toBe(false);
+  });
+
+  it("is once a pot has money in it", () => {
+    expect(potStarted([{ balance: 0, target: null }, { balance: 50_000, target: null }])).toBe(true);
+  });
+
+  it("is once a pot has a target", () => {
+    expect(potStarted([{ balance: 0, target: 3_000_000 }])).toBe(true);
   });
 });

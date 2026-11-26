@@ -2,6 +2,13 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 7 · 7d-1 follow-up: when "Create a savings pot" ticks
+- **What:** The step now ticks once any pot has money in it or a target. Every account gets two empty starter pots at sign-up (Emergency Fund, Sinking Funds), so it used to be ticked on day one. The unticked step goes to Savings (to fill those pots in) instead of the add-pot sheet. One fewer query: it uses the pots the Dashboard already loads.
+- **Files:** src/lib/checklist.ts, src/app/(app)/dashboard/page.tsx, src/components/dashboard/get-started-card.tsx, tests/lib/checklist.test.ts, docs/week-7-tasks.md
+- **Decisions:** `potStarted()` (owner, Nov 26: "Ok"). The starter pots themselves are unchanged.
+- **Tests:** 3 new Vitest cases; lint, typecheck and `npm run test` pass (624). Browser on the fresh account: 2 of 5 with only the empty starter pots, 3 of 5 after adding ₱500 to Emergency Fund.
+- **Next:** 7d-2, the period arrows and Next period.
+
 ## 2026-11-26 · Week 7 · 7d-1 Dashboard: first-day state
 - **What:**
   - **Get started:** a sticker card with "3 of 5 done", an 8px bar and an `<ol>` of five link rows (tick or dashed ring). Undone steps go to their task: Add income filled in with the first source, `/bills?add=1`, `/savings?add=1`, Add expense. Done ones go to where the thing lives. Dismiss with an Undo toast.

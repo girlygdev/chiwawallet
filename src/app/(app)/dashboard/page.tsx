@@ -15,7 +15,7 @@ import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import type { ActivityRow } from "@/lib/activity";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
-import { checklistSteps } from "@/lib/checklist";
+import { checklistSteps, potStarted } from "@/lib/checklist";
 import { isChecklistDismissed } from "@/lib/checklist-cookie";
 import { duePay, expectedForPeriod, isActiveOn, receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers, perDay, periodMoneyLine, safeToSpend, spentSplit, stillDueTotal } from "@/lib/money";
@@ -217,7 +217,6 @@ async function DashboardBody() {
       : Promise.all([
           has(supabase.from("transactions").select("id", one).eq("type", "income").is("deleted_at", null)),
           has(supabase.from("recurring_bills").select("id", one).eq("budget_id", budget.id)),
-          has(supabase.from("savings_pots").select("id", one)),
           has(supabase.from("transactions").select("id", one).eq("type", "expense").is("deleted_at", null)),
         ]),
     supabase.from("budget_periods").select("start_date").eq("budget_id", budget.id).order("start_date").limit(1).maybeSingle(),
@@ -231,8 +230,8 @@ async function DashboardBody() {
       firstIncome: payFrom && { name: payFrom.name, amount: payFrom.amount },
       hasIncome: checks[0],
       hasBills: checks[1],
-      hasPots: checks[2],
-      hasExpense: checks[3],
+      hasPots: potStarted(pots),
+      hasExpense: checks[2],
     });
   const getStarted = checklist && !checklist.complete && (
     <GetStartedCard list={checklist} payOptions={payFrom && { incomeSource: payFrom.id, amount: payFrom.amount }} />
