@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
+  assignEffect,
+  assignPreset,
+  assignState,
   billDueInPeriod,
   billRowStatus,
   budgetImpact,
   budgetBar,
   budgetLeft,
   categoryBudgets,
+  debtAssignCap,
   debtItemToPay,
+  fitAssign,
   dueList,
   editImpact,
   generatePlan,
@@ -30,8 +35,10 @@ import {
   planSection,
   planSummary,
   planSync,
+  potAssignCap,
   potsDueLine,
   spendingActuals,
+  stepAssign,
   stillDue,
   upcomingCounts,
   upcomingLine,
@@ -1043,5 +1050,111 @@ describe("itemStatus (6e)", () => {
     expect(itemStatus({ paid_at: null, paidOn: null, dueOn: "2026-11-25" }, today)).toEqual({ kind: "late", days: 1 });
     expect(itemStatus({ paid_at: null, paidOn: null, dueOn: "2026-11-28" }, today)).toEqual({ kind: "due", date: "2026-11-28" });
     expect(itemStatus({ paid_at: null, paidOn: null, dueOn: null }, today)).toEqual({ kind: "planned" });
+  });
+});
+
+describe("Give leftover a job (6f)", () => {
+  describe("caps", () => {
+    it("a pot stops at its target, less what it has and what's planned; no target, no cap", () => {
+      expect(potAssignCap(3_000_000, 1_300_000, 200_000)).toBe(1_500_000);
+      expect(potAssignCap(3_000_000, 3_100_000, 0)).toBe(0);
+      expect(potAssignCap(null, 1_300_000, 0)).toBeNull();
+    });
+
+    it("a debt stops at what's owed, less its unpaid planned payments", () => {
+      expect(debtAssignCap(800_000, 400_000)).toBe(400_000);
+      expect(debtAssignCap(800_000, 900_000)).toBe(0);
+    });
+  });
+
+  describe("stepAssign", () => {
+    it("moves ₱500 a tap, never below ₱0 or past the cap", () => {
+      expect(stepAssign(0, 1, null)).toBe(50_000);
+      expect(stepAssign(50_000, -1, null)).toBe(0);
+      expect(stepAssign(20_000, -1, null)).toBe(0);
+      expect(stepAssign(380_000, 1, 400_000)).toBe(400_000);
+    });
+  });
+
+  it("fitAssign keeps a typed amount between ₱0 and the cap", () => {
+    expect(fitAssign(450_000, 400_000)).toBe(400_000);
+    expect(fitAssign(-100, null)).toBe(0);
+    expect(fitAssign(123_400, null)).toBe(123_400);
+  });
+
+  describe("assignState", () => {
+    it("some left: yellow, and the button keeps the rest", () => {
+      expect(assignState(880_000, 700_000, 0)).toEqual({
+        state: "some",
+        remaining: 180_000,
+        assign: 700_000,
+        keep: 180_000,
+        label: "Assign ₱7,000, keep ₱1,800",
+        disabled: false,
+      });
+    });
+
+    it("all assigned: the whole amount, or with some kept as buffer", () => {
+      expect(assignState(880_000, 880_000, 0)).toMatchObject({ state: "all", label: "Assign ₱8,800", disabled: false });
+      expect(assignState(880_000, 700_000, 180_000)).toMatchObject({ state: "all", label: "Assign ₱7,000, keep ₱1,800" });
+    });
+
+    it("too much: the button says what to remove and is disabled", () => {
+      expect(assignState(880_000, 930_000, 0)).toMatchObject({
+        state: "too_much",
+        remaining: -50_000,
+        label: "Remove ₱500 to continue",
+        disabled: true,
+      });
+    });
+
+    it("nothing to pots or debts yet: nothing to save", () => {
+      expect(assignState(880_000, 0, 0)).toMatchObject({ disabled: true });
+    });
+  });
+
+  describe("assignPreset", () => {
+    const dests = [
+      { key: "pot:emergency", cap: 1_700_000 },
+      { key: "debt:spay", cap: 400_000 },
+    ];
+
+    it("Save it all: everything to the pot (up to its cap), the rest kept", () => {
+      expect(assignPreset("save_all", 880_000, dests, "pot:emergency", "debt:spay")).toEqual({ "pot:emergency": 880_000 });
+      expect(assignPreset("save_all", 2_000_000, dests, "pot:emergency", "debt:spay")).toEqual({
+        "pot:emergency": 1_700_000,
+        buffer: 300_000,
+      });
+    });
+
+    it("Debt first, then save: the debt in full, then the pot", () => {
+      expect(assignPreset("debt_first", 880_000, dests, "pot:emergency", "debt:spay")).toEqual({
+        "debt:spay": 400_000,
+        "pot:emergency": 480_000,
+      });
+    });
+
+    it("Keep it all, and Start over", () => {
+      expect(assignPreset("keep_all", 880_000, dests, "pot:emergency", "debt:spay")).toEqual({ buffer: 880_000 });
+      expect(assignPreset("start_over", 880_000, dests, "pot:emergency", "debt:spay")).toEqual({});
+    });
+
+    it("works without a pot or a debt", () => {
+      expect(assignPreset("save_all", 880_000, [], null, null)).toEqual({ buffer: 880_000 });
+      expect(assignPreset("debt_first", 880_000, [], null, null)).toEqual({ buffer: 880_000 });
+    });
+  });
+
+  describe("assignEffect", () => {
+    it("says what each destination becomes", () => {
+      expect(assignEffect({ kind: "pot", name: "Emergency", balance: 1_300_000, target: 3_000_000 }, 300_000)).toBe(
+        "Emergency → ₱16,000 (53%)",
+      );
+      expect(assignEffect({ kind: "pot", name: "Travel", balance: 200_000, target: null }, 100_000)).toBe("Travel → ₱3,000");
+      expect(assignEffect({ kind: "debt", name: "SPayLater", left: 400_000 }, 400_000)).toBe("Debt-free after this!");
+      expect(assignEffect({ kind: "debt", name: "SPayLater", left: 800_000 }, 400_000)).toBe("₱4,000 left after this");
+      expect(assignEffect({ kind: "buffer", next: "Nov 30 – Dec 14" }, 180_000)).toBe("₱1,800 rolls into next period");
+      expect(assignEffect({ kind: "pot", name: "Emergency", balance: 0, target: null }, 0)).toBe("No change");
+    });
   });
 });

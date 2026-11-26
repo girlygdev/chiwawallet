@@ -86,3 +86,25 @@ export const debtPaymentSchema = z.object({
 
 export type DebtPaymentInput = z.input<typeof debtPaymentSchema>;
 export type DebtPayment = z.output<typeof debtPaymentSchema>;
+
+/**
+ * Give leftover a job (6f): the period, and the amount for each pot and
+ * debt above ₱0 (centavos; the page's steppers work in centavos). The buffer
+ * isn't sent: it saves nothing. The Server Action checks the total and caps.
+ */
+export const assignSchema = z.object({
+  periodStart: z.string().refine(isRealDate, "Pick a period."),
+  allocations: z
+    .array(
+      z.object({
+        kind: z.enum(["pot", "debt"]),
+        id: z.uuid(),
+        amount: z.number().int().positive(),
+      }),
+    )
+    .min(1, "Give some of it a job first.")
+    .max(50)
+    .refine((list) => new Set(list.map((a) => `${a.kind}:${a.id}`)).size === list.length, "Each place once."),
+});
+
+export type AssignInput = z.input<typeof assignSchema>;

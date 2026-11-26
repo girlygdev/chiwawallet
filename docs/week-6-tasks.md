@@ -75,7 +75,14 @@ Specs: `docs/designs/plan.md` (§3 tick rows and spending bars, §4 desktop ACTU
   - **Desktop stat card:** Paid or spent uses actuals.
   - **The category picker's tiles:** "₱2,760 left" (from 5h-2).
   - Done when: an expense in Food moves Food's bar, and paying Meralco updates the BILLS heading.
-- [ ] **6f. Give leftover a job** (`plan.md` §7, `/plan/assign?start=…`).
+- [x] **6f. Give leftover a job** (`plan.md` §7, `/plan/assign?start=…`). Done Nov 26 (checked in a browser on local Supabase).
+  - `potAssignCap()`, `debtAssignCap()`, `stepAssign()`, `fitAssign()`, `assignState()`, `assignPreset()` and `assignEffect()` in `lib/plan.ts`
+  - `loadAssignData()` and `assignTargets()` in `lib/plan-periods.ts`
+  - `assignLeftover` and `undoAssign`
+  - `assign-form.tsx`, `give-job-card.tsx`
+  - Each assign adds new items, not merged (owner, Nov 26).
+  - Caps: target − balance − planned, and owed − unpaid planned.
+  - The page works for the current and future periods.
   - **Opens from:** the summary card's **Assign the ₱8,800** button.
   - **The page:** the Remaining card (some left, all assigned, too much), the presets, and one row per pot and debt plus Keep as buffer.
     - Each row has steppers: ₱500 a tap, or tap the amount for a keypad.

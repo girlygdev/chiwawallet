@@ -846,3 +846,124 @@ export function itemStatus(
   if (item.dueOn < today) return { kind: "late", days: differenceInCalendarDays(parseISO(today), parseISO(item.dueOn)) };
   return { kind: "due", date: item.dueOn };
 }
+
+// ---------------------------------------------------------------------------
+// Give leftover a job (plan.md §7, 6f)
+// ---------------------------------------------------------------------------
+
+const ASSIGN_STEP = 50_000; // ₱500 a tap
+
+/**
+ * The most a pot can take: its target less its balance and what's already
+ * planned for it this period, never below ₱0. No target: no cap (null).
+ */
+export function potAssignCap(target: number | null, balance: number, planned: number): number | null {
+  return target == null ? null : Math.max(0, target - balance - planned);
+}
+
+/** The most a debt can take: what's owed less its unpaid planned payments. */
+export function debtAssignCap(left: number, planned: number): number {
+  return Math.max(0, left - planned);
+}
+
+/** A stepper tap: ₱500 up or down, never below ₱0 or past the cap. */
+export function stepAssign(amount: number, direction: 1 | -1, cap: number | null): number {
+  const next = Math.max(0, amount + direction * ASSIGN_STEP);
+  return cap == null ? next : Math.min(cap, next);
+}
+
+/**
+ * The Remaining card and the button (plan.md §7). \`total\` is Not assigned
+ * yet; \`toDestinations\` what's going to pots and debts; \`buffer\` what's
+ * kept on purpose. Some left (yellow), all assigned (green, the buffer
+ * counts as a job) or too much (disabled). Nothing to pots or debts:
+ * nothing to save.
+ */
+export function assignState(
+  total: number,
+  toDestinations: number,
+  buffer: number,
+): { state: "some" | "all" | "too_much"; remaining: number; assign: number; keep: number; label: string; disabled: boolean } {
+  const remaining = total - toDestinations - buffer;
+  const keep = buffer + Math.max(0, remaining);
+  if (remaining < 0) {
+    return {
+      state: "too_much",
+      remaining,
+      assign: toDestinations,
+      keep,
+      label: `Remove ${formatPeso(-remaining)} to continue`,
+      disabled: true,
+    };
+  }
+  const label = keep > 0 ? `Assign ${formatPeso(toDestinations)}, keep ${formatPeso(keep)}` : `Assign ${formatPeso(toDestinations)}`;
+  return {
+    state: remaining === 0 ? "all" : "some",
+    remaining,
+    assign: toDestinations,
+    keep,
+    label,
+    disabled: toDestinations <= 0,
+  };
+}
+
+export type AssignPreset = "save_all" | "debt_first" | "keep_all" | "start_over";
+
+/**
+ * The presets: Save it all (everything to the pot), Debt first, then save
+ * (the debt in full, then the pot), Keep it all (the buffer), Start over.
+ * Caps hold; whatever doesn't fit is kept as buffer. \`potKey\` and
+ * \`debtKey\` pick the destinations (empty when there's none).
+ */
+export function assignPreset(
+  preset: AssignPreset,
+  total: number,
+  destinations: { key: string; cap: number | null }[],
+  potKey: string | null,
+  debtKey: string | null,
+): Record<string, number> {
+  if (preset === "start_over") return {};
+  const amounts: Record<string, number> = {};
+  let left = total;
+  const give = (key: string | null) => {
+    if (!key || left <= 0) return;
+    const cap = destinations.find((d) => d.key === key)?.cap ?? null;
+    const amount = cap == null ? left : Math.min(cap, left);
+    if (amount > 0) {
+      amounts[key] = amount;
+      left -= amount;
+    }
+  };
+  if (preset === "debt_first") give(debtKey);
+  if (preset !== "keep_all") give(potKey);
+  if (left > 0) amounts.buffer = left;
+  return amounts;
+}
+
+/** A destination row's effect line: "Emergency → ₱16,000 (53%)", "Debt-free after this!", "₱1,800 rolls into next period". */
+export function assignEffect(
+  destination:
+    | { kind: "pot"; name: string; balance: number; target: number | null }
+    | { kind: "debt"; name: string; left: number }
+    | { kind: "buffer"; next: string },
+  amount: number,
+): string {
+  if (amount <= 0) return "No change";
+  switch (destination.kind) {
+    case "pot": {
+      const after = destination.balance + amount;
+      const pct = destination.target ? ` (${Math.round((after / destination.target) * 100)}%)` : "";
+      return `${destination.name} → ${formatPeso(after)}${pct}`;
+    }
+    case "debt":
+      return destination.left - amount <= 0 ? "Debt-free after this!" : `${formatPeso(destination.left - amount)} left after this`;
+    case "buffer":
+      return `${formatPeso(amount)} rolls into next period`;
+  }
+}
+
+/** A typed amount for a destination: never below ₱0 or past its cap (6f). */
+export function fitAssign(amount: number, cap: number | null): number {
+  const atLeastZero = Math.max(0, amount);
+  return cap == null ? atLeastZero : Math.min(cap, atLeastZero);
+}

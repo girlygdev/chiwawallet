@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatPeso } from "@/lib/money";
 import type { PlanSummary as Summary } from "@/lib/plan";
 
@@ -16,6 +17,7 @@ export function PlanSummary({
   income,
   carriedIn,
   empty = false,
+  assignHref = null,
 }: {
   summary: Summary;
   income: number;
@@ -23,6 +25,8 @@ export function PlanSummary({
   carriedIn: number | null;
   /** Nothing planned but income: the plain version (plan.md §5). */
   empty?: boolean;
+  /** Give leftover a job (6f), while there's money left and the period hasn't ended. */
+  assignHref?: string | null;
 }) {
   const { moneyForPeriod, planned, notAssigned } = summary;
 
@@ -88,6 +92,16 @@ export function PlanSummary({
         <p className="rounded-[12px] bg-warn-bg px-3 py-2 text-[13px] font-bold text-warn-fg">
           You&apos;ve planned {formatPeso(-notAssigned)} more than this period has.
         </p>
+      )}
+
+      {/* "Assign the ₱8,800" (plan.md §3): a Soft button to Give leftover a job. */}
+      {assignHref && notAssigned > 0 && (
+        <Link
+          href={assignHref}
+          className="flex min-h-11 items-center justify-center rounded-[12px] bg-mint px-4 text-sm font-extrabold text-green-800 outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          Assign the {formatPeso(notAssigned)}
+        </Link>
       )}
     </section>
   );

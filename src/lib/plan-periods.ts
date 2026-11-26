@@ -6,7 +6,8 @@ import type { Budget } from "@/lib/current-budget";
 import { type DebtTerms, debtLeft, debtPaidFor } from "@/lib/debts";
 import { receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers } from "@/lib/money";
-import { formatShortDate, getPeriod, type Period, type PaySlot, scheduleFromBudget } from "@/lib/periods";
+import { formatPeriodRange, formatShortDate, getPeriod, type Period, type PaySlot, scheduleFromBudget } from "@/lib/periods";
+import { potBalance } from "@/lib/pots";
 import {
   generatePlan,
   incomeStatus,
@@ -20,6 +21,7 @@ import {
   planItemDetail,
   planSection,
   budgetBar,
+  debtAssignCap,
   groupProgress,
   isTickable,
   itemDueOn,
@@ -29,6 +31,7 @@ import {
   planSummary,
   planSync,
   plannablePeriods,
+  potAssignCap,
   resolvePlanStart,
   starterPlan,
 } from "@/lib/plan";
@@ -410,6 +413,89 @@ export async function openCurrentPlan(
     };
   });
   return { period, items };
+}
+
+/** A place Give leftover a job can send money (6f): a pot or an active debt. */
+export type AssignDestination =
+  | { key: string; kind: "pot"; id: string; name: string; balance: number; target: number | null; cap: number | null }
+  | { key: string; kind: "debt"; id: string; name: string; left: number; cap: number };
+
+/**
+ * Give leftover a job's destinations for an opened period (6f): each pot
+ * with its balance and cap (its target, less what it has and what's
+ * planned for it this period), and each active debt with what's owed and
+ * its cap (less its unpaid planned payments in open periods). Plus the
+ * next period's dates, for "Carries over to Nov 30 – Dec 14".
+ */
+export async function loadAssignData(
+  supabase: Client,
+  budget: Budget,
+  plan: OpenedPlan,
+  today: string,
+): Promise<{ destinations: AssignDestination[]; next: string }> {
+  const [pots, savings, periods] = await Promise.all([
+    supabase.from("savings_pots").select("id, name, starting_balance, target_amount").order("created_at"),
+    supabase.from("transactions").select("pot_id, amount, deleted_at").eq("type", "savings").not("pot_id", "is", null).is("deleted_at", null),
+    supabase.from("budget_periods").select("id").eq("budget_id", budget.id).gte("end_date", today),
+  ]);
+  for (const result of [pots, savings, periods]) {
+    if (result.error) fail("load pots and debts", result.error);
+  }
+  const { data: debtItems, error } = await supabase
+    .from("plan_items")
+    .select("debt_id, planned_amount")
+    .in(
+      "period_id",
+      periods.data!.map((p) => p.id),
+    )
+    .not("debt_id", "is", null)
+    .is("deleted_at", null)
+    .is("paid_at", null);
+  if (error) fail("load planned debt payments", error);
+
+  const sum = (rows: { planned_amount: number }[]) => rows.reduce((t, r) => t + r.planned_amount, 0);
+  const destinations: AssignDestination[] = [
+    ...pots.data!.map((p) => {
+      const balance = potBalance(p, savings.data!.filter((r) => r.pot_id === p.id));
+      const planned = sum(plan.items.filter((i) => i.pot_id === p.id && i.paid_at == null));
+      return {
+        key: `pot:${p.id}`,
+        kind: "pot" as const,
+        id: p.id,
+        name: p.name,
+        balance,
+        target: p.target_amount,
+        cap: potAssignCap(p.target_amount, balance, planned),
+      };
+    }),
+    ...plan.debts.map((d) => ({
+      key: `debt:${d.id}`,
+      kind: "debt" as const,
+      id: d.id,
+      name: d.name,
+      left: d.left,
+      cap: debtAssignCap(d.left, sum(debtItems!.filter((i) => i.debt_id === d.id))),
+    })),
+  ];
+  const next = getPeriod(format(addDays(parseISO(plan.period.end_date), 1), "yyyy-MM-dd"), scheduleFromBudget(budget));
+  return { destinations, next: formatPeriodRange(next.start, next.end) };
+}
+
+/**
+ * The pot and debt the presets and shortcuts use (owner, Nov 26): the first
+ * pot with a target that isn't full, else the first pot; the earliest
+ * active debt with room left.
+ */
+export function assignTargets(destinations: AssignDestination[]): {
+  pot: Extract<AssignDestination, { kind: "pot" }> | null;
+  debt: Extract<AssignDestination, { kind: "debt" }> | null;
+} {
+  const pots = destinations.filter((d): d is Extract<AssignDestination, { kind: "pot" }> => d.kind === "pot");
+  const debts = destinations.filter((d): d is Extract<AssignDestination, { kind: "debt" }> => d.kind === "debt");
+  return {
+    pot: pots.find((d) => d.target != null && (d.cap ?? 0) > 0) ?? pots[0] ?? null,
+    debt: debts.find((d) => d.cap > 0) ?? null,
+  };
 }
 
 /**

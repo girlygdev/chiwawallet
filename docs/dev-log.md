@@ -2,6 +2,49 @@
 
 Newest entry first.
 
+## 2026-11-26 · Week 6 · 6f Give leftover a job
+- **What:** `/plan/assign?start=…` shares out Not assigned yet across pots and debts (plan.md §7).
+  - **The Remaining card,** a sticker: some left (yellow), all assigned (Deep Green), or too much (danger), with a stacked bar.
+  - **The presets:** Save it all, Debt first then save, Keep it all, Start over.
+  - **One row per pot and active debt, plus Keep as buffer:**
+    - a ₱500 stepper, or tap the amount to type it
+    - the limits: a pot stops at target − balance − planned; a debt at owed − unpaid planned
+    - the effect line: "Emergency Fund → ₱2,500", "₱8,000 left after this", "₱1,800 rolls into next period"
+  - **The totals box and the button:** "Assign ₱3,000, keep ₱13,200", or a disabled "Remove ₱X to continue".
+  - **Saving** adds one `assigned` item per destination (Savings pot or Extra debt payment). Then back to the Plan with "₱3,000 assigned · Undo".
+  - **Entry points:**
+    - mobile: "Assign the ₱16,200" on the summary card
+    - desktop: the "Give ₱16,200 a job" side card, with Top up a pot, Pay extra on a debt, and Keep as buffer shortcuts that pre-fill a preset
+- **Files:**
+  - New:
+    - `src/app/(app)/plan/assign/page.tsx`
+    - `src/components/plan/assign-form.tsx`, `give-job-card.tsx`
+  - Edited:
+    - `src/lib/plan.ts`: the assign functions
+    - `tests/lib/plan.test.ts`
+    - `src/lib/validation/plan-item.ts`: `assignSchema`
+    - `tests/lib/validation/plan-item.test.ts`
+    - `src/lib/plan-periods.ts`: `loadAssignData()`, `assignTargets()`
+    - `src/app/(app)/plan/actions.ts`: `assignLeftover`, `undoAssign`
+    - `src/components/plan/plan-summary.tsx`, `src/app/(app)/plan/page.tsx`
+    - `docs/week-6-tasks.md`
+- **Decisions (owner, Nov 26, Claude's recommendations):**
+  - The presets' pot is the first pot with a target that isn't full; their debt is the earliest active debt with room.
+  - Each assign adds new items.
+  - The caps are as above.
+  - It works for the current and future periods.
+- **Tests:** written first, 15 new unit tests (561 pass), and 285 database tests pass. Lint, typecheck and the build pass. Checked in a browser with Playwright on local Supabase (Nov 30, ₱16,200 to assign):
+  - Save it all and Start over
+  - Tita Ana +₱1,000 and Emergency Fund typed ₱2,000 gave "Assign ₱3,000, keep ₱13,200"
+  - SPayLater showed "₱0 max" (its Dec 15 payment is already planned)
+  - too much disabled the button
+  - assigning took Not assigned from ₱16,200 to ₱13,200, and the items showed as "Extra to savings" and "Extra payment"
+  - Undo on a ₱500 assign restored it
+  - the desktop Pay extra shortcut pre-filled Debt first
+  - no console errors
+- **AI notes:** Next 16 keeps the previous page mounted but hidden, so the browser script needed visible-only selectors.
+- **Next:** 6g, carry-over math.
+
 ## 2026-11-26 · Week 6 · 6e Planned vs actual on the Plan
 - **What:**
   - **Spending budgets and starter lines:** "₱3,180 / ₱3,300", an 8px bar (green, gold from 90%, red over 100%), and "₱120 left" or "₱380 over".

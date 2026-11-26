@@ -6,6 +6,7 @@ import { type CarryLabel, PlanGroups } from "@/components/plan/plan-groups";
 import { PlanStats } from "@/components/plan/plan-stats";
 import { incomeLine, PlanSummary } from "@/components/plan/plan-summary";
 import { PlanTable } from "@/components/plan/plan-table";
+import { GiveJobCard } from "@/components/plan/give-job-card";
 import { PlannedSplit } from "@/components/plan/planned-split";
 import type { PaydayCard } from "@/components/plan/payday-picker";
 import { addOneOffHref, setBudgetHref } from "@/components/plan/plan-groups";
@@ -16,7 +17,7 @@ import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { describeSchedule, formatPeriodRange, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { isEmptyPlan, missingStarterItems, type PlanOrigin, planCounts, planDone } from "@/lib/plan";
 import type { BudgetGroup } from "@/lib/transactions";
-import { openPlanPeriod } from "@/lib/plan-periods";
+import { assignTargets, loadAssignData, openPlanPeriod } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { PlanEditor, UseStarterPlanButton } from "./plan-item-sheet";
@@ -53,6 +54,9 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
   const empty = isEmptyPlan(plan.items);
   // An ended period's plan is read-only: no edit links, no starter button.
   const editStart = plan.ended ? null : plan.period.start_date;
+  // Give leftover a job (6f): while there's money left and the period hasn't ended.
+  const assignHref = editStart && plan.summary.notAssigned > 0 ? `/plan/assign?start=${editStart}` : null;
+  const shortcuts = assignHref ? assignTargets((await loadAssignData(supabase, budget, plan, todayInManila(new Date()))).destinations) : null;
   // Add one-off item's payday cards: now and up to 3 months ahead, labelled like the picker.
   const nextStart = plan.periods.find((p) => p.start > plan.currentStart)?.start;
   const cards: PaydayCard[] = editStart
@@ -142,7 +146,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
           <>
             {/* Mobile: the summary card and the group sections. */}
             <div className="flex flex-col gap-5 md:hidden">
-              <PlanSummary summary={plan.summary} income={plan.income} carriedIn={plan.carriedIn} />
+              <PlanSummary summary={plan.summary} income={plan.income} carriedIn={plan.carriedIn} assignHref={assignHref} />
               <PlanGroups {...groups} />
             </div>
 
@@ -170,7 +174,12 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
                   canTick={plan.payOn != null}
                   progress={plan.progress}
                 />
-                <PlannedSplit split={plan.summary.split} income={plan.income} />
+                <div className="flex flex-col gap-5">
+                  {assignHref && shortcuts && (
+                    <GiveJobCard notAssigned={plan.summary.notAssigned} assignHref={assignHref} pot={shortcuts.pot} debt={shortcuts.debt} />
+                  )}
+                  <PlannedSplit split={plan.summary.split} income={plan.income} />
+                </div>
               </div>
             </div>
           </>

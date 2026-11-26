@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { debtPaymentSchema, editPlanItemSchema, oneOffItemSchema, setBudgetSchema } from "@/lib/validation/plan-item";
+import { assignSchema, debtPaymentSchema, editPlanItemSchema, oneOffItemSchema, setBudgetSchema } from "@/lib/validation/plan-item";
 
 const CATEGORY = "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b";
 const valid = { name: "Dad's birthday gift", amount: "2,500", neededBy: "2026-12-05", periodStart: "2026-11-30", categoryId: CATEGORY };
@@ -85,5 +85,22 @@ describe("debtPaymentSchema (5g-2)", () => {
     expect(issues({ debtId: "" })).toEqual(["Pick a debt."]);
     expect(issues({ amount: "0" })).toEqual(["Enter an amount above ₱0."]);
     expect(issues({ periodStart: "" })).toEqual(["Pick which payday pays for it."]);
+  });
+});
+
+describe("assignSchema (6f)", () => {
+  const POT = "8f14e45f-ceea-4e7a-8d8a-0e0f5b1a2c3d";
+  const valid = { periodStart: "2026-11-15", allocations: [{ kind: "pot", id: POT, amount: 300_000 }] };
+
+  it("takes positive whole-centavo amounts for pots and debts", () => {
+    expect(assignSchema.safeParse(valid).success).toBe(true);
+    expect(assignSchema.safeParse({ ...valid, allocations: [{ kind: "pot", id: POT, amount: 0 }] }).success).toBe(false);
+    expect(assignSchema.safeParse({ ...valid, allocations: [{ kind: "pot", id: POT, amount: 10.5 }] }).success).toBe(false);
+  });
+
+  it("needs at least one, and each place once", () => {
+    expect(assignSchema.safeParse({ ...valid, allocations: [] }).error?.issues[0].message).toBe("Give some of it a job first.");
+    const twice = [valid.allocations[0], valid.allocations[0]];
+    expect(assignSchema.safeParse({ ...valid, allocations: twice }).error?.issues[0].message).toBe("Each place once.");
   });
 });

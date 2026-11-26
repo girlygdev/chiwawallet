@@ -6,12 +6,14 @@ import { debtLeft, debtPaid } from "@/lib/debts";
 import { formatPeso, parsePesoInput } from "@/lib/money";
 import { scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { missingStarterItems, type PlanOrigin, paidOnDate, planSection, plannablePeriods, starterPlan } from "@/lib/plan";
-import { openPlanPeriod, syncOpenPeriods } from "@/lib/plan-periods";
+import { loadAssignData, openPlanPeriod, syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import type { BudgetGroup } from "@/lib/transactions";
 import { SOMETHING_WRONG, toFieldErrors } from "@/lib/validation/field-errors";
 import {
+  type AssignInput,
+  assignSchema,
   type DebtPaymentInput,
   debtPaymentSchema,
   type EditPlanItemInput,
@@ -440,6 +442,80 @@ export async function unmarkPaid(id: string): Promise<{ ok?: true; transactionId
   if (error) return fail("un-tick plan item", error);
   if (data.length === 0) return { formError: "That's already due again." };
   return { ok: true, transactionId: data[0].id };
+}
+
+/**
+ * Give leftover a job (plan.md §7, 6f): one `assigned` plan item per pot
+ * and debt, in the period. Checked here against live numbers: the period
+ * hasn't ended, the total fits in its Not assigned yet, and each amount fits
+ * its destination's cap (a pot's target, what's owed on a debt). Pots use
+ * the Savings pot category and debts Extra debt payment (Savings & debt
+ * payoff). Returns the new items, for Undo.
+ */
+export async function assignLeftover(input: AssignInput): Promise<{ ok?: true; ids?: string[]; total?: number; formError?: string }> {
+  const { budget } = await requireAppUser();
+  const parsed = assignSchema.safeParse(input);
+  if (!parsed.success) return { formError: parsed.error.issues[0]?.message ?? SOMETHING_WRONG };
+  const { periodStart, allocations } = parsed.data;
+  const supabase = await createClient();
+  const today = todayInManila(new Date());
+
+  const plan = await openPlanPeriod(supabase, budget, periodStart, today);
+  if (plan.period.start_date !== periodStart || plan.ended) return { formError: ENDED };
+  const total = allocations.reduce((sum, a) => sum + a.amount, 0);
+  const free = plan.summary.notAssigned;
+  if (total > free) {
+    return { formError: `Only ${formatPeso(Math.max(0, free))} is left to assign. Refresh to see what changed.` };
+  }
+
+  const { destinations } = await loadAssignData(supabase, budget, plan, today);
+  for (const a of allocations) {
+    const d = destinations.find((x) => x.kind === a.kind && x.id === a.id);
+    if (!d) return { formError: SOMETHING_WRONG };
+    if (d.cap != null && a.amount > d.cap) return { formError: `${d.name} can take ${formatPeso(d.cap)} at most.` };
+  }
+
+  const { data: categories, error: categoryError } = await supabase
+    .from("categories")
+    .select("id, system_key")
+    .in("system_key", ["savings_pot", "extra_debt"]);
+  if (categoryError) return fail("load categories", categoryError);
+  const categoryOf = (key: string) => categories.find((c) => c.system_key === key)?.id;
+  if (!categoryOf("savings_pot") || !categoryOf("extra_debt")) return fail("find system categories", { message: "missing" });
+
+  const { data, error } = await supabase
+    .from("plan_items")
+    .insert(
+      allocations.map((a) => ({
+        period_id: plan.period.id,
+        name: destinations.find((d) => d.kind === a.kind && d.id === a.id)!.name,
+        planned_amount: a.amount,
+        origin: "assigned",
+        category_id: categoryOf(a.kind === "pot" ? "savings_pot" : "extra_debt")!,
+        ...(a.kind === "pot" ? { pot_id: a.id } : { debt_id: a.id }),
+      })),
+    )
+    .select("id");
+  if (error) return fail("assign leftover", error);
+  return { ok: true, ids: data.map((r) => r.id), total };
+}
+
+/** Undo after Give leftover a job: soft-deletes the items it added. */
+export async function undoAssign(ids: string[]): Promise<{ ok?: true; formError?: string }> {
+  await requireAppUser();
+  if (ids.length === 0 || ids.length > 50 || !ids.every((i) => z.uuid().safeParse(i).success)) return { formError: SOMETHING_WRONG };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("plan_items")
+    .update({ deleted_at: new Date().toISOString() })
+    .in("id", ids)
+    .eq("origin", "assigned")
+    .is("deleted_at", null)
+    .is("paid_at", null)
+    .select("id");
+  if (error) return fail("undo assign", error);
+  if (data.length === 0) return { formError: "Those were already removed or paid." };
+  return { ok: true };
 }
 
 /**
