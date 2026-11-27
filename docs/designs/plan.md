@@ -80,6 +80,8 @@ A sideways-scrolling row of period chips, inside `<nav aria-label="Payday period
 
 ## 4. Desktop layout
 
+> **Changed Nov 27 (owner, 7i):** the "Planned split of income" card is now **"Your 50/30/20 budget"**, on phones (under the summary) and desktop. Each group's budget is its percentage of this payday's pay; everything planned in the group counts against it: "Needs · ₱10,500 left · ₱2,000 of ₱12,500 planned", or "₱500 over" in the heads-up colour.
+
 - **Header:** a `text-3` line with the budget's schedule ("Twice a month · 15th & 30th"), the h1 "Plan", and two buttons: **Copy last period's plan** (secondary) and **Add one-off item** (primary).
 - **Period picker** with the longer chip text from section 2.
 - **Four stat cards:**
@@ -98,6 +100,8 @@ A sideways-scrolling row of period chips, inside `<nav aria-label="Payday period
 The Dashboard's 50/30/20 card measures what was **spent**; this one measures what was **planned**. Keep both labels clear.
 
 ## 5. Empty plan and starter plan
+
+> **Changed Nov 27 (owner, 7i):** "Use this starter plan" is gone (button and menu item); its Needs, Wants and Savings & debt lines confused people. The card is now a guide, "Your 50/30/20 budget", with the three groups in pesos and "Add bills, savings and spending budgets. Each one counts toward its group." Nothing is created. Existing starter lines stay until removed.
 
 Shown when the period has no plan items (`PlanEmpty`).
 

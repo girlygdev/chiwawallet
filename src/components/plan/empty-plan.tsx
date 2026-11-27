@@ -11,20 +11,11 @@ const TILE: Record<StarterItem["budget_group"], string> = {
   savings_debt: "bg-cat-blue-bg text-cat-blue-fg",
 };
 
-// The empty plan's starter card (plan.md §5), the area's one sticker: the
-// budget's split of this payday's pay as three tiles, then `action`: the
-// "Use this starter plan" button (5e), left out once the period has ended.
-export function StarterCard({
-  pay,
-  starter,
-  targets,
-  action,
-}: {
-  pay: number;
-  starter: StarterItem[];
-  targets: Targets;
-  action?: React.ReactNode;
-}) {
+// The empty plan's guide card (plan.md §5, reworked in 7i), the area's one
+// sticker: the budget's split of this payday's pay as three group budgets.
+// Nothing is created from it: real bills, pots and budgets count toward them
+// (PlannedSplit). The "Use this starter plan" lines confused people.
+export function BudgetGuideCard({ pay, starter, targets }: { pay: number; starter: StarterItem[]; targets: Targets }) {
   const pct = { needs: targets.needs_pct, wants: targets.wants_pct, savings_debt: targets.savings_debt_pct };
   const split = `${targets.needs_pct}/${targets.wants_pct}/${targets.savings_debt_pct}`;
 
@@ -37,12 +28,12 @@ export function StarterCard({
         <Logo size={48} decorative />
         <div className="flex flex-col gap-0.5">
           <h2 id="starter-title" className="font-display text-xl font-semibold text-ink">
-            Your plan is empty
+            Your {split} budget
           </h2>
           <p className="text-sm text-text-2">
             {pay > 0
-              ? `Start with a ${split} split of your ${formatPeso(pay)} pay, then fine-tune.`
-              : "No pay is expected this period. Add income to get a starter split."}
+              ? `Your ${formatPeso(pay)} pay, split ${split}. Add bills, savings and spending budgets. Each one counts toward its group.`
+              : "No pay is expected this period. Add income to see your budget for each group."}
           </p>
         </div>
       </div>
@@ -59,7 +50,6 @@ export function StarterCard({
         </ul>
       )}
 
-      {starter.length > 0 && action}
     </section>
   );
 }

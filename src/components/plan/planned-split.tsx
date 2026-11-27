@@ -1,57 +1,54 @@
 import { formatPeso } from "@/lib/money";
-import type { PlanSummary } from "@/lib/plan";
+import { groupBudgets, type PlanSummary, type Targets } from "@/lib/plan";
+import { cn } from "@/lib/utils";
 
-const percent = new Intl.NumberFormat("en-PH", { style: "percent", maximumFractionDigits: 0 });
+const SWATCH = { needs: "bg-needs", wants: "bg-wants", savings_debt: "bg-savings-debt" } as const;
 
-// "Planned split of income" (plan.md §4): each group's PLANNED amount as a
-// share of this payday's income, next to the budget's target. The
-// Dashboard's 50/30/20 card measures what was spent; this one what's planned.
-export function PlannedSplit({ split, income }: { split: PlanSummary["split"]; income: number }) {
-  const rows = [
-    { key: "needs", label: "Needs", swatch: "bg-needs", ...split.needs },
-    { key: "wants", label: "Wants", swatch: "bg-wants", ...split.wants },
-    { key: "savings_debt", label: "Savings & debt payoff", swatch: "bg-savings-debt", ...split.savings_debt },
-  ];
-  // The bar can't show more than 100%: scale it down when too much is planned.
-  const total = Math.max(1, rows.reduce((sum, r) => sum + r.share, 0) + split.notAssignedShare);
+// The 50/30/20 split as group budgets (7i, owner Nov 27; was plan.md §4's
+// "Planned split of income" in percentages). Each group's budget is its share
+// of this payday's pay, and everything planned in the group counts against
+// it: rent ₱2,000 leaves ₱10,500 of ₱12,500 for Needs. The Dashboard's
+// 50/30/20 card measures what was spent; this one what's planned.
+export function PlannedSplit({ split, income, targets }: { split: PlanSummary["split"]; income: number; targets: Targets }) {
+  const budgets = groupBudgets(
+    { needs: split.needs.planned, wants: split.wants.planned, savings_debt: split.savings_debt.planned },
+    income,
+    targets,
+  );
+  const name = `${targets.needs_pct}/${targets.wants_pct}/${targets.savings_debt_pct}`;
 
   return (
-    <section aria-labelledby="split-title" className="flex flex-col gap-3 rounded-2xl border-[1.5px] border-line bg-surface p-5">
+    <section aria-labelledby="split-title" className="flex flex-col gap-4 rounded-2xl border-[1.5px] border-line bg-surface p-5">
       <h2 id="split-title" className="font-display text-lg font-semibold text-ink">
-        Planned split of income
+        Your {name} budget
       </h2>
 
-      {/* The rows below say the same in words, so the bar is decorative. */}
-      <div aria-hidden className="flex h-3 overflow-hidden rounded-full bg-track">
-        {rows.map((r) => (
-          <div key={r.key} className={r.swatch} style={{ width: `${(r.share / total) * 100}%` }} />
-        ))}
-      </div>
-
-      <ul className="flex flex-col gap-2 text-sm">
-        {rows.map((r) => (
-          <li key={r.key} className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 font-bold text-text-2">
-              <span aria-hidden className={`size-3 rounded-[3px] ${r.swatch}`} />
-              {r.label}
+      <ul className="flex flex-col gap-3.5 text-sm">
+        {budgets.map((b) => (
+          <li key={b.group} className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="flex items-center gap-2 font-bold text-ink">
+                <span aria-hidden className={cn("size-3 rounded-[3px]", SWATCH[b.group])} />
+                {b.label}
+              </span>
+              {/* Over is a heads-up, not an error: red is only for deleting. */}
+              <span className={cn("font-extrabold", b.left < 0 ? "text-warn-fg" : "text-ink")}>{b.text}</span>
+            </div>
+            {/* The words below say the same, so the bar is decorative. */}
+            <span aria-hidden className="block h-2 overflow-hidden rounded-full bg-track">
+              <span className={cn("block h-full rounded-full", SWATCH[b.group])} style={{ width: `${b.share * 100}%` }} />
             </span>
-            <span className="text-text-3">
-              <span className="font-extrabold text-ink">{percent.format(r.share)}</span> · target {percent.format(r.target)}
+            <span className="text-[13px] text-text-3">
+              {formatPeso(b.planned)} of {formatPeso(b.target)} planned
             </span>
           </li>
         ))}
-        <li className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-2 font-bold text-text-2">
-            <span aria-hidden className="size-3 rounded-[3px] bg-track" />
-            Not assigned
-          </span>
-          <span className="font-extrabold text-ink">{percent.format(split.notAssignedShare)}</span>
-        </li>
       </ul>
 
       <p className="text-[13px] text-text-3">
-        Of this payday&apos;s {formatPeso(income)} income. Planned debt payments count as needs; anything extra counts as
-        savings &amp; debt payoff.
+        {income > 0 ? `Your ${formatPeso(income)} pay this payday, split ${name}.` : "No pay is expected this payday."} Bills,
+        savings, spending budgets and one-offs count toward their group. Planned debt payments count as needs; anything extra
+        counts as savings &amp; debt payoff.
       </p>
     </section>
   );

@@ -2,6 +2,20 @@
 
 Newest entry first.
 
+## 2026-11-27 · Week 7 · 7i The 50/30/20 split as group budgets
+- **What:**
+  - **Starter plan removed:** no "Use this starter plan" button or menu item. Its Needs, Wants and Savings & debt lines confused people.
+  - **Empty plan:** the sticker card is now a guide, "Your 50/30/20 budget": the three groups in pesos, and "Add bills, savings and spending budgets. Each one counts toward its group." Nothing is created.
+  - **Group budgets on the Plan** (phones, new, under the summary; desktop, replacing the percentages): "Needs · ₱10,500 left · ₱2,000 of ₱12,500 planned", a bar per group, "₱500 over" in the heads-up colour.
+- **Files:** src/lib/plan.ts, tests/lib/plan.test.ts, src/components/plan/planned-split.tsx, src/components/plan/empty-plan.tsx, src/components/plan/plan-options-menu.tsx, src/app/(app)/plan/page.tsx, src/app/(app)/plan/actions.ts, src/app/(app)/plan/plan-item-sheet.tsx, docs/designs/plan.md, docs/mvp-brief.md, docs/week-7-tasks.md
+- **Decisions (owner, Nov 27):**
+  - The split is a budget per group, and real items count against it by their category's group.
+  - Existing starter lines stay; people can remove them. No migration: the `starter` origin and its database rules stay.
+  - Budgets use `starterPlan()`'s rounding of this payday's pay (not the carry-in), so they add up to the pay. No Not assigned row on the card, since the summary's Not assigned includes carry-in.
+- **Tests:** written first, 5 new Vitest cases; `missingStarterItems()` and its 3 tests removed (no callers left); 652 pass; lint and typecheck pass. Browser: the main account's card reads "Needs ₱5,349 over · ₱17,849 of ₱12,500 planned" (its old ₱12,500 Needs starter line still counts), Wants ₱0 left, Savings & debt ₱2,000 over, adding up to the Plan's ₱32,349; the menu has no Use starter plan; an empty plan shows the guide card and no button; no console errors.
+- **AI notes:** restarted the dev server first, since it had served stale `lib/` code twice today.
+- **Next:** 7g-2 when you're ready to enter your real plan.
+
 ## 2026-11-27 · Week 7 · 7g-1 Paydays overview
 - **What:** a read-only page, `/plan/paydays` ("Paydays overview" in the Plan options menu), with every payday from your first period to 6 months ahead (today: 15 paydays, Oct 15, 2026 – May 29, 2027).
   - **Columns:** Money in, Bills, Debts, Savings, Spending, One-offs, Planned, Not assigned, and a Total row.

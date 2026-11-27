@@ -1,10 +1,8 @@
 "use client";
 
-import { LoaderCircle } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { type AddSheetData, getAddSheetData } from "@/app/(app)/activity/actions";
-import { FormError } from "@/components/auth/form-error";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { DebtPaymentForm } from "@/components/plan/debt-payment-form";
 import { OneOffForm } from "@/components/plan/one-off-form";
@@ -21,7 +19,6 @@ import {
   addDebtPayment,
   type AddOneOffResult,
   addOneOffItem,
-  addStarterPlan,
   getPeriodNotAssigned,
   removePlanItem,
   restorePlanItem,
@@ -43,7 +40,7 @@ export type SheetItem = EditableItem & {
 
 type Summary = Pick<PlanSummary, "moneyForPeriod" | "notAssigned">;
 
-/** The app's one toast (6b-2), for the starter button, the Plan options menu and the tick buttons. */
+/** The app's one toast (6b-2), for the Plan and the tick buttons. */
 export const useShowToast = useAppToast;
 
 // Edit item and Remove from plan (plan.md §3, task 5e), following the page
@@ -381,39 +378,3 @@ function removeNote(item: SheetItem): string {
   return `It won't be added back to this period. ${stays}`;
 }
 
-// "Use this starter plan" (plan.md §5): adds the three starter items, then
-// the page refreshes into the full plan and the toast says so.
-export function UseStarterPlanButton({ periodStart }: { periodStart: string }) {
-  const router = useRouter();
-  const showToast = useAppToast();
-  const [error, setError] = useState<string>();
-  const [pending, startTransition] = useTransition();
-
-  const start = () => {
-    setError(undefined);
-    startTransition(async () => {
-      const result = await addStarterPlan(periodStart);
-      if (result.formError) return setError(result.formError);
-      router.refresh();
-      showToast({ id: Date.now(), text: "Starter plan added" });
-    });
-  };
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <button
-        type="button"
-        onClick={start}
-        disabled={pending}
-        aria-busy={pending || undefined}
-        // Primary, not Hero: the card around it is already the area's one sticker.
-        className="flex h-[52px] items-center justify-center gap-2 rounded-md bg-green-600 px-5 text-base font-extrabold text-white outline-link hover:bg-green-600/90 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-70"
-      >
-        {pending && <LoaderCircle aria-hidden className="size-5 animate-spin" />}
-        {pending ? "Adding…" : "Use this starter plan"}
-      </button>
-      <p className="text-center text-[13px] text-text-3">Creates three budget lines you can split into categories later.</p>
-      <FormError message={error} />
-    </div>
-  );
-}

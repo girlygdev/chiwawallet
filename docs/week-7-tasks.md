@@ -65,6 +65,11 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
   - [ ] **7g-2. Compare with your Sheet.**
     - You enter your real income, bills, pots, debts and budgets, then compare the overview with your Sheet, payday by payday.
     - Claude looks into any mismatch and fixes the code if the app is wrong.
+- [x] **7i. The 50/30/20 split as group budgets (owner, Nov 27).** Done Nov 27 (checked in a browser on local Supabase, 390 and 1280px). `groupBudgets()` in `lib/plan.ts`; `planned-split.tsx` reworked; `BudgetGuideCard` in `empty-plan.tsx`; `addStarterPlan` and `missingStarterItems()` removed. The card shows no Not assigned row: it's about the pay, and the summary's Not assigned includes carry-in. The starter plan's Needs, Wants and Savings & debt lines confuse people; the split should be a budget per group that real items count against ("rent ₱2,000 comes off the ₱12,500 for Needs").
+  - **Remove** "Use this starter plan" (the empty-plan button, the Plan options menu item and `addStarterPlan`). Existing starter lines stay; people can remove them (owner: leave them). No migration: the `starter` origin stays.
+  - **The empty-plan card becomes a guide:** "Your 50/30/20 budget", the three groups in pesos from the budget's own split, then "Add bills, savings and spending budgets. Each one counts toward its group." The build rows stay.
+  - **Group budgets on the Plan, phones and desktop:** "Needs · ₱2,000 of ₱12,500 planned · ₱10,500 left" (or "₱500 over", heads-up colour), a bar per group, and Not assigned. Replaces the percentages in the desktop Planned split card; new on phones. `groupBudgets()` in `lib/plan.ts`, tests first. Targets are the percentages of this payday's income, without carry-in.
+  - **Docs:** plan.md §4–5, and a note in mvp-brief.md that the Week 5 one-tap starter plan was replaced.
 - [ ] **7h. Live check.** Push, then go through the Dashboard on your phone and desktop.
 
 ## Open questions (answered Nov 26, see Decisions)

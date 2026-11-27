@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { dashboardNumbers } from "@/lib/money";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
+  groupBudgets,
   groupProgressLine,
   overviewPeriods,
   overviewTotal,
@@ -32,7 +33,6 @@ import {
   leftoverChoices,
   itemDueOn,
   itemStatus,
-  missingStarterItems,
   newPeriodMoney,
   oneOffImpact,
   paydayPreview,
@@ -591,25 +591,6 @@ describe("removeImpact (5e)", () => {
   it("takes expected pay out of Money for this period", () => {
     const pay = { section: "income" as const, received: false, planned_amount: 2_500_000 };
     expect(removeImpact(summary, pay)).toEqual({ label: "Money for this period", before: 3_000_000, after: 500_000 });
-  });
-});
-
-describe("missingStarterItems (5e)", () => {
-  const starter = starterPlan(2_500_000, { needs_pct: 50, wants_pct: 30, savings_debt_pct: 20 });
-
-  it("adds all three to a plan without starter items", () => {
-    const items = [{ origin: "recurring" as const, budget_group: null }];
-    expect(missingStarterItems(starter, items).map((s) => s.budget_group)).toEqual(["needs", "wants", "savings_debt"]);
-  });
-
-  it("skips groups that already have a starter item (a double tap or a second tab)", () => {
-    const items = [{ origin: "starter" as const, budget_group: "wants" as const }];
-    expect(missingStarterItems(starter, items).map((s) => s.budget_group)).toEqual(["needs", "savings_debt"]);
-  });
-
-  it("ignores a one-off or budget in the same group", () => {
-    const items = [{ origin: "one_off" as const, budget_group: "needs" as const }];
-    expect(missingStarterItems(starter, items)).toHaveLength(3);
   });
 });
 
@@ -1552,5 +1533,40 @@ describe("overviewTotal (7g-1)", () => {
     const a = { moneyIn: 100, bills: 10, debts: 20, savings: 30, spending: 5, oneOff: 0, planned: 65, notAssigned: 35 };
     const b = { moneyIn: 50, bills: 0, debts: 20, savings: 30, spending: 5, oneOff: 40, planned: 95, notAssigned: -45 };
     expect(overviewTotal([a, b])).toEqual({ moneyIn: 150, bills: 10, debts: 40, savings: 60, spending: 10, oneOff: 40, planned: 160, notAssigned: -10 });
+  });
+});
+
+describe("groupBudgets (7i)", () => {
+  const targets = { needs_pct: 50, wants_pct: 30, savings_debt_pct: 20 };
+  const planned = { needs: 200_000, wants: 0, savings_debt: 500_000 };
+
+  it("gives each group its share of the pay, what's planned against it and what's left", () => {
+    // ₱25,000 pay: rent ₱2,000 comes off the ₱12,500 for Needs.
+    expect(groupBudgets(planned, 2_500_000, targets)).toEqual([
+      { group: "needs", label: "Needs", target: 1_250_000, planned: 200_000, left: 1_050_000, share: 0.16, text: "₱10,500 left" },
+      { group: "wants", label: "Wants", target: 750_000, planned: 0, left: 750_000, share: 0, text: "₱7,500 left" },
+      { group: "savings_debt", label: "Savings & debt payoff", target: 500_000, planned: 500_000, left: 0, share: 1, text: "₱0 left" },
+    ]);
+  });
+
+  it("says how much over when a group is planned past its budget", () => {
+    const [needs] = groupBudgets({ needs: 1_300_000, wants: 0, savings_debt: 0 }, 2_500_000, targets);
+    expect(needs).toMatchObject({ left: -50_000, share: 1, text: "₱500 over" });
+  });
+
+  it("uses the starter rounding, so the three budgets add up to the pay", () => {
+    const budgets = groupBudgets({ needs: 0, wants: 0, savings_debt: 0 }, 2_512_345, targets);
+    expect(budgets.map((b) => b.target)).toEqual([1_256_100, 753_700, 502_545]);
+  });
+
+  it("follows the budget's own split", () => {
+    const budgets = groupBudgets({ needs: 0, wants: 0, savings_debt: 0 }, 1_000_000, { needs_pct: 70, wants_pct: 20, savings_debt_pct: 10 });
+    expect(budgets.map((b) => b.target)).toEqual([700_000, 200_000, 100_000]);
+  });
+
+  it("has ₱0 budgets when no pay is expected, so anything planned is over", () => {
+    const [needs, wants] = groupBudgets({ needs: 100_000, wants: 0, savings_debt: 0 }, 0, targets);
+    expect(needs).toMatchObject({ target: 0, left: -100_000, share: 1, text: "₱1,000 over" });
+    expect(wants).toMatchObject({ target: 0, left: 0, share: 0, text: "₱0 left" });
   });
 });

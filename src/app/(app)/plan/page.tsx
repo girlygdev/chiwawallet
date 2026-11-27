@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { BuildRows, NothingPlanned, StarterCard } from "@/components/plan/empty-plan";
+import { BudgetGuideCard, BuildRows, NothingPlanned } from "@/components/plan/empty-plan";
 import { PeriodPicker } from "@/components/plan/period-picker";
 import { type CarryLabel, PlanGroups } from "@/components/plan/plan-groups";
 import { PlanStats } from "@/components/plan/plan-stats";
@@ -16,12 +16,11 @@ import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { describeSchedule, formatPeriodRange, scheduleFromBudget, todayInManila } from "@/lib/periods";
-import { isEmptyPlan, missingStarterItems, type PlanOrigin, planCounts, planDone } from "@/lib/plan";
-import type { BudgetGroup } from "@/lib/transactions";
+import { isEmptyPlan, planCounts, planDone } from "@/lib/plan";
 import { assignTargets, closeEndedPeriodsOnVisit, loadAssignData, openPlanPeriod } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
-import { PlanEditor, UseStarterPlanButton } from "./plan-item-sheet";
+import { PlanEditor } from "./plan-item-sheet";
 
 export const metadata: Metadata = { title: "Plan · Chiwawallet" };
 
@@ -97,15 +96,8 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
     // Planned vs actual per group (6e).
     progress: plan.progress,
   };
-  // The Plan options menu, while the period can change. Use starter plan
-  // only while a starter group is missing and pay is expected.
-  const starterMissing = missingStarterItems(
-    plan.starter,
-    plan.items.map((i) => ({ origin: i.origin as PlanOrigin, budget_group: i.budget_group as BudgetGroup | null })),
-  );
-  const menu = editStart && (
-    <PlanOptionsMenu periodStart={editStart} hasDebts={plan.debts.length > 0} canUseStarter={starterMissing.length > 0} />
-  );
+  // The Plan options menu, while the period can change.
+  const menu = editStart && <PlanOptionsMenu periodStart={editStart} hasDebts={plan.debts.length > 0} />;
 
   return (
     // No items to edit in an ended period, so an old ?edit= link opens nothing.
@@ -152,12 +144,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
         ) : empty ? (
           <div className="flex flex-col gap-5 md:max-w-2xl">
             <PlanSummary summary={plan.summary} income={plan.income} carriedIn={plan.carriedIn} empty />
-            <StarterCard
-              pay={plan.pay}
-              starter={plan.starter}
-              targets={budget}
-              action={editStart && <UseStarterPlanButton periodStart={editStart} />}
-            />
+            <BudgetGuideCard pay={plan.pay} starter={plan.starter} targets={budget} />
             <PlanGroups {...groups} moneyInOnly />
             <BuildRows addOneOff={editStart && addOneOffHref(editStart)} setBudget={editStart && setBudgetHref(editStart)} />
           </div>
@@ -166,6 +153,8 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
             {/* Mobile: the summary card and the group sections. */}
             <div className="flex flex-col gap-5 md:hidden">
               <PlanSummary summary={plan.summary} income={plan.income} carriedIn={plan.carriedIn} assignHref={assignHref} />
+              {/* The group budgets, new on phones in 7i. */}
+              <PlannedSplit split={plan.summary.split} income={plan.income} targets={budget} />
               <PlanGroups {...groups} />
             </div>
 
@@ -197,7 +186,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
                   {assignHref && shortcuts && (
                     <GiveJobCard notAssigned={plan.summary.notAssigned} assignHref={assignHref} pot={shortcuts.pot} debt={shortcuts.debt} />
                   )}
-                  <PlannedSplit split={plan.summary.split} income={plan.income} />
+                  <PlannedSplit split={plan.summary.split} income={plan.income} targets={budget} />
                 </div>
               </div>
             </div>

@@ -220,6 +220,46 @@ export function starterPlan(income: number, targets: Targets): StarterItem[] {
   return items.filter((i) => i.planned_amount > 0);
 }
 
+export type GroupBudget = {
+  group: BudgetGroup;
+  label: string;
+  /** The group's share of this payday's pay (starterPlan()'s rounding). */
+  target: number;
+  /** Everything planned in the group: bills, debts, pots, budgets, one-offs. */
+  planned: number;
+  /** target − planned; below 0 when over. */
+  left: number;
+  /** How full the group's bar is, 0–1. */
+  share: number;
+  /** "₱10,500 left" or "₱500 over". */
+  text: string;
+};
+
+const GROUP_LABELS: Record<BudgetGroup, string> = { needs: "Needs", wants: "Wants", savings_debt: "Savings & debt payoff" };
+
+/**
+ * The 50/30/20 split as a budget per group (7i, owner Nov 27): each group
+ * gets its percentage of this payday's pay (not the carry-in), and every
+ * item planned in that group counts against it, so rent ₱2,000 leaves
+ * ₱10,500 of the ₱12,500 for Needs. Replaces the starter plan's lines.
+ */
+export function groupBudgets(planned: Record<BudgetGroup, number>, income: number, targets: Targets): GroupBudget[] {
+  const amounts = new Map(starterPlan(income, targets).map((i) => [i.budget_group, i.planned_amount]));
+  return (["needs", "wants", "savings_debt"] as const).map((group) => {
+    const target = amounts.get(group) ?? 0;
+    const left = target - planned[group];
+    return {
+      group,
+      label: GROUP_LABELS[group],
+      target,
+      planned: planned[group],
+      left,
+      share: target > 0 ? Math.min(1, planned[group] / target) : planned[group] > 0 ? 1 : 0,
+      text: left >= 0 ? `${formatPeso(left)} left` : `${formatPeso(-left)} over`,
+    };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // The Plan screen's numbers (plan.md §1, §4)
 // ---------------------------------------------------------------------------
@@ -466,19 +506,6 @@ export function editImpact(
 /** What removing an item from the plan does: the same as editing it to ₱0. */
 export function removeImpact(summary: Pick<PlanSummary, "moneyForPeriod" | "notAssigned">, item: ImpactItem): ImpactLine | null {
   return editImpact(summary, item, 0);
-}
-
-/**
- * The starter items still to add: the groups with no live starter item yet.
- * Makes "Use this starter plan" safe to tap twice or from two tabs (the
- * database's plan_items_starter_key is the last line of defence).
- */
-export function missingStarterItems(
-  starter: StarterItem[],
-  items: { origin: PlanOrigin; budget_group: BudgetGroup | null }[],
-): StarterItem[] {
-  const have = new Set(items.filter((i) => i.origin === "starter").map((i) => i.budget_group));
-  return starter.filter((s) => !have.has(s.budget_group));
 }
 
 // ---------------------------------------------------------------------------

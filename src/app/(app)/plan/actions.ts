@@ -5,19 +5,10 @@ import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { debtLeft, debtPaid } from "@/lib/debts";
 import { formatPeso, parsePesoInput } from "@/lib/money";
 import { scheduleFromBudget, todayInManila } from "@/lib/periods";
-import {
-  coverFromPot,
-  missingStarterItems,
-  type PlanOrigin,
-  paidOnDate,
-  planSection,
-  plannablePeriods,
-  starterPlan,
-} from "@/lib/plan";
+import { coverFromPot, paidOnDate, plannablePeriods } from "@/lib/plan";
 import { closePeriod, loadAssignData, loadPaydayData, openPlanPeriod, syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
-import type { BudgetGroup } from "@/lib/transactions";
 import { SOMETHING_WRONG, toFieldErrors } from "@/lib/validation/field-errors";
 import {
   type AssignInput,
@@ -122,53 +113,6 @@ export async function restorePlanItem(id: string, edited: boolean): Promise<Resu
   if (error?.code === "23505") return { formError: "It's already in this plan." };
   if (error) return fail("restore plan item", error);
   if (data.length === 0) return { formError: "That item is already back." };
-  return { ok: true };
-}
-
-/**
- * Use this starter plan: the budget's split of this payday's expected pay,
- * as three `starter` items. Adds only the groups not there yet, so a double
- * tap or a second tab adds nothing more. The pay is worked out here from the
- * period's income items, never taken from the browser.
- */
-export async function addStarterPlan(periodStart: string): Promise<Result> {
-  const { budget } = await requireAppUser();
-  if (!z.iso.date().safeParse(periodStart).success) return { formError: SOMETHING_WRONG };
-  const supabase = await createClient();
-
-  const { data: period, error: periodError } = await supabase
-    .from("budget_periods")
-    .select("id, end_date")
-    .eq("budget_id", budget.id)
-    .eq("start_date", periodStart)
-    .maybeSingle();
-  if (periodError) return fail("load period", periodError);
-  if (!period) return { formError: SOMETHING_WRONG };
-  if (period.end_date < todayInManila(new Date())) return { formError: ENDED };
-
-  const { data: items, error } = await supabase
-    .from("plan_items")
-    .select("origin, planned_amount, budget_group, income_source_id, bill_id, pot_id, debt_id, category:categories(budget_group)")
-    .eq("period_id", period.id)
-    .is("deleted_at", null);
-  if (error) return fail("load the plan", error);
-
-  // The same rule the Plan uses for MONEY IN (planSection()); the generated
-  // types say `string` for origin and budget_group, which check constraints narrow.
-  const shaped = items.map((i) => {
-    const category = i.category as unknown as { budget_group: string | null } | null;
-    const group = (category ? category.budget_group : i.budget_group) as BudgetGroup | null;
-    return { ...i, origin: i.origin as PlanOrigin, budget_group: i.budget_group as BudgetGroup | null, group };
-  });
-  const pay = shaped.filter((i) => planSection(i) === "income").reduce((sum, i) => sum + i.planned_amount, 0);
-  const missing = missingStarterItems(starterPlan(pay, budget), shaped);
-  if (missing.length === 0) return { ok: true };
-
-  const { error: insertError } = await supabase
-    .from("plan_items")
-    .insert(missing.map((s) => ({ period_id: period.id, ...s })));
-  // 23505: another tab added it first, which is what was asked for.
-  if (insertError && insertError.code !== "23505") return fail("add the starter plan", insertError);
   return { ok: true };
 }
 
