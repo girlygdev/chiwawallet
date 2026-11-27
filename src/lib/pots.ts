@@ -119,6 +119,34 @@ export function monthlySavingPlan(pots: Planned[], schedule: PaySchedule): numbe
   return Math.round(perYear / 12);
 }
 
+/** "₱3k", "₱1.5k"; under ₱1,000 the whole amount ("₱500"). */
+const thousands = new Intl.NumberFormat("en-PH", { maximumFractionDigits: 1 });
+function shortPeso(centavos: number): string {
+  const pesos = centavos / 100;
+  return pesos >= 1000 ? `₱${thousands.format(pesos / 1000)}k` : formatPeso(centavos);
+}
+
+/** The Monthly saving plan stat names this many pots, then counts the rest. */
+const PLAN_PARTS = 4;
+
+/**
+ * The Monthly saving plan stat's line (savings.md §3): each saving pot's
+ * monthly amount, "₱3k + ₱4k + ₱5k", the parts monthlySavingPlan() adds up.
+ */
+export function savingPlanParts(pots: Planned[], schedule: PaySchedule): string {
+  const parts = pots
+    .filter((p) => p.planned_contribution > 0)
+    .map((p) => shortPeso(Math.round((p.planned_contribution * paydaysPerYear(p, schedule)) / 12)));
+  if (parts.length === 0) return "No savings plans yet";
+  const rest = parts.length - PLAN_PARTS;
+  return rest > 0 ? `${parts.slice(0, PLAN_PARTS).join(" + ")} + ${rest} more` : parts.join(" + ");
+}
+
+/** Added this period's line (savings.md §3): this period's unpaid planned deposits. */
+export function morePlannedLine(unpaidPlanned: number): string {
+  return unpaidPlanned > 0 ? `${formatPeso(unpaidPlanned)} more planned` : "Nothing else planned";
+}
+
 const SHORT_WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** "₱3,000 every 15th", "₱2,000 each payday", "₱500 every Fri", or "No savings plan yet". */

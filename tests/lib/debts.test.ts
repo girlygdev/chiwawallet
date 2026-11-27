@@ -303,15 +303,26 @@ describe("debtProgress with extra payments", () => {
     ]);
   });
 
-  it("a payment cleared by extra payments counts as paid, and the debt-free date moves earlier", () => {
+  it("a payment cleared by extra payments is Cleared early, counts as made, and the debt-free date moves earlier", () => {
     const progress = debtProgress(spayLater, 400_000, "2026-11-20", period, 400_000);
-    expect(progress.payments.map((p) => [p.status, p.amount])).toEqual([
-      ["due", 400_000],
-      ["planned", 400_000],
-      ["paid", 0],
+    expect(progress.payments.map((p) => [p.status, p.amount, p.original, p.cleared])).toEqual([
+      ["due", 400_000, 400_000, 0],
+      ["planned", 400_000, 400_000, 0],
+      ["cleared", 0, 400_000, 400_000],
     ]);
+    expect(progress.paymentsMade).toBe(1);
     expect(progress.debtFreeBy).toBe("2026-12-25");
     expect(progress.left).toBe(800_000);
+  });
+
+  it("a payment partly lowered by extras keeps its status and says how much was cleared", () => {
+    const [, , last] = debtProgress(spayLater, 150_000, "2026-11-20", period, 150_000).payments;
+    expect([last.status, last.amount, last.original, last.cleared]).toEqual(["planned", 250_000, 400_000, 150_000]);
+  });
+
+  it("a cleared payment isn't due, so Due this period leaves it out", () => {
+    const { payments } = debtProgress(spayLater, 400_000, "2026-12-26", { start: "2026-12-15", end: "2026-12-29" }, 400_000);
+    expect(payments.filter((p) => p.status === "due")).toEqual([]);
   });
 
   it("scheduled payments still fill from the oldest", () => {
@@ -330,5 +341,11 @@ describe("debtLeftAfter: '₱4,000 left after this' on a due debt row", () => {
 
   it("never goes below ₱0", () => {
     expect(debtLeftAfter(100_000, 200_000)).toBe(0);
+  });
+});
+
+describe("paymentStatusText: a cleared payment", () => {
+  it("reads Cleared early", () => {
+    expect(paymentStatusText({ status: "cleared", due: "2027-01-25" }, "2026-11-20")).toBe("Cleared early");
   });
 });

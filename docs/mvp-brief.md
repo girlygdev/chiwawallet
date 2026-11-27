@@ -298,8 +298,8 @@ Each task fits in one session and ends with something you can check. Deploy from
 
 **Done when:** you rebuild your Oct 2026 – Apr 2027 paycheck plan in the app and every payday's totals match your Sheet.
 
-- [ ] Pot balances (starting balance + contributions − withdrawals) and progress bars
-- [ ] Debt remaining, planned vs paid, and status (on time or late after the due date)
+- [x] Pot balances (starting balance + contributions − withdrawals) and progress bars
+- [x] Debt remaining, planned vs paid, and status (on time or late after the due date)
 - [ ] Dashboard: bills and debts due this period, pot progress, 50/30/20 split vs target
 - [ ] Enter your real paycheck plan and compare it with your Sheet; fix any mismatch
 

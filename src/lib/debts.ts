@@ -94,7 +94,13 @@ export function reducedSchedule(schedule: ScheduledPayment[], extraPaid: number)
   return reduced;
 }
 
-export type PaymentStatus = "paid" | "due" | "planned" | "late";
+/** "cleared": extra payments covered all of it, so it was never paid on its own (7e). */
+export type PaymentStatus = "paid" | "cleared" | "due" | "planned" | "late";
+
+/** Paid or cleared early: nothing left to pay on it. */
+export function isSettled(status: PaymentStatus): boolean {
+  return status === "paid" || status === "cleared";
+}
 
 export type DebtProgress = {
   paid: number;
@@ -108,14 +114,17 @@ export type DebtProgress = {
    * flexible debt, the end of its target month, or null without one.
    */
   debtFreeBy: string | null;
-  payments: (ScheduledPayment & { status: PaymentStatus; daysLate?: number })[];
+  /** `amount` is what's left to pay after extras; `original` the scheduled amount; `cleared` the difference. */
+  payments: (ScheduledPayment & { status: PaymentStatus; original: number; cleared: number; daysLate?: number })[];
 };
 
 /**
  * Where a debt stands (debts.md §1). Extra payments (`extraPaid`, part of
  * `paid`) shrink the schedule from the last payment (reducedSchedule());
  * the other payments count in order: one is Paid once they cover it and
- * every payment before it, and one cleared by extra payments is Paid too.
+ * every payment before it. One extra payments cleared entirely is Cleared
+ * early ("cleared", 7e) and counts as made; one they partly lowered keeps
+ * its status and carries `cleared`, for "₱1,500 cleared early".
  * An unpaid one is Late after its due date ("Late · 3 days"), Due when it
  * falls in the current `period`, and Planned otherwise.
  */
@@ -126,13 +135,21 @@ export function debtProgress(
   period: { start: string; end: string },
   extraPaid = 0,
 ): DebtProgress {
-  const schedule = reducedSchedule(debtSchedule(debt), extraPaid);
+  const full = debtSchedule(debt);
+  const schedule = reducedSchedule(full, extraPaid);
   const scheduledPaid = paid - extraPaid;
-  let covered = 0;  let paymentsMade = 0;
-  const payments = schedule.map((payment) => {
+  let covered = 0;
+  let paymentsMade = 0;
+  const payments = schedule.map((reduced, i) => {
+    const original = full[i].amount;
+    const payment = { ...reduced, original, cleared: original - reduced.amount };
     covered += payment.amount;
     // Cleared by extra payments, or covered by the scheduled ones.
-    if (payment.amount === 0 || scheduledPaid >= covered) {
+    if (payment.amount === 0 && original > 0) {
+      paymentsMade += 1;
+      return { ...payment, status: "cleared" as const };
+    }
+    if (scheduledPaid >= covered) {
       paymentsMade += 1;
       return { ...payment, status: "paid" as const };
     }
@@ -271,7 +288,7 @@ export function debtsSummary(
   return summary;
 }
 
-/** A payment's status in words (debts.md §6): "Paid", "Due in 5 days", "Planned", "Late · 3 days". */
+/** A payment's status in words (debts.md §6): "Paid", "Cleared early", "Due in 5 days", "Planned", "Late · 3 days". */
 export function paymentStatusText(
   payment: { status: PaymentStatus; due: string; daysLate?: number },
   today: string,
@@ -279,6 +296,8 @@ export function paymentStatusText(
   switch (payment.status) {
     case "paid":
       return "Paid";
+    case "cleared":
+      return "Cleared early";
     case "planned":
       return "Planned";
     case "late": {

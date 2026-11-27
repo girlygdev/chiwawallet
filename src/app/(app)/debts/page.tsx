@@ -12,6 +12,7 @@ import {
   type DebtTerms,
   debtPaidFor,
   debtProgress,
+  isSettled,
   debtsSummary,
   isPaidOff,
   type PaymentStatus,
@@ -129,22 +130,26 @@ async function DebtsContent() {
       ) : (
         <>
           <section aria-label="Debt totals" className="grid gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-4">
-            {/* The page's one hero: Deep Green, white text, sticker border. */}
-            <div className="flex flex-col gap-2 rounded-xl border-2 border-sticker bg-green-700 p-5 text-white shadow-sticker md:col-span-2 lg:col-span-1">
-              <p className="text-sm font-bold opacity-90">Total owed</p>
+            {/* Phones: white, so the amount owed stays neutral and the green bar
+                carries the good news (debts.md fix #1, owner Nov 24). From md, with
+                the stat cards: the page's one hero, Deep Green with a sticker border. */}
+            <div className="flex flex-col gap-2 rounded-xl border-[1.5px] border-line bg-surface p-5 text-ink md:col-span-2 md:border-2 md:border-sticker md:bg-green-700 md:text-white md:shadow-sticker lg:col-span-1">
+              <p className="text-sm font-bold text-text-2 md:text-white md:opacity-90">Total owed</p>
               <p className="font-display text-[34px] leading-none font-semibold">{formatPeso(summary.totalOwed)}</p>
               {summary.debtFreeBy && (
-                <p className="text-sm opacity-90">Debt-free by {formatShortDate(summary.debtFreeBy)} if you keep the plan</p>
+                <p className="text-sm text-text-2 md:text-white md:opacity-90">
+                  Debt-free by {formatShortDate(summary.debtFreeBy)} if you keep the plan
+                </p>
               )}
               {summary.activeTotal > 0 && (
                 <>
-                  <span aria-hidden className="block h-2 overflow-hidden rounded-full bg-white/25">
+                  <span aria-hidden className="block h-2 overflow-hidden rounded-full bg-track md:bg-white/25">
                     <span
-                      className="block h-full rounded-full bg-white"
+                      className="block h-full rounded-full bg-green-600 md:bg-white"
                       style={{ width: `${(potProgress(summary.activePaid, summary.activeTotal) ?? 0) * 100}%` }}
                     />
                   </span>
-                  <p className="text-sm opacity-90">
+                  <p className="text-sm font-bold text-link-hover md:font-normal md:text-white md:opacity-90">
                     {formatPeso(summary.activePaid)} of {formatPeso(summary.activeTotal)} paid
                   </p>
                 </>
@@ -216,6 +221,7 @@ function Stat({ label, value, note }: { label: string; value: string; note: stri
 
 const STATUS_TONE: Record<PaymentStatus, string> = {
   paid: "bg-mint text-link-hover",
+  cleared: "bg-mint text-link-hover",
   due: "bg-warn-bg text-warn-fg",
   planned: "bg-track text-text-2",
   // An error tone, not the destructive red (style-guide.md).
@@ -239,7 +245,7 @@ function DebtCard({
   payable: Awaited<ReturnType<typeof payableDebtItems>>;
 }) {
   const progress = debtProgress(debt, debt.paid, today, period, debt.extraPaid);
-  const next = progress.payments.find((p) => p.status !== "paid");
+  const next = progress.payments.find((p) => !isSettled(p.status));
   // The plan item that pays the next payment, if its period has started.
   const toPay = debtItemToPay(debt.id, next?.due ?? null, schedule, payable);
   const tick = toPay && { id: toPay.id, name: toPay.name, planned_amount: toPay.planned_amount, paid: false, pot: false, varies: false };
@@ -310,27 +316,36 @@ function DebtCard({
         <ol className="flex flex-col divide-y divide-line-soft">
           {progress.payments.map((p) => {
             const payday = formatShortDate(paydayFor(p.due, schedule));
+            const settled = isSettled(p.status);
+            // Cleared by extras (7e): no payday paid it. Partly lowered: say by how much.
+            const when =
+              p.status === "cleared"
+                ? "cleared early by extra payments"
+                : `${p.status === "paid" ? "paid from" : "planned in"} ${payday} payday${p.cleared > 0 ? ` · ${formatPeso(p.cleared)} cleared early` : ""}`;
             return (
               <li key={p.number} className="flex items-center gap-3 py-2.5">
                 <span
                   aria-hidden
                   className={cn(
                     "flex size-6 shrink-0 items-center justify-center rounded-full",
-                    p.status === "paid" ? "bg-green-600 text-white" : "border-2 border-line",
+                    settled ? "bg-green-600 text-white" : "border-2 border-line",
                   )}
                 >
-                  {p.status === "paid" && <Check size={14} strokeWidth={3} />}
+                  {settled && <Check size={14} strokeWidth={3} />}
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="text-sm font-extrabold text-ink">
                     Payment {p.number} of {count}
                   </span>
-                  <span className="truncate text-[13px] text-text-3">
-                    {formatShortDate(p.due)} · {p.status === "paid" ? "paid from" : "planned in"} {payday} payday
+                  <span className="text-[13px] text-text-3">
+                    {formatShortDate(p.due)} · {when}
                   </span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="text-sm font-extrabold text-ink">{formatPeso(p.amount)}</span>
+                  {/* A cleared payment shows what it was, muted: ₱0 told nothing. */}
+                  <span className={cn("text-sm font-extrabold", p.status === "cleared" ? "text-text-3" : "text-ink")}>
+                    {formatPeso(p.status === "cleared" ? p.original : p.amount)}
+                  </span>
                   <span className={cn("rounded-full px-2 py-0.5 text-xs font-bold", STATUS_TONE[p.status])}>
                     {paymentStatusText(p, today)}
                   </span>

@@ -2,6 +2,19 @@
 
 Newest entry first.
 
+## 2026-11-27 · Week 7 · 7e Savings and Debts: check against the specs
+- **What:** walked `savings.md` and `debts.md` against the pages and fixed three gaps.
+  - **Cleared early:** a payment that extra payments fully cleared reads "Jan 25 · cleared early by extra payments", shows its original amount muted and a "Cleared early" tag (was "paid from Jan 15 payday · ₱0 · Paid"). A partly lowered one adds "· ₱1,500 cleared early".
+  - **Debts summary card:** white on phones, so the green bar carries the good news; Deep Green hero from tablet up (debts.md fix #1, owner Nov 24).
+  - **Savings desktop stats:** "₱2,000 more planned" / "Nothing else planned" and "₱3k + ₱4k + ₱5k" / "No savings plans yet".
+- **Files:** src/lib/debts.ts, src/lib/pots.ts, src/app/(app)/debts/page.tsx, src/app/(app)/savings/page.tsx, tests/lib/debts.test.ts, tests/lib/pots.test.ts, docs/week-7-tasks.md, docs/mvp-brief.md (Week 7 items 1 and 2 ticked)
+- **Decisions:**
+  - `debtProgress()` gets a `cleared` status; `isSettled()` (paid or cleared) keeps Payments made, Next and Mark paid as before.
+  - No desktop debt details panel (Week 4), so its subtitle fix doesn't apply.
+- **Tests:** 14 new Vitest cases (640 pass); lint and typecheck pass. Browser: SPayLater's third payment showed "Cleared early" with ₱4,000 muted; the summary card was white at 390px and green at 1280px; on the fresh account a "Laptop fund" pot (₱40,000 by Mar 2027) showed Behind with "Save ₱4,500 each payday", and a locked MP2 showed "Locked · deposits only" with no Withdraw on its details page; stats read "₱2,000 more planned" and "₱3k + ₱1k"; no console errors.
+- **AI notes:** I planned a V1.1 note for a missing back arrow, but it was already there; the Next.js dev badge covered it in my screenshot.
+- **Next:** 7f, the carried-forward polish.
+
 ## 2026-11-26 · Week 7 · 7d-2 Dashboard: period arrows and Next period
 - **What:**
   - **Period switcher:** previous and next arrows around the Dashboard's dates (44px on phones, 40px on desktop), opening those periods on the Plan. In the first period the previous arrow is shown disabled.

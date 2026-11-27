@@ -7,10 +7,12 @@ import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
-import { formatPeso } from "@/lib/money";
+import { formatPeso, stillDueTotal } from "@/lib/money";
 import { getPeriod, type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import {
   monthlySavingPlan,
+  morePlannedLine,
+  savingPlanParts,
   potBalance,
   potProgress,
   potScheduleLine,
@@ -108,6 +110,9 @@ async function SavingsContent() {
     rows.filter((r) => r.date >= period.start && r.date <= period.end),
   );
   const plan = monthlySavingPlan(pots, schedule);
+  // The desktop stat lines (savings.md §3, 7e): what's still planned this
+  // period, and the monthly plan's parts.
+  const morePlanned = morePlannedLine(stillDueTotal(current.items.filter((i) => i.pot_id != null)));
   const potCount = pots.length === 1 ? "1 pot" : `${pots.length} pots`;
 
   return (
@@ -144,8 +149,8 @@ async function SavingsContent() {
               </p>
             </div>
             {/* Desktop's other two stat cards (savings.md §3). */}
-            <Stat label="Added this period" value={formatPeso(thisPeriod, { signed: thisPeriod !== 0 })} />
-            <Stat label="Monthly saving plan" value={formatPeso(plan)} />
+            <Stat label="Added this period" value={formatPeso(thisPeriod, { signed: thisPeriod !== 0 })} note={morePlanned} />
+            <Stat label="Monthly saving plan" value={formatPeso(plan)} note={savingPlanParts(pots, schedule)} />
           </section>
 
           <section aria-labelledby="pots-title" className="flex flex-col gap-3">
@@ -186,11 +191,12 @@ async function SavingsContent() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, note }: { label: string; value: string; note: string }) {
   return (
     <div className="hidden flex-col gap-1 rounded-xl border-[1.5px] border-line bg-surface p-4 md:flex">
       <p className="text-[13px] font-bold text-text-3">{label}</p>
       <p className="font-display text-[22px] leading-none font-semibold text-ink">{value}</p>
+      <p className="text-[13px] text-text-3">{note}</p>
     </div>
   );
 }

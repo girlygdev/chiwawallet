@@ -48,7 +48,7 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
   - **Next period:** the desktop side column's mint card ("Nov 30 – Dec 14", "₱33,000 expected · Electricity and MP2 due", Plan ahead) and the mobile "Plan next payday" link (decision 4), both from the next period (moved from 7c, owner Nov 26).
   - **The Get started checklist** (an `<ol>`, "1 of 5 done"), and the empty section cards.
   - **The period switcher's arrows.** See open question 2.
-- [ ] **7e. Savings and Debts: check against the specs.** Walk `savings.md` and `debts.md` against the pages and fix any gaps.
+- [x] **7e. Savings and Debts: check against the specs.** Done Nov 27 (checked in a browser on local Supabase, 390 and 1280px). Walk `savings.md` and `debts.md` against the pages and fix any gaps. Fixed: "Cleared early" (a `cleared` payment status in `debtProgress()`, partly lowered ones add "· ₱1,500 cleared early"); the Debts summary card is white on phones and Deep Green from tablet up (debts.md fix #1, owner Nov 24); the Savings desktop stat lines "₱2,000 more planned" and "₱3k + ₱4k + ₱5k" (`morePlannedLine()`, `savingPlanParts()` in `lib/pots.ts`). Already there: the mobile back arrow to More. Not built, by Week 4's choice: the desktop debt details panel, so its subtitle (fix #2) doesn't apply.
   - **Includes the carried-forward wording:** a debt payment cleared by extras should read "Cleared early", not "paid from Jan 15 payday".
   - Done when: brief items 1 and 2 can be ticked.
 - [ ] **7f. Carried-forward polish (from Week 6).**

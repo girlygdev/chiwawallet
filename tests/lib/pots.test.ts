@@ -16,6 +16,8 @@ import {
   potToGo,
   totalSaved,
   potPeriodLine,
+  morePlannedLine,
+  savingPlanParts,
 } from "@/lib/pots";
 
 const twiceAMonth: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
@@ -278,5 +280,35 @@ describe("potPeriodLine: a pot's line on the desktop Dashboard", () => {
 
   it("is empty with neither", () => {
     expect(potPeriodLine(0, 0)).toBeNull();
+  });
+});
+
+describe("savingPlanParts: Monthly saving plan's line (savings.md §3)", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const pot = (planned_contribution: number, pay_slot: "payday_1" | "payday_2" | "every") => ({ planned_contribution, pay_slot });
+
+  it("is each saving pot's monthly amount, in thousands", () => {
+    // ₱3,000 once, ₱2,000 each payday, ₱5,000 once (the spec's example).
+    expect(savingPlanParts([pot(300_000, "payday_1"), pot(200_000, "every"), pot(500_000, "payday_2")], semi)).toBe("₱3k + ₱4k + ₱5k");
+  });
+
+  it("keeps one decimal, and pesos under ₱1,000", () => {
+    expect(savingPlanParts([pot(75_000, "every"), pot(50_000, "payday_1")], semi)).toBe("₱1.5k + ₱500");
+  });
+
+  it("leaves out pots with no plan, and says so with none", () => {
+    expect(savingPlanParts([pot(0, "every"), pot(300_000, "payday_1")], semi)).toBe("₱3k");
+    expect(savingPlanParts([pot(0, "every")], semi)).toBe("No savings plans yet");
+  });
+
+  it("names four, then counts the rest", () => {
+    expect(savingPlanParts([1, 2, 3, 4, 5, 6].map((k) => pot(k * 100_000, "payday_1")), semi)).toBe("₱1k + ₱2k + ₱3k + ₱4k + 2 more");
+  });
+});
+
+describe("morePlannedLine: Added this period's line", () => {
+  it("says what's still planned this period", () => {
+    expect(morePlannedLine(200_000)).toBe("₱2,000 more planned");
+    expect(morePlannedLine(0)).toBe("Nothing else planned");
   });
 });
