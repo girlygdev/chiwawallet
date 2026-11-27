@@ -20,6 +20,7 @@ function row(fields: Partial<ActivityRow> & Pick<ActivityRow, "type" | "amount">
     date: "2026-11-20",
     created_at: `2026-11-20T00:00:0${n % 10}Z`,
     deleted_at: null,
+    card_id: null,
     note: null,
     category: { id: "food", name: "Food", icon: "shopping-basket", color: "green" },
     source: null,

@@ -53,7 +53,9 @@ export default function DebtsPage() {
   );
 }
 
-type Debt = DebtTerms & {
+// No cards here until 8b-2 (they're filtered out of the query).
+type Debt = Omit<DebtTerms, "payment_type"> & {
+  payment_type: Exclude<DebtTerms["payment_type"], "card">;
   id: string;
   name: string;
   lender: string | null;
@@ -73,6 +75,8 @@ async function DebtsContent() {
       .select(
         "id, name, lender, total_amount, payment_type, num_payments, payment_amount, first_due_date, interest_rate, paid_off_at, target_date",
       )
+      // Credit cards (8b-1) get their own card on this page in 8b-2.
+      .neq("payment_type", "card")
       .order("first_due_date"),
     // Every live payment, for what's been paid ("left" is never stored).
     supabase
@@ -87,8 +91,8 @@ async function DebtsContent() {
   }
   const debts: Debt[] = debtRows.data!.map((d) => ({
     ...d,
-    // The check constraint allows only these two.
-    payment_type: d.payment_type as DebtTerms["payment_type"],
+    // The check constraint allows only these; cards are filtered out above.
+    payment_type: d.payment_type as Exclude<DebtTerms["payment_type"], "card">,
     // Total paid, and the extra payments that shrink the last payments (debts.md §5).
     ...debtPaidFor(paymentRows.data!, d.id),
   }));

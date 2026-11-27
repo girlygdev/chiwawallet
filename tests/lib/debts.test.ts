@@ -13,6 +13,7 @@ import {
   paymentStatusText,
   reducedSchedule,
   debtLeftAfter,
+  cardBalance,
 } from "@/lib/debts";
 
 const spayLater = {
@@ -347,5 +348,36 @@ describe("debtLeftAfter: '₱4,000 left after this' on a due debt row", () => {
 describe("paymentStatusText: a cleared payment", () => {
   it("reads Cleared early", () => {
     expect(paymentStatusText({ status: "cleared", due: "2027-01-25" }, "2026-11-20")).toBe("Cleared early");
+  });
+});
+
+describe("cardBalance (8b-1)", () => {
+  const row = (type: "expense" | "debt_payment", amount: number, card_id: string | null, deleted_at: string | null = null) => ({
+    type,
+    amount,
+    card_id,
+    deleted_at,
+  });
+
+  it("is the balance when added, plus purchases on the card, minus payments to it", () => {
+    const rows = [row("expense", 120_000, "c1"), row("expense", 30_000, "c1"), row("debt_payment", 100_000, "c1")];
+    expect(cardBalance(500_000, rows, "c1")).toBe(550_000);
+  });
+
+  it("only counts this card's rows, and skips deleted ones", () => {
+    const rows = [row("expense", 120_000, "c2"), row("expense", 50_000, null), row("expense", 70_000, "c1", "2026-11-21T00:00:00Z")];
+    expect(cardBalance(0, rows, "c1")).toBe(0);
+  });
+
+  it("goes below ₱0 when more is paid than owed (a credit on the card)", () => {
+    expect(cardBalance(0, [row("debt_payment", 20_000, "c1")], "c1")).toBe(-20_000);
+  });
+});
+
+describe("a card has no schedule (8b-1)", () => {
+  it("gives no payments, so the plan makes none up before 8b-4", () => {
+    expect(
+      debtSchedule({ total_amount: 500_000, payment_type: "card", num_payments: null, payment_amount: null, first_due_date: null }),
+    ).toEqual([]);
   });
 });

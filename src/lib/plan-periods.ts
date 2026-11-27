@@ -607,7 +607,7 @@ export async function closeEndedPeriods(
   const period = periods!.find((p) => p.id === awaiting)!;
   const { data: rows, error: rowsError } = await supabase
     .from("transactions")
-    .select("type, amount, deleted_at")
+    .select("type, amount, deleted_at, card_id")
     .lt("date", period.start_date)
     .is("deleted_at", null);
   if (rowsError) fail("load transactions", rowsError);
@@ -632,7 +632,7 @@ export async function closePeriod(
 ): Promise<void> {
   const { data: rows, error } = await supabase
     .from("transactions")
-    .select("type, amount, deleted_at, date")
+    .select("type, amount, deleted_at, card_id, date")
     .lte("date", period.end_date)
     .is("deleted_at", null);
   if (error) fail("load transactions to close the period", error);
@@ -686,7 +686,7 @@ export async function loadPaydayData(
   const [{ data: rows, error }, oldPlan, currentPlan] = await Promise.all([
     supabase
       .from("transactions")
-      .select("type, amount, deleted_at, date, pot_id, pot:savings_pots(name)")
+      .select("type, amount, deleted_at, card_id, date, pot_id, pot:savings_pots(name)")
       .lte("date", old.end_date)
       .is("deleted_at", null),
     openPlanPeriod(supabase, budget, old.start_date, today),
@@ -950,10 +950,10 @@ async function loadMoney(supabase: Client, row: BudgetPeriod, future: boolean) {
   const [period, earlier] = await Promise.all([
     supabase
       .from("transactions")
-      .select("type, amount, deleted_at, income_source_id, category_id, plan_item_id")
+      .select("type, amount, deleted_at, card_id, income_source_id, category_id, plan_item_id")
       .eq("period_id", row.id)
       .is("deleted_at", null),
-    supabase.from("transactions").select("type, amount, deleted_at").lt("date", row.start_date).is("deleted_at", null),
+    supabase.from("transactions").select("type, amount, deleted_at, card_id").lt("date", row.start_date).is("deleted_at", null),
   ]);
   for (const result of [period, earlier]) {
     if (result.error) fail("load this period's money", result.error);

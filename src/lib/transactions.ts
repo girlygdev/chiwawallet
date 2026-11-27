@@ -15,9 +15,16 @@ export type TransactionRow = {
   date: string;
   created_at: string;
   deleted_at: string | null;
+  /**
+   * The credit card it's on (8b-1): on an expense, bought with the card; on a
+   * debt payment, a payment to the card (the database fills it in). Empty
+   * for everything else. Required here so every query feeding the money math
+   * has to load it: a card purchase must never count as cash.
+   */
+  card_id: string | null;
 };
 
-type Row = Pick<TransactionRow, "type" | "amount" | "deleted_at">;
+type Row = Pick<TransactionRow, "type" | "amount" | "deleted_at" | "card_id">;
 
 function live<T extends Row>(rows: T[]): T[] {
   return rows.filter((t) => t.deleted_at == null);
@@ -26,27 +33,40 @@ function live<T extends Row>(rows: T[]): T[] {
 /**
  * The row's effect on cash on hand: income adds; spending and debt payments
  * take away. Savings flips its sign: putting ₱3,000 in a pot is −₱3,000 cash,
- * and a withdrawal (stored as −₱1,000) brings +₱1,000 back.
+ * and a withdrawal (stored as −₱1,000) brings +₱1,000 back. A purchase on a
+ * credit card moves no cash (8b-1): the card's payment does, later.
  */
-export function signedAmount(t: Pick<TransactionRow, "type" | "amount">): number {
+export function signedAmount(t: Pick<TransactionRow, "type" | "amount" | "card_id">): number {
+  if (t.type === "expense" && t.card_id != null) return 0;
   return t.type === "income" ? t.amount : -t.amount;
 }
 
 export type PeriodTotals = {
   /** Income. */
   moneyIn: number;
-  /** Spending plus debt payments. */
+  /** Spending plus debt payments: what the period used, for budgets and 50/30/20. */
   moneyOut: number;
   /** Pot deposits minus withdrawals; negative when more came out than went in. */
   toSavings: number;
+  /**
+   * The cash that left, for cash on hand and carry-over (8b-1). The same as
+   * money out, except credit cards: a purchase on a card is money out but no
+   * cash; a payment to the card is cash, but not money out again.
+   */
+  cashOut: number;
 };
 
 export function periodTotals(rows: Row[]): PeriodTotals {
-  const totals: PeriodTotals = { moneyIn: 0, moneyOut: 0, toSavings: 0 };
+  const totals: PeriodTotals = { moneyIn: 0, moneyOut: 0, toSavings: 0, cashOut: 0 };
   for (const t of live(rows)) {
     if (t.type === "income") totals.moneyIn += t.amount;
     else if (t.type === "savings") totals.toSavings += t.amount;
-    else totals.moneyOut += t.amount; // expense and debt_payment
+    else {
+      // expense and debt_payment
+      const onCard = t.card_id != null;
+      if (!(onCard && t.type === "debt_payment")) totals.moneyOut += t.amount;
+      if (!(onCard && t.type === "expense")) totals.cashOut += t.amount;
+    }
   }
   return totals;
 }

@@ -2,6 +2,22 @@
 
 Newest entry first.
 
+## 2026-11-27 · Week 8 · 8b-1 Credit cards: data and math
+- **What:** the groundwork for credit cards as revolving debts (owner, Nov 27). No screens yet.
+  - **Migration** `20261127100000_credit_cards.sql`:
+    - `debts.payment_type` gets `card`, with `due_day` (1–31) and `pay_slot` (15th, 30th or every payday). A card may start at ₱0 and can't change type.
+    - `transactions.card_id`: on an expense, bought with that card; on a payment to a card, filled in by the database. Only on expenses and debt payments, only pointing to your own card. A card with history can't be deleted.
+  - **Math (lib/):** a card purchase is spending but no cash; a card payment is cash but not spending. `signedAmount()`, `periodTotals()` (new `cashOut`), `dashboardNumbers()` (cash now), `carryOver()` and `spentSplit()` follow that rule. `cardBalance()` = balance when added + purchases − payments.
+- **Files:** supabase/migrations/20261127100000_credit_cards.sql (new), src/lib/supabase/types.ts, src/lib/transactions.ts, src/lib/money.ts, src/lib/plan.ts, src/lib/debts.ts, src/lib/plan-periods.ts, src/app/(app)/dashboard/page.tsx, src/app/(app)/activity/actions.ts, src/app/(app)/activity/page.tsx, src/app/(app)/debts/page.tsx, src/components/debts/debt-form.tsx, tests/db/credit-cards.test.ts (new), tests/lib/transactions.test.ts, money.test.ts, plan.test.ts, debts.test.ts, activity.test.ts, docs/week-8-tasks.md (new), docs/mvp-brief.md (data model)
+- **Decisions:**
+  - `card_id` is required on the money math's row types, so every query feeding it must load it; a missing one is a type error, not a card purchase silently counted as cash. All transactions selects that feed the math now load it.
+  - The database fills `card_id` on payments to a card, so the math never has to look up the debt.
+  - `types.ts` was edited by hand (the local generator's format differs); regenerated from the live project after the push: identical.
+  - Until 8b-2, the Debts page leaves cards out and the Edit debt form doesn't take them.
+- **Tests:** written first. 10 new database tests (302 pass: card fields, ₱0 start, no type change, `card_id` filled in and checked, no deleting a used card, user A can't charge or see user B's card) and 16 new unit tests (666 pass); lint and typecheck pass. Browser: Dashboard, Activity, Plan, Debts, Savings and Paydays overview load with no errors, and Safe to spend is unchanged (−₱13,155) on the main local account.
+- **Live:** migration pushed to the live database (Nov 27) before this code deployed.
+- **Next:** 8b-2, add a card and see it.
+
 ## 2026-11-27 · Week 8 (early) · Fix CI after the Serwist packages
 - **What:** CI failed at `npm ci` after `d19612c`, which blocked the Vercel deploy.
   - **Cause:** installing the Serwist packages on Windows dropped `@emnapi/runtime` from `package-lock.json`. Only Linux needs it (the wasm builds of sharp and Tailwind's oxide), so `npm ci` worked on Windows and failed on GitHub's Linux runner: "Missing: @emnapi/runtime@1.11.3 from lock file".

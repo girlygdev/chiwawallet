@@ -58,7 +58,7 @@ export function parsePesoInput(text: string): number | null {
   return (minus ? -centavos : centavos) || 0;
 }
 
-type MoneyRow = { type: "income" | "expense" | "savings" | "debt_payment"; amount: number; deleted_at: string | null };
+type MoneyRow = { type: "income" | "expense" | "savings" | "debt_payment"; amount: number; deleted_at: string | null; card_id: string | null };
 
 export type DashboardNumbers = {
   /** Cash at the start of the period: the opening balance plus every earlier period's net. */
@@ -99,7 +99,7 @@ export function dashboardNumbers(
   periodRows: MoneyRow[],
 ): DashboardNumbers {
   const carryIn = cashOnHand(openingBalance, earlierRows);
-  const { moneyIn, moneyOut: spending, toSavings } = periodTotals(periodRows);
+  const { moneyIn, moneyOut: spending, toSavings, cashOut } = periodTotals(periodRows);
   const moneyOut = spending + Math.max(toSavings, 0);
   const periodMoney = carryIn + moneyIn + Math.max(-toSavings, 0);
   const spentShare = periodMoney > 0 ? Math.min(1, moneyOut / periodMoney) : moneyOut > 0 ? 1 : 0;
@@ -110,7 +110,9 @@ export function dashboardNumbers(
     toSavings,
     moneyOut,
     periodMoney,
-    cashNow: periodMoney - moneyOut,
+    // Cash, not money out (8b-1): a card purchase leaves cash alone, and the
+    // card's payment takes it. Without cards the two are the same.
+    cashNow: periodMoney - cashOut - Math.max(toSavings, 0),
     spentShare,
   };
 }
@@ -176,13 +178,15 @@ export type SpentGroup = {
  * never below ₱0). Over target is said in words, never by colour alone.
  */
 export function spentSplit(
-  rows: { type: string; amount: number; deleted_at: string | null; category_id: string }[],
+  rows: { type: string; amount: number; deleted_at: string | null; category_id: string; card_id: string | null }[],
   groupOf: Record<string, string | null>,
   targets: { needs_pct: number; wants_pct: number; savings_debt_pct: number },
 ): { base: number; show: boolean; groups: Record<BudgetGroup, SpentGroup> } {
   const amounts: Record<BudgetGroup, number> = { needs: 0, wants: 0, savings_debt: 0 };
   for (const r of rows) {
     if (r.deleted_at != null || (r.type !== "expense" && r.type !== "debt_payment")) continue;
+    // A payment to a credit card isn't counted: its purchases already were (8b-1).
+    if (r.type === "debt_payment" && r.card_id != null) continue;
     const group = groupOf[r.category_id];
     if (group === "needs" || group === "wants" || group === "savings_debt") amounts[group] += r.amount;
   }

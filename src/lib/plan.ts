@@ -1030,11 +1030,12 @@ export type CarryOver = {
  * leftover is the Dashboard's cash now. The payday choices are just
  * transactions dated the old period's last day (a deposit to a pot, an
  * extra debt payment), so they lower the leftover; Carry adds nothing.
+ * It's cash (8b-1): a purchase on a credit card uses none, its payment does.
  */
 export function carryOver(carriedIn: number, rows: MoneyRow[]): CarryOver {
-  const { moneyIn, moneyOut, toSavings } = periodTotals(rows);
+  const { moneyIn, cashOut, toSavings } = periodTotals(rows);
   const money = carriedIn + moneyIn + Math.max(-toSavings, 0);
-  const used = moneyOut + Math.max(toSavings, 0);
+  const used = cashOut + Math.max(toSavings, 0);
   const leftover = money - used;
   return { money, used, leftover, result: leftover > 0 ? "surplus" : leftover < 0 ? "overspent" : "zero" };
 }

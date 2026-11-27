@@ -78,7 +78,7 @@ async function ActivityContent({ searchParams }: { searchParams: PageProps<"/act
     const { data, error } = await supabase
       .from("transactions")
       .select(
-        "id, type, amount, date, note, created_at, deleted_at, category:categories(id, name, icon, color), source:income_sources(name)",
+        "id, type, amount, card_id, date, note, created_at, deleted_at, category:categories(id, name, icon, color), source:income_sources(name)",
       )
       .eq("period_id", periodRow.id)
       .is("deleted_at", null)

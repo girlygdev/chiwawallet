@@ -7,9 +7,12 @@ import { dateInMonth, getPeriod, type PaySchedule } from "@/lib/periods";
 
 export type DebtTerms = {
   total_amount: number;
-  /** "flexible" is "When I can" (Nov 24): no schedule, pay whenever there's extra. */
-  payment_type: "installments" | "one_time" | "flexible";
-  /** Empty for flexible debts (the database checks each type's fields). */
+  /**
+   * "flexible" is "When I can" (Nov 24): no schedule, pay whenever there's extra.
+   * "card" is a credit card (8b-1): no schedule either; its balance is cardBalance().
+   */
+  payment_type: "installments" | "one_time" | "flexible" | "card";
+  /** Empty for flexible debts and cards (the database checks each type's fields). */
   num_payments: number | null;
   payment_amount: number | null;
   first_due_date: string | null;
@@ -327,4 +330,23 @@ export function debtPaymentSplit(amount: number, scheduled: number | null): { sc
 /** What a debt will owe after a payment, never below ₱0: "₱4,000 left after this" (dashboard.md §3). */
 export function debtLeftAfter(left: number, payment: number): number {
   return Math.max(0, left - payment);
+}
+
+/**
+ * A credit card's balance (8b-1): what was owed when it was added
+ * (`total_amount`), plus purchases on it, minus payments to it. Never
+ * stored. Below ₱0 when more was paid than owed (a credit on the card).
+ * `rows` may hold other cards' and plain rows; only this card's count.
+ */
+export function cardBalance(
+  startingBalance: number,
+  rows: { type: string; amount: number; card_id: string | null; deleted_at: string | null }[],
+  cardId: string,
+): number {
+  return rows.reduce((balance, r) => {
+    if (r.deleted_at != null || r.card_id !== cardId) return balance;
+    if (r.type === "expense") return balance + r.amount;
+    if (r.type === "debt_payment") return balance - r.amount;
+    return balance;
+  }, startingBalance);
 }

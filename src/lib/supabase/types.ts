@@ -194,6 +194,7 @@ export type Database = {
       debts: {
         Row: {
           created_at: string
+          due_day: number | null
           first_due_date: string | null
           id: string
           interest_rate: number | null
@@ -201,6 +202,7 @@ export type Database = {
           name: string
           num_payments: number | null
           paid_off_at: string | null
+          pay_slot: string | null
           payment_amount: number | null
           payment_type: string
           target_date: string | null
@@ -210,6 +212,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          due_day?: number | null
           first_due_date?: string | null
           id?: string
           interest_rate?: number | null
@@ -217,6 +220,7 @@ export type Database = {
           name: string
           num_payments?: number | null
           paid_off_at?: string | null
+          pay_slot?: string | null
           payment_amount?: number | null
           payment_type: string
           target_date?: string | null
@@ -226,6 +230,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          due_day?: number | null
           first_due_date?: string | null
           id?: string
           interest_rate?: number | null
@@ -233,6 +238,7 @@ export type Database = {
           name?: string
           num_payments?: number | null
           paid_off_at?: string | null
+          pay_slot?: string | null
           payment_amount?: number | null
           payment_type?: string
           target_date?: string | null
@@ -563,6 +569,7 @@ export type Database = {
       transactions: {
         Row: {
           amount: number
+          card_id: string | null
           category_id: string
           created_at: string
           date: string
@@ -580,6 +587,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          card_id?: string | null
           category_id: string
           created_at?: string
           date: string
@@ -597,6 +605,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          card_id?: string | null
           category_id?: string
           created_at?: string
           date?: string
@@ -613,6 +622,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "transactions_card_fkey"
+            columns: ["card_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "debts"
+            referencedColumns: ["id", "user_id"]
+          },
           {
             foreignKeyName: "transactions_category_fkey"
             columns: ["category_id", "user_id"]

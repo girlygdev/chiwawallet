@@ -21,7 +21,9 @@ import {
   suggestedPayment,
 } from "@/lib/validation/debt";
 
-export type EditableDebt = DebtTerms & {
+// Cards get their own fields in 8b-2; until then this form edits the other three types.
+export type EditableDebt = Omit<DebtTerms, "payment_type"> & {
+  payment_type: Exclude<DebtTerms["payment_type"], "card">;
   id: string;
   name: string;
   lender: string | null;

@@ -74,8 +74,13 @@ describe("formatPeso: centavos → display", () => {
   });
 });
 
-type Row = { type: "income" | "expense" | "savings" | "debt_payment"; amount: number; deleted_at: string | null };
-const row = (type: Row["type"], amount: number, deleted_at: string | null = null): Row => ({ type, amount, deleted_at });
+type Row = { type: "income" | "expense" | "savings" | "debt_payment"; amount: number; deleted_at: string | null; card_id: string | null };
+const row = (type: Row["type"], amount: number, deleted_at: string | null = null, card_id: string | null = null): Row => ({
+  type,
+  amount,
+  deleted_at,
+  card_id,
+});
 
 // The first period: ₱5,000 opening balance, ₱25,000 pay, ₱3,000 spent.
 const earlier = [row("income", 2_500_000), row("expense", 300_000), row("expense", 99_900, "2026-11-01T00:00:00Z")];
@@ -186,8 +191,20 @@ describe("Safe to spend (6c, dashboard.md §1)", () => {
 });
 
 describe("spentSplit (7b, dashboard.md §5)", () => {
-  type Row = { type: "income" | "expense" | "savings" | "debt_payment"; amount: number; deleted_at: string | null; category_id: string };
-  const row = (type: Row["type"], amount: number, category_id: string, deleted_at: string | null = null): Row => ({ type, amount, deleted_at, category_id });
+  type Row = {
+    type: "income" | "expense" | "savings" | "debt_payment";
+    amount: number;
+    deleted_at: string | null;
+    category_id: string;
+    card_id: string | null;
+  };
+  const row = (type: Row["type"], amount: number, category_id: string, deleted_at: string | null = null, card_id: string | null = null): Row => ({
+    type,
+    amount,
+    deleted_at,
+    category_id,
+    card_id,
+  });
   const groupOf = { food: "needs", rent: "needs", fun: "wants", pot: "savings_debt", debt: "needs", extra: "savings_debt", income: null } as const;
   const targets = { needs_pct: 50, wants_pct: 30, savings_debt_pct: 20 };
 
@@ -256,5 +273,47 @@ describe("periodMoneyLine: This period's money stat", () => {
 
   it("shows a negative carry-in as carried over short", () => {
     expect(periodMoneyLine(n(-20_000, 2_500_000, 2_480_000))).toBe("₱25,000 income − ₱200 carried in");
+  });
+});
+
+describe("dashboardNumbers with a credit card (8b-1)", () => {
+  it("counts a card purchase in money out, but not in cash now", () => {
+    const before = dashboardNumbers(500_000, earlier, current);
+    const after = dashboardNumbers(500_000, earlier, [...current, row("expense", 120_000, null, "card1")]);
+    expect(after.moneyOut).toBe(before.moneyOut + 120_000);
+    expect(after.spending).toBe(before.spending + 120_000);
+    expect(after.cashNow).toBe(before.cashNow);
+  });
+
+  it("lowers cash now for a card payment, without counting it as money out", () => {
+    const before = dashboardNumbers(500_000, earlier, current);
+    const after = dashboardNumbers(500_000, earlier, [...current, row("debt_payment", 500_000, null, "card1")]);
+    expect(after.moneyOut).toBe(before.moneyOut);
+    expect(after.cashNow).toBe(before.cashNow - 500_000);
+  });
+
+  it("carries in an earlier card payment but not an earlier card purchase", () => {
+    const base = dashboardNumbers(500_000, earlier, current).carryIn;
+    expect(dashboardNumbers(500_000, [...earlier, row("expense", 120_000, null, "card1")], current).carryIn).toBe(base);
+    expect(dashboardNumbers(500_000, [...earlier, row("debt_payment", 500_000, null, "card1")], current).carryIn).toBe(base - 500_000);
+  });
+});
+
+describe("spentSplit with a credit card (8b-1)", () => {
+  const groupOf = { food: "needs", fun: "wants", debt: "needs" } as const;
+  const targets = { needs_pct: 50, wants_pct: 30, savings_debt_pct: 20 };
+  const row = (type: "expense" | "debt_payment", amount: number, category_id: string, card_id: string | null = null) => ({
+    type,
+    amount,
+    category_id,
+    card_id,
+    deleted_at: null,
+  });
+
+  it("counts a card purchase in its group, and never a payment to the card (already counted as purchases)", () => {
+    const split = spentSplit([row("expense", 120_000, "fun", "card1"), row("debt_payment", 500_000, "debt", "card1"), row("expense", 80_000, "food")], groupOf, targets);
+    expect(split.groups.wants.amount).toBe(120_000);
+    expect(split.groups.needs.amount).toBe(80_000);
+    expect(split.base).toBe(200_000);
   });
 });

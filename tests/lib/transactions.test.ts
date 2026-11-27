@@ -23,6 +23,7 @@ function tx(fields: Partial<TransactionRow> & Pick<TransactionRow, "type" | "amo
     date: "2026-11-20",
     created_at: `2026-11-20T0${nextId % 10}:00:00Z`,
     deleted_at: null,
+    card_id: null,
     ...fields,
   };
 }
@@ -55,6 +56,8 @@ describe("periodTotals", () => {
       moneyOut: 418_000,
       // Deposits minus withdrawals; the withdrawal isn't money in.
       toSavings: 200_000,
+      // With no card, the same as money out.
+      cashOut: 418_000,
     });
   });
 
@@ -67,7 +70,7 @@ describe("periodTotals", () => {
   });
 
   it("is all zero for an empty period", () => {
-    expect(periodTotals([])).toEqual({ moneyIn: 0, moneyOut: 0, toSavings: 0 });
+    expect(periodTotals([])).toEqual({ moneyIn: 0, moneyOut: 0, toSavings: 0, cashOut: 0 });
   });
 });
 
@@ -324,5 +327,42 @@ describe("editImpact: the edit sheet's impact line and the delete dialog's effec
 
   it("uses To savings for pot moves", () => {
     expect(editImpact(rows, toPot, 0)).toEqual({ line: "savings", before: 300_000, after: 0 });
+  });
+});
+
+// Credit cards (8b-1): a purchase on a card is spending but no cash leaves;
+// a payment to the card is cash leaving, but not spending again.
+describe("credit cards (8b-1)", () => {
+  const onCard = tx({ type: "expense", amount: 120_000, card_id: "card1" });
+  const payCard = tx({ type: "debt_payment", amount: 500_000, card_id: "card1" });
+
+  it("a card purchase moves no cash; a card payment does", () => {
+    expect(signedAmount(onCard)).toBe(0);
+    expect(signedAmount(payCard)).toBe(-500_000);
+  });
+
+  it("counts a card purchase as money out (spending) but not cash out, and a card payment the other way round", () => {
+    expect(periodTotals([pay, lunch, onCard, loan, payCard])).toEqual({
+      moneyIn: 2_500_000,
+      // Lunch, the card purchase and the loan payment: not the card payment.
+      moneyOut: 18_000 + 120_000 + 400_000,
+      toSavings: 0,
+      // Lunch, the loan payment and the card payment: not the card purchase.
+      cashOut: 18_000 + 400_000 + 500_000,
+    });
+  });
+
+  it("leaves cash on hand alone for a card purchase and lowers it for a card payment", () => {
+    expect(cashOnHand(500_000, [onCard])).toBe(500_000);
+    expect(cashOnHand(500_000, [onCard, payCard])).toBe(0);
+  });
+
+  it("gives a day with only card purchases a net of ₱0", () => {
+    expect(groupByDay([onCard])[0].net).toBe(0);
+  });
+
+  it("skips a deleted card purchase or payment", () => {
+    const gone = { deleted_at: "2026-11-21T00:00:00Z" };
+    expect(periodTotals([{ ...onCard, ...gone }, { ...payCard, ...gone }])).toEqual({ moneyIn: 0, moneyOut: 0, toSavings: 0, cashOut: 0 });
   });
 });

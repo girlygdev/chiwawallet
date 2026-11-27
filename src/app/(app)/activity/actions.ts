@@ -61,7 +61,7 @@ export type AddSheetData = {
   schedule: PaySchedule;
   currentPeriod: { start: string; end: string };
   /** This period's live rows, for the impact line. */
-  periodRows: Pick<TransactionRow, "type" | "amount" | "deleted_at">[];
+  periodRows: Pick<TransactionRow, "type" | "amount" | "deleted_at" | "card_id">[];
   /** The Income tab's cards: sources paying today, oldest first. */
   sources: SheetSource[];
   /** Every offerable category, best first; the grid shows the first five. */
@@ -121,7 +121,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
       .limit(RECENT_EXPENSES),
     supabase
       .from("transactions")
-      .select("type, amount, deleted_at, income_source_id, category_id")
+      .select("type, amount, deleted_at, card_id, income_source_id, category_id")
       .eq("period_id", period.id)
       .is("deleted_at", null),
     supabase
@@ -727,7 +727,7 @@ export type EditingTransaction = {
   source: { name: string; amount: number } | null;
   period: { start: string; end: string };
   /** The row's period, including the row as it is now. */
-  periodRows: Pick<TransactionRow, "type" | "amount" | "deleted_at">[];
+  periodRows: Pick<TransactionRow, "type" | "amount" | "deleted_at" | "card_id">[];
 };
 
 /** Loads a row for Edit transaction; null if it's gone or can't be edited here. */
@@ -738,7 +738,7 @@ export async function getEditTransaction(id: string): Promise<EditingTransaction
   const { data: row, error } = await supabase
     .from("transactions")
     .select(
-      "id, type, amount, date, note, category_id, income_source_id, pot_id, period_id, source:income_sources(name, amount), period:budget_periods(start_date, end_date)",
+      "id, type, amount, card_id, date, note, category_id, income_source_id, pot_id, period_id, source:income_sources(name, amount), period:budget_periods(start_date, end_date)",
     )
     .eq("id", id)
     .is("deleted_at", null)
@@ -752,7 +752,7 @@ export async function getEditTransaction(id: string): Promise<EditingTransaction
 
   const { data: rows, error: rowsError } = await supabase
     .from("transactions")
-    .select("type, amount, deleted_at")
+    .select("type, amount, deleted_at, card_id")
     .eq("period_id", row.period_id)
     .is("deleted_at", null);
   if (rowsError) throw new Error(`Couldn't load the period: ${rowsError.message}`, { cause: rowsError });

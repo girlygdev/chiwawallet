@@ -89,15 +89,15 @@ async function DashboardBody() {
       .order("created_at", { ascending: true }),
     supabase
       .from("transactions")
-      .select("type, amount, deleted_at, income_source_id, category_id")
+      .select("type, amount, deleted_at, card_id, income_source_id, category_id")
       .eq("period_id", row.id)
       .is("deleted_at", null),
     // Every earlier transaction, for carry-in (type and amount only).
-    supabase.from("transactions").select("type, amount, deleted_at").lt("date", period.start).is("deleted_at", null),
+    supabase.from("transactions").select("type, amount, deleted_at, card_id").lt("date", period.start).is("deleted_at", null),
     supabase
       .from("transactions")
       .select(
-        "id, type, amount, date, note, created_at, deleted_at, period_id, category:categories(id, name, icon, color), source:income_sources(name)",
+        "id, type, amount, card_id, date, note, created_at, deleted_at, period_id, category:categories(id, name, icon, color), source:income_sources(name)",
       )
       .is("deleted_at", null)
       .order("date", { ascending: false })
@@ -175,7 +175,7 @@ async function DashboardBody() {
       : await Promise.all([
           supabase
             .from("transactions")
-            .select("period_id, type, amount, deleted_at")
+            .select("period_id, type, amount, deleted_at, card_id")
             .in("period_id", olderIds)
             .is("deleted_at", null),
           supabase.from("budget_periods").select("id, start_date, end_date").in("id", olderIds),

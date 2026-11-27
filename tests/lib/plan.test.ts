@@ -1162,8 +1162,18 @@ describe("Give leftover a job (6f)", () => {
 });
 
 describe("carry-over (6g)", () => {
-  type Row = { type: "income" | "expense" | "savings" | "debt_payment"; amount: number; deleted_at: string | null };
-  const row = (type: Row["type"], amount: number, deleted_at: string | null = null): Row => ({ type, amount, deleted_at });
+  type Row = { type: "income" | "expense" | "savings" | "debt_payment"; amount: number; deleted_at: string | null; card_id: string | null };
+  const row = (type: Row["type"], amount: number, deleted_at: string | null = null, card_id: string | null = null): Row => ({
+    type,
+    amount,
+    deleted_at,
+    card_id,
+  });
+
+  it("doesn't use up cash for a card purchase, but does for a card payment (8b-1)", () => {
+    const rows = [row("income", 2_500_000), row("expense", 120_000, null, "card1"), row("debt_payment", 500_000, null, "card1")];
+    expect(carryOver(0, rows)).toEqual({ money: 2_500_000, used: 500_000, leftover: 2_000_000, result: "surplus" });
+  });
 
   it("a surplus carries into the next period", () => {
     const rows = [row("income", 2_500_000), row("expense", 1_500_000), row("savings", 500_000), row("debt_payment", 400_000)];
