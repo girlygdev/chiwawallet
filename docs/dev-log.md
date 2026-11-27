@@ -2,6 +2,21 @@
 
 Newest entry first.
 
+## 2026-11-27 · Week 8 (early) · Service worker, offline page and iPhone install hint
+- **What:**
+  - **Service worker** (Serwist, `src/app/sw.ts`, served at `/serwist/sw.js`): precaches the app's static JS, CSS, fonts and public files, keeps same-site fonts and images for 30 days, and takes over straight away on each deploy. Pages, Supabase and server actions always go to the network.
+  - **Offline page** (`/offline`): when a page can't load, "You're offline" with the mascot and a Try again button that reloads the page you asked for.
+  - **iPhone install hint** at the top of the Dashboard: "Add Chiwawallet to your Home Screen: tap Share, then Add to Home Screen", only on iPhone/iPad when not opened from the Home Screen; the close button hides it on that device.
+- **Files:** src/app/sw.ts, src/app/serwist/[path]/route.ts, src/app/offline/page.tsx, src/app/offline/try-again-button.tsx, src/components/shell/service-worker.tsx, src/components/dashboard/install-hint.tsx (all new), src/app/layout.tsx, src/app/(app)/dashboard/page.tsx, next.config.ts, package.json, package-lock.json
+- **Dependencies (owner, Nov 27):** `@serwist/turbopack` and `serwist` 9.6.0; `esbuild` 0.28.2 (dev) to build the worker. 0.25 clashed with Vite 8's peer range.
+- **Decisions:**
+  - Never cache pages or data: money data shouldn't sit in a phone's cache, and offline editing is out of scope. `cacheOnNavigation` and `reloadOnOnline` are off (a reload on reconnect could lose a half-filled form).
+  - Off in `npm run dev`, so development never serves stale files. Test it with `npm run build` and `npx next start`.
+  - `@serwist/turbopack`, not `@serwist/next` (which needs webpack). Its route works with Cache Components: the build passed.
+- **Tests:** lint, typecheck, 652 unit tests and `npm run build` pass. On the production build (port 3005): the worker registers; the precache holds 53 entries and the only page is `/offline`; offline, `/plan` shows "You're offline" at the same address, and Try again brings the Plan back once online; an emulated iPhone shows the hint, and it stays hidden after closing and reloading; desktop doesn't show it; no console errors. Not yet checked on real phones.
+- **AI notes:** the first esbuild install failed on a peer-version clash with Vite; 0.28.2 satisfies both.
+- **Next:** install on both phones and check (then tick Week 8's first item); plan the rest of Week 8.
+
 ## 2026-11-27 · Week 7 (early Week 8) · Sharp icons for the installed app
 - **What:** the installed app's launch icon was pixelated on Android and iPhone.
   - **Android:** there was no web app manifest, so the launch screen stretched the small favicon. Added `src/app/manifest.ts` (from docs/icons/README.md): name, standalone, mint background, Wallet Green theme, the existing 192/512 icons and their maskable versions.

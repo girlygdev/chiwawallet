@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
+import { ServiceWorker } from "@/components/shell/service-worker";
 import { ThemeWatcher } from "@/components/theme/theme-watcher";
 import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -45,7 +46,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
-        {children}
+        <ServiceWorker>{children}</ServiceWorker>
         <ThemeWatcher />
       </body>
     </html>

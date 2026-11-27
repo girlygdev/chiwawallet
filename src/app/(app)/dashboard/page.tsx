@@ -13,6 +13,7 @@ import { SplitCard } from "@/components/dashboard/split-card";
 import { StatRow } from "@/components/dashboard/stat-row";
 import { IncomeCard } from "@/components/dashboard/income-card";
 import { RecentActivity, type RecentRow } from "@/components/dashboard/recent-activity";
+import { InstallHint } from "@/components/dashboard/install-hint";
 import { PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
@@ -56,6 +57,8 @@ export default function DashboardPage() {
   return (
     <PageShell>
       <PageHeader title="Your payday at a glance" mobile="greeting" />
+      {/* iPhone and iPad only, until installed or hidden (Week 8). */}
+      <InstallHint />
       {/* Cache Components: the login check reads cookies, so it sits in <Suspense>. */}
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardBody />
