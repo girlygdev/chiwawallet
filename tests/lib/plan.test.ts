@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { dashboardNumbers } from "@/lib/money";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
+  groupProgressLine,
   assignEffect,
   assignPreset,
   assignState,
@@ -1464,5 +1465,18 @@ describe("nextPeriodSummary: what the Next period card is made from", () => {
 
   it("is empty with nothing planned", () => {
     expect(nextPeriodSummary([])).toEqual({ expected: 0, names: [] });
+  });
+});
+
+describe("groupProgressLine (7f)", () => {
+  it("reads 'of' while at or under plan", () => {
+    expect(groupProgressLine(324_000, 600_000, "spent")).toBe("₱3,240 of ₱6,000 spent");
+    expect(groupProgressLine(54_900, 54_900, "paid")).toBe("₱549 of ₱549 paid");
+    expect(groupProgressLine(0, 54_900, "paid")).toBe("₱0 of ₱549 paid");
+  });
+
+  it("puts the plan in brackets once paid or spent above it", () => {
+    expect(groupProgressLine(57_500, 54_900, "paid")).toBe("₱575 paid (₱549 planned)");
+    expect(groupProgressLine(388_000, 330_000, "spent")).toBe("₱3,880 spent (₱3,300 planned)");
   });
 });

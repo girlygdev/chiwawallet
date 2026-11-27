@@ -75,6 +75,16 @@ const ROWS = [
 
 // OR BUILD IT YOURSELF (plan.md §5): five rows, each with a tile, a sentence
 // and a soft button to where that kind of item is added.
+// An ended period with nothing planned (7f): nothing to start or build, so
+// just say so in place of the starter card and the build rows.
+export function NothingPlanned() {
+  return (
+    <p className="rounded-2xl border-[1.5px] border-line bg-surface px-4 py-3 text-sm text-text-2">
+      Nothing was planned for this period.
+    </p>
+  );
+}
+
 export function BuildRows({ addOneOff, setBudget }: { addOneOff: string | null; setBudget: string | null }) {
   return (
     <section aria-labelledby="build-title" className="flex flex-col gap-2">

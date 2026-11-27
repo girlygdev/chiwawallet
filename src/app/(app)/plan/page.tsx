@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { BuildRows, StarterCard } from "@/components/plan/empty-plan";
+import { BuildRows, NothingPlanned, StarterCard } from "@/components/plan/empty-plan";
 import { PeriodPicker } from "@/components/plan/period-picker";
 import { type CarryLabel, PlanGroups } from "@/components/plan/plan-groups";
 import { PlanStats } from "@/components/plan/plan-stats";
@@ -142,7 +142,14 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
           </p>
         )}
 
-        {empty ? (
+        {empty && !editStart ? (
+          // Ended with nothing planned: what came in, then a plain line (7f).
+          <div className="flex flex-col gap-5 md:max-w-2xl">
+            <PlanSummary summary={plan.summary} income={plan.income} carriedIn={plan.carriedIn} empty />
+            <PlanGroups {...groups} moneyInOnly />
+            <NothingPlanned />
+          </div>
+        ) : empty ? (
           <div className="flex flex-col gap-5 md:max-w-2xl">
             <PlanSummary summary={plan.summary} income={plan.income} carriedIn={plan.carriedIn} empty />
             <StarterCard

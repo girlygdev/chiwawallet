@@ -2,6 +2,17 @@
 
 Newest entry first.
 
+## 2026-11-27 · Week 7 · 7f Carried-forward polish
+- **What:**
+  - **Plan group headings (phones):** above plan they read "₱575 paid (₱549 planned)" / "₱3,880 spent (₱3,300 planned)"; at or under plan, "₱3,240 of ₱6,000 spent" as before.
+  - **Dashboard Due row on a 390px phone:** the detail line wraps under the name instead of being cut short beside the pill. Desktop stays one line.
+  - **Closed, empty periods:** the summary and Money in, then "Nothing was planned for this period." No starter card or build rows.
+- **Files:** src/lib/plan.ts, tests/lib/plan.test.ts, src/components/plan/plan-groups.tsx, src/components/plan/empty-plan.tsx, src/components/dashboard/due-card.tsx, src/app/(app)/plan/page.tsx, docs/week-7-tasks.md
+- **Decisions:** keep Money in on a closed empty period, so you still see what came in (owner, Nov 27). The desktop table already has separate Planned and Actual columns, so it's unchanged.
+- **Tests:** written first, 2 new Vitest cases (642 pass); lint and typecheck pass. Browser: main account Bills heading "₱575 paid (₱549 planned)", Spending "₱4,080 of ₱25,800 spent"; fresh account's Due rows wrap to two lines at 390px and stay one line at 1280px; a throwaway local account with an empty Oct 30 period showed Closed, Money in and the new line, while its open empty period still shows the starter card; no console errors.
+- **AI notes:** the first browser run hit "groupProgressLine is not a function". An old dev server from earlier was still holding port 3000 with a stale build; restarting it fixed it. No code change was needed.
+- **Next:** 7g-1, the Paydays overview.
+
 ## 2026-11-27 · Week 7 · 7e Savings and Debts: check against the specs
 - **What:** walked `savings.md` and `debts.md` against the pages and fixed three gaps.
   - **Cleared early:** a payment that extra payments fully cleared reads "Jan 25 · cleared early by extra payments", shows its original amount muted and a "Cleared early" tag (was "paid from Jan 15 payday · ₱0 · Paid"). A partly lowered one adds "· ₱1,500 cleared early".

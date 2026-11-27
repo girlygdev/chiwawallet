@@ -3,7 +3,7 @@ import Link from "next/link";
 import { TickButton, type TickItem } from "@/components/plan/tick-button";
 import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { formatPeso } from "@/lib/money";
-import type { PlanSummary } from "@/lib/plan";
+import { groupProgressLine, type PlanSummary } from "@/lib/plan";
 import type { PlanRow } from "@/lib/plan-periods";
 import { cn } from "@/lib/utils";
 
@@ -234,7 +234,7 @@ function Group({
         <span>{title}</span>
         <span className="normal-case">
           {progress && progress.planned > 0
-            ? `${formatPeso(progress.actual)} of ${formatPeso(progress.planned)} ${verb}`
+            ? groupProgressLine(progress.actual, progress.planned, verb)
             : formatPeso(total)}
         </span>
       </h2>

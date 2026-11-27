@@ -51,7 +51,7 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
 - [x] **7e. Savings and Debts: check against the specs.** Done Nov 27 (checked in a browser on local Supabase, 390 and 1280px). Walk `savings.md` and `debts.md` against the pages and fix any gaps. Fixed: "Cleared early" (a `cleared` payment status in `debtProgress()`, partly lowered ones add "· ₱1,500 cleared early"); the Debts summary card is white on phones and Deep Green from tablet up (debts.md fix #1, owner Nov 24); the Savings desktop stat lines "₱2,000 more planned" and "₱3k + ₱4k + ₱5k" (`morePlannedLine()`, `savingPlanParts()` in `lib/pots.ts`). Already there: the mobile back arrow to More. Not built, by Week 4's choice: the desktop debt details panel, so its subtitle (fix #2) doesn't apply.
   - **Includes the carried-forward wording:** a debt payment cleared by extras should read "Cleared early", not "paid from Jan 15 payday".
   - Done when: brief items 1 and 2 can be ticked.
-- [ ] **7f. Carried-forward polish (from Week 6).**
+- [x] **7f. Carried-forward polish (from Week 6).** Done Nov 27 (checked in a browser on local Supabase, 390 and 1280px). `groupProgressLine()` in `lib/plan.ts`; `NothingPlanned` in `empty-plan.tsx`. A closed empty period keeps its summary and Money in above the line (owner, Nov 27).
   - **Overpaid groups:** "₱575 of ₱549 paid" should read better, for example "₱575 paid (₱549 planned)".
   - **Due row on a 390px phone:** the detail line wraps under the name instead of being cut short beside the pill.
   - **Closed, empty periods:** no empty-plan card, just "Nothing was planned for this period."

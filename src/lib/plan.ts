@@ -818,6 +818,17 @@ export function spendingActuals(
  * tone (green under 90%, gold from 90% to 100%, red over) and "₱2,760 left"
  * or "₱340 over".
  */
+/**
+ * A Plan group heading's planned vs actual (6e, reworded in 7f): "₱3,240 of
+ * ₱6,000 spent" up to the plan; above it, "₱575 paid (₱549 planned)", since
+ * "₱575 of ₱549" reads like a typo.
+ */
+export function groupProgressLine(actual: number, planned: number, verb: "paid" | "spent"): string {
+  return actual > planned
+    ? `${formatPeso(actual)} ${verb} (${formatPeso(planned)} planned)`
+    : `${formatPeso(actual)} of ${formatPeso(planned)} ${verb}`;
+}
+
 export function budgetBar(planned: number, spent: number): { share: number; tone: "ok" | "near" | "over"; text: string } {
   const ratio = planned > 0 ? spent / planned : spent > 0 ? Infinity : 0;
   const left = planned - spent;

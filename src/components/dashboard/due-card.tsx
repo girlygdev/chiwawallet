@@ -92,7 +92,7 @@ export function DueCard({ items, periodStart, today }: { items: CurrentItem[]; p
                   )}
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate font-extrabold text-ink">{item.name}</span>
-                    <span className={cn("truncate text-[13px]", paid ? "font-bold text-link-hover" : "text-text-3")}>
+                    <span className={cn("text-[13px] lg:truncate", paid ? "font-bold text-link-hover" : "text-text-3")}>
                       <span className="lg:hidden">{detailLine(item)}</span>
                       <span className="hidden lg:inline">{longDetailLine(item, today)}</span>
                     </span>
