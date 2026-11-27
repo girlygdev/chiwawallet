@@ -4,12 +4,12 @@ Newest entry first.
 
 ## 2026-11-27 · Week 8 (early) · Fix CI after the Serwist packages
 - **What:** CI failed at `npm ci` after `d19612c`, which blocked the Vercel deploy.
-  - **Cause:** CI ran Node 22 (npm 10); local dev runs Node 24 (npm 11), which wrote `package-lock.json`. npm 10 rejects that lockfile ("Missing: @emnapi/runtime@1.11.3 from lock file"), pulled in by the new packages.
-  - **Fix:** CI now uses Node 24, the same as local. Also moved to `actions/checkout@v5` and `actions/setup-node@v5`, since GitHub deprecated the Node 20 runtime the v4 actions use.
-- **Files:** .github/workflows/ci.yml
-- **Decisions:** match CI to local Node rather than regenerate the lockfile with npm 10.
-- **Tests:** on a fresh clone, `npx npm@10 ci` fails with the same error as CI, and `npm ci` with npm 11 passes; lint, typecheck and 652 tests pass there.
-- **AI notes:** my first fix (the v5 actions) only cleared the deprecation; the run log showed the real error.
+  - **Cause:** installing the Serwist packages on Windows dropped `@emnapi/runtime` from `package-lock.json`. Only Linux needs it (the wasm builds of sharp and Tailwind's oxide), so `npm ci` worked on Windows and failed on GitHub's Linux runner: "Missing: @emnapi/runtime@1.11.3 from lock file".
+  - **Fix:** rebuilt the lockfile on Linux (`npm install --package-lock-only` in a `node:24` Docker container). Also: `actions/checkout@v5` and `actions/setup-node@v5` (GitHub deprecated the Node 20 runtime the v4 actions use), and CI on Node 24, the same as local dev.
+- **Files:** .github/workflows/ci.yml, package-lock.json
+- **Decisions:** keep the lockfile npm's own (no hand edits); check future dependency changes with `npm ci` in a `node:24` container before pushing.
+- **Tests:** in a `node:24` container on a fresh clone, the old lockfile fails exactly like CI; with the new one, `npm ci`, lint, typecheck and 652 tests pass. On Windows, `npm ci` and typecheck pass with it too.
+- **AI notes:** two wrong guesses first (the deprecated actions, then the npm version); reproducing CI in Docker found the real cause.
 - **Next:** check CI and the Vercel deploy, then the phone checks.
 
 ## 2026-11-27 · Week 8 (early) · Service worker, offline page and iPhone install hint
