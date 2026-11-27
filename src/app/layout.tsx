@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: "Chiwawallet",
   description:
     "Sit. Stay. Save. A budgeting app that plans your money by payday.",
+  // Added to an iPhone home screen: open full screen, named Chiwawallet. The
+  // icon is src/app/apple-icon.png (1024px, so the launch screen stays sharp).
+  appleWebApp: { capable: true, title: "Chiwawallet" },
 };
 
 // viewport-fit=cover lets pages draw under the iPhone home bar, so the bottom

@@ -2,6 +2,16 @@
 
 Newest entry first.
 
+## 2026-11-27 · Week 7 (early Week 8) · Sharp icons for the installed app
+- **What:** the installed app's launch icon was pixelated on Android and iPhone.
+  - **Android:** there was no web app manifest, so the launch screen stretched the small favicon. Added `src/app/manifest.ts` (from docs/icons/README.md): name, standalone, mint background, Wallet Green theme, the existing 192/512 icons and their maskable versions.
+  - **iPhone:** `apple-icon.png` was 180px; now 1024px, rendered from `public/logo-mark.svg` on mint with the same padding. Added `appleWebApp` (full screen, title "Chiwawallet").
+- **Files:** src/app/manifest.ts (new), src/app/apple-icon.png, src/app/layout.tsx
+- **Decisions:** only the manifest part of Week 8's first item; the Serwist service worker and the iPhone install hint stay in Week 8. No new dependency: the icon was rendered with the Playwright Chromium already installed.
+- **Tests:** `/manifest.webmanifest` and the icons load without logging in; the page links the manifest and the 1024px Apple icon; Chromium parses the manifest with no errors; lint, typecheck and 652 tests pass. Not checked on real phones yet: remove the app from the home screen and add it again (phones keep the icon from when they installed).
+- **AI notes:** the first render filled the whole square, so iOS's rounded corners would have cut the ears; re-rendered at 80% to match the old icon.
+- **Next:** reinstall on both phones and check the launch screen.
+
 ## 2026-11-27 · Week 7 · 7i The 50/30/20 split as group budgets
 - **What:**
   - **Starter plan removed:** no "Use this starter plan" button or menu item. Its Needs, Wants and Savings & debt lines confused people.
