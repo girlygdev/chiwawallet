@@ -2,6 +2,16 @@
 
 Newest entry first.
 
+## 2026-11-27 · Week 8 (early) · Fix CI after the Serwist packages
+- **What:** CI failed at `npm ci` after `d19612c`, which blocked the Vercel deploy.
+  - **Cause:** CI ran Node 22 (npm 10); local dev runs Node 24 (npm 11), which wrote `package-lock.json`. npm 10 rejects that lockfile ("Missing: @emnapi/runtime@1.11.3 from lock file"), pulled in by the new packages.
+  - **Fix:** CI now uses Node 24, the same as local. Also moved to `actions/checkout@v5` and `actions/setup-node@v5`, since GitHub deprecated the Node 20 runtime the v4 actions use.
+- **Files:** .github/workflows/ci.yml
+- **Decisions:** match CI to local Node rather than regenerate the lockfile with npm 10.
+- **Tests:** on a fresh clone, `npx npm@10 ci` fails with the same error as CI, and `npm ci` with npm 11 passes; lint, typecheck and 652 tests pass there.
+- **AI notes:** my first fix (the v5 actions) only cleared the deprecation; the run log showed the real error.
+- **Next:** check CI and the Vercel deploy, then the phone checks.
+
 ## 2026-11-27 · Week 8 (early) · Service worker, offline page and iPhone install hint
 - **What:**
   - **Service worker** (Serwist, `src/app/sw.ts`, served at `/serwist/sw.js`): precaches the app's static JS, CSS, fonts and public files, keeps same-site fonts and images for 30 days, and takes over straight away on each deploy. Pages, Supabase and server actions always go to the network.
