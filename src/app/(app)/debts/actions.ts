@@ -5,7 +5,7 @@ import { todayInManila } from "@/lib/periods";
 import { syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
-import { type DebtFormInput, type DebtValues, debtSchema } from "@/lib/validation/debt";
+import { type CardFormInput, type CardValues, cardSchema, type DebtFormInput, type DebtValues, debtSchema } from "@/lib/validation/debt";
 import { SOMETHING_WRONG, toFieldErrors } from "@/lib/validation/field-errors";
 
 type Result = {
@@ -13,6 +13,8 @@ type Result = {
   formError?: string;
   fieldErrors?: Partial<Record<keyof DebtFormInput, string>>;
 };
+
+type CardResult = { ok?: true; formError?: string; fieldErrors?: Partial<Record<keyof CardFormInput, string>> };
 
 const GONE = "That debt no longer exists. Refresh the page.";
 
@@ -48,6 +50,30 @@ export async function updateDebt(id: string, input: DebtFormInput): Promise<Resu
   return { ok: true };
 }
 
+/** New credit card (8b-2): no schedule, so open periods don't change yet (8b-4 plans its payment). */
+export async function addCard(input: CardFormInput): Promise<CardResult> {
+  await requireAppUser();
+  const parsed = cardSchema.safeParse(input);
+  if (!parsed.success) return { fieldErrors: toFieldErrors<CardFormInput>(parsed.error.issues) };
+  const supabase = await createClient();
+  const { error } = await supabase.from("debts").insert({ ...cardRow(parsed.data), payment_type: "card" });
+  if (error) return fail("add card", error);
+  return { ok: true };
+}
+
+/** Edit card (8b-2). Only a card: the database keeps a card a card, and this never changes the type. */
+export async function updateCard(id: string, input: CardFormInput): Promise<CardResult> {
+  await requireAppUser();
+  if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
+  const parsed = cardSchema.safeParse(input);
+  if (!parsed.success) return { fieldErrors: toFieldErrors<CardFormInput>(parsed.error.issues) };
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("debts").update(cardRow(parsed.data)).eq("id", id).eq("payment_type", "card").select("id");
+  if (error) return fail("update card", error);
+  if (data.length === 0) return { formError: "That card no longer exists. Refresh the page." };
+  return { ok: true };
+}
+
 /**
  * "Mark it paid off" (delete-pattern.md "Debt"): the debt moves to PAID OFF
  * and stops counting in Total owed, even with money left (paid outside the
@@ -79,6 +105,9 @@ export async function deleteDebt(id: string): Promise<Result> {
   if (!z.uuid().safeParse(id).success) return { formError: SOMETHING_WRONG };
   const supabase = await createClient();
   const { data, error } = await supabase.from("debts").delete().eq("id", id).select("id");
+  // 23503: a credit card with purchases or payments (8b-1). Deleting it would
+  // turn its purchases into cash spending, so it can only be closed.
+  if (error?.code === "23503") return { formError: "This card has purchases or payments, so it can only be closed." };
   if (error) return fail("delete debt", error);
   if (data.length === 0) return { formError: GONE };
   return { ok: true };
@@ -95,6 +124,17 @@ function toRow(values: DebtValues) {
     first_due_date: values.firstDueDate,
     interest_rate: values.interestRate,
     target_date: values.targetDate,
+  };
+}
+
+function cardRow(values: CardValues) {
+  return {
+    name: values.name,
+    lender: values.lender,
+    total_amount: values.owed,
+    due_day: values.dueDay,
+    pay_slot: values.paySlot,
+    interest_rate: values.interestRate,
   };
 }
 

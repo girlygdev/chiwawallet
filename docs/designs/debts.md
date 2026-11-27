@@ -98,3 +98,21 @@ A bottom sheet on mobile, a dialog or side panel on desktop. Title "New debt", s
 3. **Placeholder links:** debt rows point to `#`. Wire them to `/debts/[debtId]`.
 4. **Mobile debt details page** isn't designed. The mobile card already holds the schedule, so the card can expand in place instead of opening a page.
 5. **Payments due on the 29th–31st** need the same short-month rule as paydays: use the month's last day.
+
+## 8. Credit cards (added Nov 27, owner; Week 8 task 8b)
+
+A card is a revolving debt: what's owed goes up with every purchase and down with every payment. There's no schedule and no "Debt-free by".
+
+- **New debt** has a **Kind** choice at the top: *Loan or money owed* | *Credit card* (`/debts?add=card` opens on Credit card). A card asks for:
+  - Card name and bank (optional).
+  - **Owed on it today** (₱0 is fine).
+  - **Payment due each month** (1st–31st; a short month uses its last day).
+  - **Paid from:** the 15th or 30th payday. It defaults to the payday right before the due day, like bills, and is hidden on one-payday budgets.
+  - Interest (optional, display only).
+  - Preview: "Your Nov 30 payday pays the Dec 5 payment."
+- **On the Debts page:** "BPI card · Credit card · ₱8,400 owed" (or "₱200 credit"), "Next payment due Dec 5 · from the Nov 30 payday", "₱3,200 charged this period", **Edit** and **Pay**.
+- **Totals:** Total owed and the active count include cards. The paid bar and Debt-free by don't.
+- **Owed** = what was owed when added + purchases (expenses "paid with" the card) − payments. Never stored.
+- **Close card** instead of Delete once it has purchases or payments (the database refuses the delete). A closed card is listed under Paid off as "Closed", and Edit can reopen it. A card with no history deletes normally.
+- **Money rules:** a purchase on a card is spending (budgets, 50/30/20) but no cash leaves; paying the card takes the cash but isn't spending again.
+- **Still to come:** "Paid with" in the add sheet (8b-3), and the card's payment on the Plan (8b-4).

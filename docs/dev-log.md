@@ -2,6 +2,21 @@
 
 Newest entry first.
 
+## 2026-11-27 · Week 8 · 8b-2 Credit cards: add a card and see it
+- **What:**
+  - **New debt** has a Kind choice: *Loan or money owed* | *Credit card*. A card asks for its name, bank, what's owed today (₱0 is fine), the payment due day and which payday pays it (defaults like bills), with "Your Nov 30 payday pays the Dec 5 payment."
+  - **Debts page:** each card shows "₱8,400 owed", "Next payment due Dec 5 · from the Nov 30 payday", "₱1,200 charged this period", Edit and Pay. Total owed and the active count include cards.
+  - **Edit card**; **Close card** / Reopen; deleting a card with history is refused with "This card has purchases or payments, so it can only be closed."
+  - Cards' balances are used on More, Plan a debt payment, Give leftover a job and the add sheet's To a debt.
+- **Files:** src/lib/cards.ts (new), src/lib/card-charges.ts (new), src/components/debts/card-form.tsx (new), src/lib/debts.ts, src/lib/validation/debt.ts, src/app/(app)/debts/page.tsx, debt-sheet.tsx, actions.ts, src/app/(app)/more/money-section.tsx, src/lib/plan-periods.ts, src/app/(app)/activity/actions.ts, src/app/(app)/plan/actions.ts, tests/lib/cards.test.ts (new), tests/lib/debts.test.ts, tests/lib/validation/debt.test.ts, docs/designs/debts.md (§8), docs/week-8-tasks.md
+- **Decisions:**
+  - A separate card form and actions, not a fourth mode in the 460-line loan form.
+  - "Paid from" reuses bills' `suggestedBillSlot()` (I'd first written a duplicate and removed it).
+  - A card is only finished once closed; at ₱0 it's still in use.
+  - Edit shows "Owed when you added it" (the starting balance), since purchases and payments are added on top.
+- **Tests:** written first, 15 new Vitest cases (681 pass); lint and typecheck pass. Browser (throwaway local account, 390 and 1280px): added BPI card at ₱8,400 with the 30th picked for a due day of the 5th; a ₱1,200 purchase made it ₱9,600 owed and "₱1,200 charged this period" while Safe to spend stayed ₱5,000; paying ₱1,000 from Pay made it ₱8,600 and Safe to spend ₱4,000; Edit to the 20th moved it to the Dec 15 payday; Delete refused, Close and Reopen worked; an unused card deleted; More read "1 debt · ₱8,600 left". The main account's Debts page is unchanged (₱13,000 owed); no console errors.
+- **Next:** 8b-3, "Paid with" a card in the add sheet.
+
 ## 2026-11-27 · Week 8 · 8b-1 Credit cards: data and math
 - **What:** the groundwork for credit cards as revolving debts (owner, Nov 27). No screens yet.
   - **Migration** `20261127100000_credit_cards.sql`:

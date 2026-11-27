@@ -1,6 +1,7 @@
 import { ChevronRight, CreditCard, HandCoins, PiggyBank, Receipt } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
+import { chargedFor, loadCardCharges } from "@/lib/card-charges";
 import { getCurrentBudget } from "@/lib/current-budget";
 import { describeIncome, isActiveOn } from "@/lib/income";
 import { type DebtTerms, debtPaidFor, debtsSummary } from "@/lib/debts";
@@ -112,7 +113,7 @@ async function DebtsDetail() {
   const budget = await getCurrentBudget();
   if (!budget) return null;
   const supabase = await createClient();
-  const [debts, payments] = await Promise.all([
+  const [debts, payments, charges] = await Promise.all([
     supabase
       .from("debts")
       .select("id, name, total_amount, payment_type, num_payments, payment_amount, first_due_date, paid_off_at"),
@@ -122,15 +123,18 @@ async function DebtsDetail() {
       .eq("type", "debt_payment")
       .not("debt_id", "is", null)
       .is("deleted_at", null),
+    loadCardCharges(supabase),
   ]);
   if (!debts.data || !payments.data) return null;
   const today = todayInManila(new Date());
   const summary = debtsSummary(
     debts.data.map((d) => ({
       ...d,
-      // The check constraint allows only these two.
+      // The check constraint allows only these.
       payment_type: d.payment_type as DebtTerms["payment_type"],
       ...debtPaidFor(payments.data, d.id),
+      // A card's purchases count in what's owed (8b-2).
+      charged: chargedFor(d, charges),
     })),
     today,
     getPeriod(today, scheduleFromBudget(budget)),

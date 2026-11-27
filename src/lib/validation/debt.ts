@@ -95,6 +95,38 @@ export const debtSchema = z
     };
   });
 
+/**
+ * New and Edit card (8b-2): a credit card has no schedule. What's owed on it
+ * today may be ₱0; its payment is due on a day of the month, paid from a
+ * payday (the 15th or the 30th; every payday on one-payday budgets).
+ */
+export const cardSchema = z.object({
+  name: z.string().trim().min(1, "Name this card, like BPI card.").max(40, "Keep it to 40 characters or fewer."),
+  lender: z
+    .string()
+    .trim()
+    .max(40, "Keep it to 40 characters or fewer.")
+    .transform((text) => (text === "" ? null : text)),
+  owed: z.string().transform((text, ctx) => {
+    const centavos = parsePesoInput(text);
+    if (centavos == null || centavos < 0) {
+      ctx.addIssue({ code: "custom", message: "Enter what you owe on it today, or 0." });
+      return z.NEVER;
+    }
+    return centavos;
+  }),
+  dueDay: z.number({ error: "Pick the day its payment is due." }).int().min(1, "Pick the day its payment is due.").max(31, "Pick the day its payment is due."),
+  paySlot: z.enum(["payday_1", "payday_2", "every"], { error: "Pick which payday pays it." }),
+  interestRate: z
+    .string()
+    .trim()
+    .refine((text) => text === "" || (RATE.test(text) && Number(text) <= 100), RATE_MESSAGE)
+    .transform((text) => (text === "" ? null : Number(text))),
+});
+
+export type CardFormInput = z.input<typeof cardSchema>;
+export type CardValues = z.output<typeof cardSchema>;
+
 export type DebtFormInput = z.input<typeof debtSchema>;
 export type DebtValues = z.output<typeof debtSchema>;
 

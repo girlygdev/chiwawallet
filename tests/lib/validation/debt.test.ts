@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { debtSchema, lastPaymentNote, suggestedPayment } from "@/lib/validation/debt";
+import { cardSchema, debtSchema, lastPaymentNote, suggestedPayment } from "@/lib/validation/debt";
 
 const valid = {
   name: "SPayLater",
@@ -110,5 +110,39 @@ describe("debtSchema: When I can (flexible, Nov 24)", () => {
   it("installments and one payment still need a due date, and drop any target", () => {
     expect(errorsFor({ firstDueDate: "" }).firstDueDate).toBe("Pick the first due date.");
     expect(debtSchema.parse({ ...valid, targetMonth: "2027-06" }).targetDate).toBeNull();
+  });
+});
+
+describe("cardSchema (8b-2)", () => {
+  const card = { name: "BPI card", lender: "", owed: "8,400", dueDay: 5, paySlot: "payday_2", interestRate: "" };
+  const errors = (input: Record<string, unknown>) => {
+    const result = cardSchema.safeParse({ ...card, ...input });
+    if (result.success) return {};
+    return Object.fromEntries(result.error.issues.map((i) => [i.path[0], i.message]));
+  };
+
+  it("parses a card", () => {
+    expect(cardSchema.parse({ ...card, lender: " BPI ", interestRate: "3" })).toEqual({
+      name: "BPI card",
+      lender: "BPI",
+      owed: 840_000,
+      dueDay: 5,
+      paySlot: "payday_2",
+      interestRate: 3,
+    });
+  });
+
+  it("allows nothing owed yet", () => {
+    expect(cardSchema.parse({ ...card, owed: "0" }).owed).toBe(0);
+  });
+
+  it("needs a name, an amount, a due day from 1 to 31 and a payday", () => {
+    expect(errors({ name: " " }).name).toBe("Name this card, like BPI card.");
+    expect(errors({ owed: "" }).owed).toBe("Enter what you owe on it today, or 0.");
+    expect(errors({ owed: "-5" }).owed).toBe("Enter what you owe on it today, or 0.");
+    expect(errors({ dueDay: 0 }).dueDay).toBe("Pick the day its payment is due.");
+    expect(errors({ dueDay: 32 }).dueDay).toBe("Pick the day its payment is due.");
+    expect(errors({ paySlot: "split" }).paySlot).toBe("Pick which payday pays it.");
+    expect(errors({ interestRate: "abc" }).interestRate).toBe("Enter a rate from 0 to 100, like 3.5.");
   });
 });

@@ -381,3 +381,53 @@ describe("a card has no schedule (8b-1)", () => {
     ).toEqual([]);
   });
 });
+
+describe("credit cards in the debt helpers (8b-2)", () => {
+  const card = {
+    name: "BPI card",
+    total_amount: 500_000,
+    payment_type: "card" as const,
+    num_payments: null,
+    payment_amount: null,
+    first_due_date: null,
+    paid_off_at: null as string | null,
+  };
+
+  it("a card is only finished once closed, even at ₱0", () => {
+    expect(isPaidOff({ ...card, paid: 500_000 })).toBe(false);
+    expect(isPaidOff({ ...card, paid: 900_000, charged: 400_000 })).toBe(false);
+    expect(isPaidOff({ ...card, paid: 0, paid_off_at: "2026-12-01T00:00:00Z" })).toBe(true);
+  });
+
+  it("what's left on a card is its balance: starting + purchases − payments, never below ₱0", () => {
+    expect(debtLeft({ ...card, paid: 100_000, charged: 320_000 })).toBe(720_000);
+    expect(debtLeft({ ...card, paid: 900_000, charged: 0 })).toBe(0);
+    expect(debtLeft({ ...card, paid: 0, charged: 100_000, paid_off_at: "2026-12-01T00:00:00Z" })).toBe(0);
+  });
+
+  it("counts an open card in Total owed and the active count, but not in the paid bar or Debt-free by", () => {
+    const loan = {
+      name: "SPayLater",
+      total_amount: 1_200_000,
+      payment_type: "installments" as const,
+      num_payments: 3,
+      payment_amount: 400_000,
+      first_due_date: "2026-11-25",
+      paid: 400_000,
+      paid_off_at: null,
+    };
+    const summary = debtsSummary([loan, { ...card, paid: 100_000, charged: 320_000 }], "2026-11-27", { start: "2026-11-15", end: "2026-11-29" });
+    expect(summary.totalOwed).toBe(800_000 + 720_000);
+    expect(summary.activeCount).toBe(2);
+    expect(summary.activeTotal).toBe(1_200_000);
+    expect(summary.activePaid).toBe(400_000);
+    expect(summary.debtFreeBy).toBe("2027-01-25");
+    // Card payments are debt payments too.
+    expect(summary.paidSoFar).toBe(500_000);
+  });
+
+  it("puts a closed card with the finished ones", () => {
+    const summary = debtsSummary([{ ...card, paid: 0, paid_off_at: "2026-12-01T00:00:00Z" }], "2026-11-27", { start: "2026-11-15", end: "2026-11-29" });
+    expect(summary).toMatchObject({ activeCount: 0, paidOffCount: 1, totalOwed: 0 });
+  });
+});

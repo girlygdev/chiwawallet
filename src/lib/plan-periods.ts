@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, format, parseISO } from "date-fns";
+import { chargedFor, loadCardCharges } from "@/lib/card-charges";
 import type { BillFrequency } from "@/lib/bills";
 import { type BudgetPeriod, getOrCreatePeriod } from "@/lib/budget-periods";
 import type { Budget } from "@/lib/current-budget";
@@ -893,7 +894,7 @@ async function syncPeriods(
 
 /** Everything generatePlan() and the detail lines are made from. */
 async function loadSources(supabase: Client, budget: Budget) {
-  const [sources, bills, pots, debts, payments, categories] = await Promise.all([
+  const [sources, bills, pots, debts, payments, categories, charges] = await Promise.all([
     supabase.from("income_sources").select("id, name, amount, pay_slot, start_date, end_date").eq("budget_id", budget.id),
     supabase
       .from("recurring_bills")
@@ -912,6 +913,8 @@ async function loadSources(supabase: Client, budget: Budget) {
       .not("debt_id", "is", null)
       .is("deleted_at", null),
     supabase.from("categories").select("id, name, kind, system_key, default_budget, budget_group"),
+    // A card's purchases, for its balance (8b-2).
+    loadCardCharges(supabase),
   ]);
   for (const result of [sources, bills, pots, debts, payments, categories]) {
     if (result.error) fail("load what the plan is made from", result.error);
@@ -935,6 +938,7 @@ async function loadSources(supabase: Client, budget: Budget) {
       payment_type: d.payment_type as DebtTerms["payment_type"],
       // Total paid, and the extra payments that shrink the last payments (debts.md §5).
       ...debtPaidFor(payments.data!, d.id),
+      charged: chargedFor(d, charges),
     })),
     spending: categories.data!,
     /** Each category's group (empty for income), for the sections and the split. */

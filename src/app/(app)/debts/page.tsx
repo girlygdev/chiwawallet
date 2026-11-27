@@ -8,7 +8,10 @@ import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { MarkPaidPill } from "@/components/plan/tick-button";
 import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
+import { loadCardCharges } from "@/lib/card-charges";
+import { cardCharged, cardNextPayment, cardOwedText } from "@/lib/cards";
 import {
+  cardBalance,
   type DebtTerms,
   debtPaidFor,
   debtProgress,
@@ -53,7 +56,7 @@ export default function DebtsPage() {
   );
 }
 
-// No cards here until 8b-2 (they're filtered out of the query).
+// A loan, BNPL, one payment or "When I can"; credit cards are Card below.
 type Debt = Omit<DebtTerms, "payment_type"> & {
   payment_type: Exclude<DebtTerms["payment_type"], "card">;
   id: string;
@@ -66,18 +69,38 @@ type Debt = Omit<DebtTerms, "payment_type"> & {
   extraPaid: number;
 };
 
+// A credit card (8b-2): no schedule; its balance is worked out from its
+// purchases and payments (cardBalance()).
+type Card = {
+  id: string;
+  name: string;
+  lender: string | null;
+  /** The balance when it was added. */
+  total_amount: number;
+  due_day: number;
+  pay_slot: string;
+  interest_rate: number | null;
+  paid_off_at: string | null;
+  paid: number;
+  /** Everything bought with it. */
+  charged: number;
+  /** Bought with it this period. */
+  chargedNow: number;
+  /** Starting balance + purchases − payments; below 0 is a credit. */
+  balance: number;
+};
+
 async function DebtsContent() {
   const { budget } = await requireAppUser();
   const supabase = await createClient();
-  const [debtRows, paymentRows] = await Promise.all([
+  const [debtRows, paymentRows, charges] = await Promise.all([
     supabase
       .from("debts")
       .select(
-        "id, name, lender, total_amount, payment_type, num_payments, payment_amount, first_due_date, interest_rate, paid_off_at, target_date",
+        "id, name, lender, total_amount, payment_type, num_payments, payment_amount, first_due_date, interest_rate, paid_off_at, target_date, due_day, pay_slot",
       )
-      // Credit cards (8b-1) get their own card on this page in 8b-2.
-      .neq("payment_type", "card")
-      .order("first_due_date"),
+      .order("first_due_date")
+      .order("created_at"),
     // Every live payment, for what's been paid ("left" is never stored).
     supabase
       .from("transactions")
@@ -85,26 +108,67 @@ async function DebtsContent() {
       .eq("type", "debt_payment")
       .not("debt_id", "is", null)
       .is("deleted_at", null),
+    // What was bought with each card (8b-2).
+    loadCardCharges(supabase),
   ]);
   for (const result of [debtRows, paymentRows]) {
     if (result.error) throw new Error(`Couldn't load debts: ${result.error.message}`, { cause: result.error });
   }
-  const debts: Debt[] = debtRows.data!.map((d) => ({
-    ...d,
-    // The check constraint allows only these; cards are filtered out above.
-    payment_type: d.payment_type as Exclude<DebtTerms["payment_type"], "card">,
-    // Total paid, and the extra payments that shrink the last payments (debts.md §5).
-    ...debtPaidFor(paymentRows.data!, d.id),
-  }));
-
   const schedule = scheduleFromBudget(budget);
   const today = todayInManila(new Date());
   const period = getPeriod(today, schedule);
+
+  const debts: Debt[] = debtRows
+    .data!.filter((d) => d.payment_type !== "card")
+    .map((d) => ({
+      ...d,
+      // The check constraint allows only these; cards are below.
+      payment_type: d.payment_type as Exclude<DebtTerms["payment_type"], "card">,
+      // Total paid, and the extra payments that shrink the last payments (debts.md §5).
+      ...debtPaidFor(paymentRows.data!, d.id),
+    }));
+  const cards: Card[] = debtRows
+    .data!.filter((d) => d.payment_type === "card" && d.due_day != null && d.pay_slot != null)
+    .map((d) => {
+      const { paid } = debtPaidFor(paymentRows.data!, d.id);
+      return {
+        id: d.id,
+        name: d.name,
+        lender: d.lender,
+        total_amount: d.total_amount,
+        due_day: d.due_day!,
+        pay_slot: d.pay_slot!,
+        interest_rate: d.interest_rate,
+        paid_off_at: d.paid_off_at,
+        paid,
+        charged: cardCharged(charges, d.id),
+        chargedNow: cardCharged(charges, d.id, period),
+        // Purchases and payments both carry card_id; payments came in above.
+        balance: cardBalance(d.total_amount, charges, d.id) - paid,
+      };
+    });
+
   // Debt items that can be paid now, for Mark paid on each card (6b-2).
   const payable = await payableDebtItems(supabase, budget, today);
-  const summary = debtsSummary(debts, today, period);
+  const summary = debtsSummary(
+    [
+      ...debts,
+      ...cards.map((c) => ({
+        ...c,
+        payment_type: "card" as const,
+        num_payments: null,
+        payment_amount: null,
+        first_due_date: null,
+      })),
+    ],
+    today,
+    period,
+  );
   const active = debts.filter((d) => !isPaidOff(d));
   const paidOff = debts.filter((d) => isPaidOff(d));
+  const openCards = cards.filter((c) => c.paid_off_at == null);
+  const closedCards = cards.filter((c) => c.paid_off_at != null);
+  const activeCount = active.length + openCards.length;
 
   return (
     <>
@@ -129,7 +193,7 @@ async function DebtsContent() {
         desktopAction={<HeaderStickerLink href={ADD_HREF}>Add debt</HeaderStickerLink>}
       />
 
-      {debts.length === 0 ? (
+      {debts.length + cards.length === 0 ? (
         <EmptyState />
       ) : (
         <>
@@ -181,10 +245,10 @@ async function DebtsContent() {
             />
           </section>
 
-          {active.length > 0 && (
+          {activeCount > 0 && (
             <section aria-labelledby="active-title" className="flex flex-col gap-3">
               <h2 id="active-title" className="text-xs font-extrabold tracking-wide text-text-3 uppercase">
-                Active · {active.length === 1 ? "1 debt" : `${active.length} debts`}
+                Active · {activeCount === 1 ? "1 debt" : `${activeCount} debts`}
               </h2>
               <ul className="grid gap-3 lg:grid-cols-2 lg:items-start">
                 {active.map((debt) => (
@@ -192,20 +256,35 @@ async function DebtsContent() {
                     <DebtCard debt={debt} schedule={schedule} today={today} period={period} payable={payable} />
                   </li>
                 ))}
+                {openCards.map((card) => (
+                  <li key={card.id}>
+                    <CreditCard card={card} schedule={schedule} today={today} />
+                  </li>
+                ))}
               </ul>
               <p className="text-[13px] text-text-3">
                 Planned payments count as Needs. Extra payments count toward <strong>Savings &amp; debt payoff</strong>{" "}
                 in your 50/30/20 split.
+                {openCards.length > 0 && " Card purchases count when you buy them, so paying a card doesn't count again."}
               </p>
             </section>
           )}
 
-          {paidOff.length > 0 && <PaidOff debts={paidOff} />}
+          {paidOff.length + closedCards.length > 0 && (
+            <PaidOff
+              rows={[
+                ...paidOff.map((d) => ({ id: d.id, name: d.name, amount: d.total_amount, date: d.paid_off_at, closed: false })),
+                // A closed card shows what it owed when closed (usually ₱0).
+                ...closedCards.map((c) => ({ id: c.id, name: c.name, amount: Math.max(0, c.balance), date: c.paid_off_at, closed: true })),
+              ]}
+            />
+          )}
         </>
       )}
 
       <DebtSheet
         debts={debts.map((debt) => ({ ...debt, left: debtProgress(debt, debt.paid, today, period).left }))}
+        cards={cards.map((card) => ({ ...card, left: Math.max(0, card.balance) }))}
         schedule={schedule}
         today={today}
       />
@@ -381,10 +460,63 @@ function DebtCard({
   );
 }
 
-// PAID OFF (debts.md §2): compact rows with a "Paid off" tag; three shown,
-// the rest behind "Show more".
-function PaidOff({ debts }: { debts: Debt[] }) {
-  const row = (debt: Debt) => (
+// A credit card (8b-2): what's owed on it, its next payment and the payday
+// that pays it, and what was bought with it this period. No schedule and no
+// "left of": a card you keep using has no end. Mark paid comes in 8b-4.
+function CreditCard({ card, schedule, today }: { card: Card; schedule: PaySchedule; today: string }) {
+  const next = cardNextPayment(card, today, schedule);
+  const detail = ["Credit card", card.interest_rate != null ? `${card.interest_rate}% interest` : null, card.lender]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <article aria-labelledby={`debt-${card.id}`} className="flex flex-col gap-3 rounded-2xl border-[1.5px] border-line bg-surface p-4">
+      <header className="flex items-start gap-3">
+        <CategoryIconTile icon="credit-card" color="red" size="md" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h3 id={`debt-${card.id}`} className="truncate font-extrabold text-ink">
+            {card.name}
+          </h3>
+          <p className="truncate text-[13px] text-text-3">{detail}</p>
+        </div>
+        <p className="shrink-0 text-right font-display text-xl font-semibold text-ink">{cardOwedText(card.balance)}</p>
+      </header>
+
+      <p className="rounded-[12px] bg-bg px-3 py-2 text-sm font-bold text-ink">
+        Next payment due {formatShortDate(next.due)} · from the {formatShortDate(next.payday)} payday
+      </p>
+      <p className="text-[13px] text-text-2">
+        {card.chargedNow > 0 ? `${formatPeso(card.chargedNow)} charged this period` : "Nothing charged this period"}
+      </p>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link
+          href={`/debts?edit=${card.id}`}
+          scroll={false}
+          className="flex h-11 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-link outline-link hover:text-link-hover focus-visible:outline-2"
+        >
+          <Pencil aria-hidden size={16} />
+          Edit<span className="sr-only"> {card.name}</span>
+        </Link>
+        {/* Pay it now: the add sheet's To a debt, this card picked. */}
+        {card.balance > 0 && (
+          <OpenAddSheetButton
+            options={{ tab: "savings", direction: "debt", debtId: card.id }}
+            className="flex min-h-11 items-center rounded-full border-[1.5px] border-line bg-surface px-4 text-sm font-extrabold text-ink outline-link focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Pay<span className="sr-only"> {card.name}</span>
+          </OpenAddSheetButton>
+        )}
+      </div>
+    </article>
+  );
+}
+
+type FinishedRow = { id: string; name: string; amount: number; date: string | null; closed: boolean };
+
+// PAID OFF (debts.md §2): compact rows with a "Paid off" tag (a closed card:
+// "Closed", 8b-2); three shown, the rest behind "Show more".
+function PaidOff({ rows }: { rows: FinishedRow[] }) {
+  const row = (debt: FinishedRow) => (
     <li key={debt.id}>
       <Link
         href={`/debts?edit=${debt.id}`}
@@ -394,11 +526,11 @@ function PaidOff({ debts }: { debts: Debt[] }) {
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-extrabold text-ink">{debt.name}</span>
           <span className="text-[13px] text-text-3">
-            {formatPeso(debt.total_amount)}
-            {debt.paid_off_at && ` · paid off ${formatShortDate(debt.paid_off_at.slice(0, 10))}`}
+            {debt.closed ? `Credit card · ${formatPeso(debt.amount)} owed` : formatPeso(debt.amount)}
+            {debt.date && ` · ${debt.closed ? "closed" : "paid off"} ${formatShortDate(debt.date.slice(0, 10))}`}
           </span>
         </span>
-        <span className="rounded-full bg-mint px-2 py-0.5 text-xs font-bold text-link-hover">Paid off</span>
+        <span className="rounded-full bg-mint px-2 py-0.5 text-xs font-bold text-link-hover">{debt.closed ? "Closed" : "Paid off"}</span>
       </Link>
     </li>
   );
@@ -408,13 +540,13 @@ function PaidOff({ debts }: { debts: Debt[] }) {
       <h2 id="paid-off-title" className="text-xs font-extrabold tracking-wide text-text-3 uppercase">
         Paid off
       </h2>
-      <ul className={LIST}>{debts.slice(0, PAID_OFF_ROWS).map(row)}</ul>
-      {debts.length > PAID_OFF_ROWS && (
+      <ul className={LIST}>{rows.slice(0, PAID_OFF_ROWS).map(row)}</ul>
+      {rows.length > PAID_OFF_ROWS && (
         <details className="flex flex-col gap-2">
           <summary className="flex h-11 cursor-pointer items-center text-sm font-extrabold text-link outline-link focus-visible:outline-2">
-            Show {debts.length - PAID_OFF_ROWS} more
+            Show {rows.length - PAID_OFF_ROWS} more
           </summary>
-          <ul className={LIST}>{debts.slice(PAID_OFF_ROWS).map(row)}</ul>
+          <ul className={LIST}>{rows.slice(PAID_OFF_ROWS).map(row)}</ul>
         </details>
       )}
     </section>

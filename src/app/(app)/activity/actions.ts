@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { chargedFor, loadCardCharges } from "@/lib/card-charges";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { isActiveOn, receivedSourceIds, sourcePayday } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
@@ -205,7 +206,7 @@ async function loadSheetDebts(
   schedule: PaySchedule,
 ): Promise<SheetDebt[]> {
   const supabase = await createClient();
-  const [debts, payments, items] = await Promise.all([
+  const [debts, payments, items, charges] = await Promise.all([
     supabase
       .from("debts")
       .select("id, name, total_amount, payment_type, num_payments, payment_amount, first_due_date, paid_off_at")
@@ -224,6 +225,8 @@ async function loadSheetDebts(
       .not("debt_id", "is", null)
       .is("deleted_at", null)
       .is("paid_at", null),
+    // A card's purchases, for its balance (8b-2).
+    loadCardCharges(supabase),
   ]);
   for (const result of [debts, payments, items]) {
     if (result.error) throw new Error(`Couldn't load debts: ${result.error.message}`, { cause: result.error });
@@ -236,7 +239,7 @@ async function loadSheetDebts(
       return {
         id: d.id,
         name: d.name,
-        left: debtLeft({ ...d, paid: debtPaid(payments.data!.filter((p) => p.debt_id === d.id)) }),
+        left: debtLeft({ ...d, paid: debtPaid(payments.data!.filter((p) => p.debt_id === d.id)), charged: chargedFor(d, charges) }),
         scheduled: item
           ? {
               amount: item.planned_amount,
@@ -577,17 +580,18 @@ async function payDebt(
   date: string,
 ): Promise<SaveSavingsResult> {
   const supabase = await createClient();
-  const [debt, payments, extraCategory] = await Promise.all([
-    supabase.from("debts").select("name, total_amount, paid_off_at").eq("id", debtId).maybeSingle(),
+  const [debt, payments, extraCategory, charges] = await Promise.all([
+    supabase.from("debts").select("id, name, total_amount, paid_off_at, payment_type").eq("id", debtId).maybeSingle(),
     supabase.from("transactions").select("amount, deleted_at").eq("type", "debt_payment").eq("debt_id", debtId).is("deleted_at", null),
     supabase.from("categories").select("id").eq("system_key", "extra_debt").maybeSingle(),
+    loadCardCharges(supabase),
   ]);
   for (const result of [debt, payments, extraCategory]) {
     if (result.error) return fail("load debt", result.error);
   }
   if (!debt.data) return { fieldErrors: { debtId: "Pick a debt." } };
   if (!extraCategory.data) return fail("find the Extra debt payment category", { message: "missing system category" });
-  const left = debtLeft({ ...debt.data, paid: debtPaid(payments.data!) });
+  const left = debtLeft({ ...debt.data, paid: debtPaid(payments.data!), charged: chargedFor(debt.data, charges) });
   if (left <= 0) return { fieldErrors: { debtId: `${debt.data.name} is paid off.` } };
   if (amount > left) return { fieldErrors: { amount: `Only ${formatPeso(left)} left on ${debt.data.name}.` } };
 

@@ -218,20 +218,33 @@ export function paydayFor(due: string, schedule: PaySchedule): string {
   return getPeriod(due, schedule).start;
 }
 
-/** Finished: marked paid off ("Mark it paid off"), or nothing left. */
-export function isPaidOff(debt: { total_amount: number; paid: number; paid_off_at: string | null }): boolean {
+/**
+ * What the paid-off and left helpers need. Cards (8b-2) also pass their
+ * type and `charged`: everything bought with them (cardCharged()).
+ */
+type LeftDebt = { total_amount: number; paid: number; paid_off_at: string | null; payment_type?: string; charged?: number };
+
+/**
+ * Finished: marked paid off ("Mark it paid off"), or nothing left. A credit
+ * card is only finished once closed: at ₱0 it's still in use (8b-2).
+ */
+export function isPaidOff(debt: LeftDebt): boolean {
+  if (debt.payment_type === "card") return debt.paid_off_at != null;
   return debt.paid_off_at != null || debt.paid >= debt.total_amount;
 }
 
 /**
  * What's left to pay: the total minus what's paid, never below ₱0; ₱0 once
- * marked paid off. The most a planned extra payment can be (5g-2).
+ * marked paid off. The most a planned extra payment can be (5g-2). For a
+ * card, its balance (cardBalance()): starting + purchases − payments.
  */
-export function debtLeft(debt: { total_amount: number; paid: number; paid_off_at: string | null }): number {
-  return isPaidOff(debt) ? 0 : debt.total_amount - debt.paid;
+export function debtLeft(debt: LeftDebt): number {
+  if (isPaidOff(debt)) return 0;
+  if (debt.payment_type === "card") return Math.max(0, debt.total_amount + (debt.charged ?? 0) - debt.paid);
+  return debt.total_amount - debt.paid;
 }
 
-type SummaryDebt = DebtTerms & { name: string; paid: number; paid_off_at: string | null; extraPaid?: number };
+type SummaryDebt = DebtTerms & { name: string; paid: number; paid_off_at: string | null; extraPaid?: number; charged?: number };
 
 export type DebtsSummary = {
   /** "Total owed": what's left across active debts. */
@@ -251,7 +264,7 @@ export type DebtsSummary = {
   paidOffCount: number;
 };
 
-/** The Debts page's numbers (debts.md §1–3). */
+/** The Debts page's numbers (debts.md §1–3), cards included (8b-2). */
 export function debtsSummary(
   debts: SummaryDebt[],
   today: string,
@@ -272,6 +285,13 @@ export function debtsSummary(
     summary.paidSoFar += debt.paid;
     if (isPaidOff(debt)) {
       summary.paidOffCount += 1;
+      continue;
+    }
+    // A card (8b-2): its balance counts as owed. It has no total to be "paid
+    // of", no schedule and no end date, so nothing else here applies.
+    if (debt.payment_type === "card") {
+      summary.activeCount += 1;
+      summary.totalOwed += debtLeft(debt);
       continue;
     }
     const progress = debtProgress(debt, debt.paid, today, period, debt.extraPaid ?? 0);

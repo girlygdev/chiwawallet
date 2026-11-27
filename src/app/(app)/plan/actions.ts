@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { chargedFor, loadCardCharges } from "@/lib/card-charges";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { debtLeft, debtPaid } from "@/lib/debts";
 import { formatPeso, parsePesoInput } from "@/lib/money";
@@ -272,8 +273,8 @@ export async function addDebtPayment(input: DebtPaymentInput): Promise<AddDebtPa
   }
 
   const supabase = await createClient();
-  const [debt, payments, category] = await Promise.all([
-    supabase.from("debts").select("name, total_amount, paid_off_at").eq("id", values.debtId).maybeSingle(),
+  const [debt, payments, category, charges] = await Promise.all([
+    supabase.from("debts").select("id, name, total_amount, paid_off_at, payment_type").eq("id", values.debtId).maybeSingle(),
     supabase
       .from("transactions")
       .select("amount, deleted_at")
@@ -281,6 +282,8 @@ export async function addDebtPayment(input: DebtPaymentInput): Promise<AddDebtPa
       .eq("debt_id", values.debtId)
       .is("deleted_at", null),
     supabase.from("categories").select("id").eq("system_key", "extra_debt").maybeSingle(),
+    // A card's purchases, for its balance (8b-2).
+    loadCardCharges(supabase),
   ]);
   for (const result of [debt, payments, category]) {
     if (result.error) return fail("load debt", result.error);
@@ -289,7 +292,7 @@ export async function addDebtPayment(input: DebtPaymentInput): Promise<AddDebtPa
   // RLS hides other users' debts, so a missing one is gone or not theirs.
   if (!debt.data) return { fieldErrors: { debtId: "Pick a debt." } };
 
-  const left = debtLeft({ ...debt.data, paid: debtPaid(payments.data!) });
+  const left = debtLeft({ ...debt.data, paid: debtPaid(payments.data!), charged: chargedFor(debt.data, charges) });
   if (left <= 0) return { fieldErrors: { debtId: `${debt.data.name} is paid off.` } };
   if (values.amount > left) return { fieldErrors: { amount: `Only ${formatPeso(left)} left on ${debt.data.name}.` } };
 
