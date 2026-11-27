@@ -2,6 +2,21 @@
 
 Newest entry first.
 
+## 2026-11-27 · Week 7 · 7g-1 Paydays overview
+- **What:** a read-only page, `/plan/paydays` ("Paydays overview" in the Plan options menu), with every payday from your first period to 6 months ahead (today: 15 paydays, Oct 15, 2026 – May 29, 2027).
+  - **Columns:** Money in, Bills, Debts, Savings, Spending, One-offs, Planned, Not assigned, and a Total row.
+  - **Status:** Closed, Open (the period exists, so its own items, edits and one-offs) or Preview (not opened: `generatePlan()` from today's bills, pots, debts, income and budgets). Rows the Plan can open link there.
+  - **Layout:** a table from 1280px; cards below that, two across from tablets.
+- **Files:** src/lib/plan.ts, src/lib/plan-periods.ts, src/app/(app)/plan/paydays/page.tsx (new), src/components/plan/paydays-table.tsx (new), src/components/plan/plan-options-menu.tsx, tests/lib/plan.test.ts, docs/week-7-tasks.md
+- **Decisions (owner, Nov 27):**
+  - Money in is the planned income, past paydays included: it's plan vs Sheet.
+  - Not assigned is that payday's money in − planned, without carried-in leftover (the page says so). Below ₱0 shows in the heads-up colour, not red.
+  - The range ends 6 months ahead instead of a fixed Apr 2027. Editing is still 3 months ahead, on the Plan.
+  - Nothing is opened or written: 3 queries (periods, their items, the plan sources).
+- **Tests:** written first, 8 new Vitest cases (650 pass); lint and typecheck pass. Browser: visiting created no periods (2 before, 2 after); a Preview row (Dec 15) showed the same numbers after the Plan opened it; the main account's Nov 15 row matched the Plan's Planned (₱32,349); Jan 15 shows ₱0 debts since SPayLater's last payment was cleared early; the table fits at 1280px (it overflowed at 1024, so it starts at 1280); the menu link works; no console errors.
+- **AI notes:** the dev server served a stale `plan-periods.ts` ("loadPaydaysOverview is not a function") until restarted, the second time today; Turbopack seems to miss some script-made edits to `lib/` files. The first table didn't fit at 1280px; shortened "Debt payments" to "Debts" and put the status tag under the dates.
+- **Next:** 7g-2, enter your real plan and compare it with your Sheet.
+
 ## 2026-11-27 · Week 7 · 7f Carried-forward polish
 - **What:**
   - **Plan group headings (phones):** above plan they read "₱575 paid (₱549 planned)" / "₱3,880 spent (₱3,300 planned)"; at or under plan, "₱3,240 of ₱6,000 spent" as before.

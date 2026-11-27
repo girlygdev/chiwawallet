@@ -12,6 +12,10 @@ import {
   generatePlan,
   incomeStatus,
   nextPeriodSummary,
+  overviewPeriods,
+  overviewTotal,
+  type PaydayTotals,
+  paydayTotals,
   type PlanOrigin,
   type PlanSection,
   type SectionItem,
@@ -963,4 +967,76 @@ async function loadMoney(supabase: Client, row: BudgetPeriod, future: boolean) {
     })[],
     earlier: earlier.data as MoneyRows,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Paydays overview (week-7-tasks.md 7g-1)
+// ---------------------------------------------------------------------------
+
+/** One row of the Paydays overview. */
+export type OverviewRow = {
+  period: Period;
+  /** Closed; Open (the period exists, so its own items); Preview (worked out, not opened). */
+  status: "closed" | "open" | "preview";
+  /** The Plan can open it (plannablePeriods()), so the row links there. */
+  plannable: boolean;
+  totals: PaydayTotals;
+};
+
+/**
+ * Each payday from the first period to 6 months ahead. Read only: periods
+ * that exist use their live plan items (edits and one-offs included; open
+ * ones are kept in step with their sources by the actions that change them);
+ * the rest use generatePlan() from today's sources, exactly what opening them
+ * would create. Nothing is created.
+ */
+export async function loadPaydaysOverview(
+  supabase: Client,
+  budget: Budget,
+  today: string,
+): Promise<{ rows: OverviewRow[]; total: PaydayTotals }> {
+  const schedule = scheduleFromBudget(budget);
+  const { data: periodRows, error } = await supabase
+    .from("budget_periods")
+    .select("id, start_date, closed_at")
+    .eq("budget_id", budget.id)
+    .order("start_date");
+  if (error) fail("load your periods", error);
+
+  const firstStart = periodRows![0]?.start_date ?? null;
+  const periods = overviewPeriods(firstStart, today, schedule);
+  const plannable = new Set(plannablePeriods(today, schedule, firstStart).map((p) => p.start));
+  const rowOf = new Map(periodRows!.map((r) => [r.start_date, r]));
+  const ids = periods.flatMap((p) => rowOf.get(p.start)?.id ?? []);
+
+  const [sources, items] = await Promise.all([
+    loadSources(supabase, budget),
+    ids.length
+      ? supabase
+          .from("plan_items")
+          .select("period_id, planned_amount, origin, income_source_id, bill_id, pot_id, debt_id, category_id, budget_group")
+          .in("period_id", ids)
+          .is("deleted_at", null)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (items.error) fail("load your plans", items.error);
+
+  // Each item's group, as on the Plan: its category's, or a starter line's own.
+  const groupOf = new Map(sources.categoryGroups);
+  const groupFor = (i: { category_id: string | null; budget_group: string | null }) =>
+    ((i.category_id ? groupOf.get(i.category_id) : i.budget_group) ?? null) as BudgetGroup | null;
+
+  const rows = periods.map((period): OverviewRow => {
+    const row = rowOf.get(period.start);
+    const planItems = row
+      ? items.data!.filter((i) => i.period_id === row.id).map((i) => ({ ...i, origin: i.origin as PlanOrigin, group: groupFor(i) }))
+      : generatePlan(period, schedule, sources).map((i) => ({ ...i, group: groupFor({ ...i, budget_group: null }) }));
+    return {
+      period,
+      status: row ? (row.closed_at ? "closed" : "open") : "preview",
+      plannable: plannable.has(period.start),
+      totals: paydayTotals(planItems),
+    };
+  });
+  return { rows, total: overviewTotal(rows.map((r) => r.totals)) };
 }

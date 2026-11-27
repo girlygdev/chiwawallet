@@ -67,6 +67,10 @@ export function PlanOptionsMenu({
             <Menu.LinkItem render={<Link href={CATEGORIES_HREF} />} className={ITEM}>
               Edit spending budgets
             </Menu.LinkItem>
+            {/* Every payday to 6 months ahead, read only (7g-1). */}
+            <Menu.LinkItem render={<Link href="/plan/paydays" />} className={ITEM}>
+              Paydays overview
+            </Menu.LinkItem>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>

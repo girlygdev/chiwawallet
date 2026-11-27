@@ -1286,3 +1286,54 @@ export function nextPeriodSummary(items: { name: string; section: PlanSection; p
   const names = DUE_ORDER.flatMap((section) => items.filter((i) => i.section === section).map((i) => i.name));
   return { expected, names };
 }
+
+// ---------------------------------------------------------------------------
+// Paydays overview (week-7-tasks.md 7g-1)
+// ---------------------------------------------------------------------------
+
+/** One payday's planned totals, by Plan section. */
+export type PaydayTotals = {
+  moneyIn: number;
+  bills: number;
+  debts: number;
+  savings: number;
+  spending: number;
+  oneOff: number;
+  /** Everything but income. */
+  planned: number;
+  /** Money in − planned, without any carried-in leftover (owner, Nov 27). */
+  notAssigned: number;
+};
+
+/**
+ * The paydays the overview lists, oldest first: from the budget's first
+ * period (or the current one, before any exists) to the last one starting
+ * within `months` of today. Wider than plannablePeriods(), which limits
+ * editing, so the whole Sheet range can be compared.
+ */
+export function overviewPeriods(firstStart: string | null, today: string, schedule: PaySchedule, months = 6): Period[] {
+  const last = format(addMonths(parseISO(today), months), ISO_DATE);
+  const periods: Period[] = [];
+  for (let period = getPeriod(firstStart ?? today, schedule); period.start <= last; period = getPeriod(shift(period.end, 1), schedule)) {
+    periods.push(period);
+  }
+  return periods;
+}
+
+/** A payday's items added up by the same sections the Plan shows (planSection()). */
+export function paydayTotals(items: (SectionItem & { planned_amount: number })[]): PaydayTotals {
+  const totals = { moneyIn: 0, bills: 0, debts: 0, savings: 0, spending: 0, oneOff: 0 };
+  const key = { income: "moneyIn", bills: "bills", debts: "debts", savings: "savings", spending: "spending", one_off: "oneOff" } as const;
+  for (const i of items) totals[key[planSection(i)]] += i.planned_amount;
+  const planned = totals.bills + totals.debts + totals.savings + totals.spending + totals.oneOff;
+  return { ...totals, planned, notAssigned: totals.moneyIn - planned };
+}
+
+/** The overview's Total row: each column added up. */
+export function overviewTotal(rows: PaydayTotals[]): PaydayTotals {
+  const total: PaydayTotals = { moneyIn: 0, bills: 0, debts: 0, savings: 0, spending: 0, oneOff: 0, planned: 0, notAssigned: 0 };
+  for (const row of rows) {
+    for (const k of Object.keys(total) as (keyof PaydayTotals)[]) total[k] += row[k];
+  }
+  return total;
+}

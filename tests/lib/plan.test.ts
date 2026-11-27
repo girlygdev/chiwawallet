@@ -3,6 +3,9 @@ import { dashboardNumbers } from "@/lib/money";
 import type { Period, PaySchedule } from "@/lib/periods";
 import {
   groupProgressLine,
+  overviewPeriods,
+  overviewTotal,
+  paydayTotals,
   assignEffect,
   assignPreset,
   assignState,
@@ -1478,5 +1481,76 @@ describe("groupProgressLine (7f)", () => {
   it("puts the plan in brackets once paid or spent above it", () => {
     expect(groupProgressLine(57_500, 54_900, "paid")).toBe("₱575 paid (₱549 planned)");
     expect(groupProgressLine(388_000, 330_000, "spent")).toBe("₱3,880 spent (₱3,300 planned)");
+  });
+});
+
+describe("overviewPeriods (7g-1)", () => {
+  const starts = (periods: Period[]) => periods.map((p) => p.start);
+
+  it("runs from the first period to the last one starting within 6 months", () => {
+    // Today Nov 27: up to May 27. May 15 starts in time; May 30 doesn't.
+    const periods = starts(overviewPeriods("2026-11-15", "2026-11-27", SEMI));
+    expect(periods[0]).toBe("2026-11-15");
+    expect(periods.at(-1)).toBe("2027-05-15");
+    expect(periods).toHaveLength(13);
+  });
+
+  it("starts at the first period even when it's long ago", () => {
+    expect(starts(overviewPeriods("2026-10-15", "2026-11-27", SEMI)).slice(0, 3)).toEqual(["2026-10-15", "2026-10-30", "2026-11-15"]);
+    // A first date mid-period starts at that period.
+    expect(starts(overviewPeriods("2026-10-20", "2026-11-27", SEMI))[0]).toBe("2026-10-15");
+  });
+
+  it("starts at the current period when there's no first period yet", () => {
+    expect(starts(overviewPeriods(null, "2026-11-27", SEMI))[0]).toBe("2026-11-15");
+  });
+
+  it("works on monthly budgets", () => {
+    expect(starts(overviewPeriods("2026-11-01", "2026-11-27", MONTHLY))).toEqual([
+      "2026-11-01", "2026-12-01", "2027-01-01", "2027-02-01", "2027-03-01", "2027-04-01", "2027-05-01",
+    ]);
+  });
+});
+
+describe("paydayTotals (7g-1)", () => {
+  const base = { origin: "recurring" as const, income_source_id: null, bill_id: null, pot_id: null, debt_id: null };
+  const items = [
+    { ...base, income_source_id: "s1", group: null, planned_amount: 2_500_000 },
+    { ...base, bill_id: "b1", group: "needs" as const, planned_amount: 180_000 },
+    { ...base, bill_id: "b2", group: "wants" as const, planned_amount: 54_900 },
+    { ...base, debt_id: "d1", group: "needs" as const, planned_amount: 400_000 },
+    { ...base, pot_id: "p1", group: "savings_debt" as const, planned_amount: 200_000 },
+    { ...base, group: "needs" as const, planned_amount: 330_000 },
+    { ...base, origin: "starter" as const, group: "wants" as const, planned_amount: 100_000 },
+    { ...base, origin: "one_off" as const, group: "wants" as const, planned_amount: 150_000 },
+  ];
+
+  it("adds each item to its Plan section", () => {
+    expect(paydayTotals(items)).toEqual({
+      moneyIn: 2_500_000,
+      bills: 234_900,
+      debts: 400_000,
+      savings: 200_000,
+      spending: 430_000,
+      oneOff: 150_000,
+      planned: 1_414_900,
+      notAssigned: 1_085_100,
+    });
+  });
+
+  it("goes below zero when more is planned than comes in", () => {
+    expect(paydayTotals(items.slice(1)).notAssigned).toBe(-1_414_900);
+  });
+
+  it("is all zeros for an empty payday", () => {
+    expect(paydayTotals([])).toEqual({ moneyIn: 0, bills: 0, debts: 0, savings: 0, spending: 0, oneOff: 0, planned: 0, notAssigned: 0 });
+  });
+});
+
+describe("overviewTotal (7g-1)", () => {
+  it("adds the paydays column by column", () => {
+    const a = { moneyIn: 100, bills: 10, debts: 20, savings: 30, spending: 5, oneOff: 0, planned: 65, notAssigned: 35 };
+    const b = { moneyIn: 50, bills: 0, debts: 20, savings: 30, spending: 5, oneOff: 40, planned: 95, notAssigned: -45 };
+    expect(overviewTotal([a, b])).toEqual({ moneyIn: 150, bills: 10, debts: 40, savings: 60, spending: 10, oneOff: 40, planned: 160, notAssigned: -10 });
   });
 });

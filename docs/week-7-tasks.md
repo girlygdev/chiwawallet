@@ -56,7 +56,7 @@ Specs: `docs/designs/dashboard.md` (§2 mobile, §3 desktop, §4 empty and first
   - **Due row on a 390px phone:** the detail line wraps under the name instead of being cut short beside the pill.
   - **Closed, empty periods:** no empty-plan card, just "Nothing was planned for this period."
 - [ ] **7g. Your real plan vs your Sheet.** Two parts (open question 1, answer b):
-  - [ ] **7g-1. Paydays overview.** A read-only page listing each payday up to Apr 2027.
+  - [x] **7g-1. Paydays overview.** Done Nov 27 (checked in a browser on local Supabase, 390, 1024 and 1280px). `/plan/paydays`, from the Plan options menu. `overviewPeriods()`, `paydayTotals()`, `overviewTotal()` in `lib/plan.ts`; `loadPaydaysOverview()` in `lib/plan-periods.ts`; `paydays-table.tsx`. Owner, Nov 27: Money in is planned income; Not assigned is money in − planned, without carry-in; the range is the first period to 6 months ahead. A read-only page listing each payday up to Apr 2027.
     - **Columns:** money in, bills, debt payments, savings, spending, one-offs, planned, not assigned.
     - **Where the numbers come from:**
       - periods already open use their plan items
