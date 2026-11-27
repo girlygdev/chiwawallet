@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardCharged, cardNextPayment, cardOwedText } from "@/lib/cards";
+import { cardCharged, cardImpactLine, cardNextPayment, cardOwedText } from "@/lib/cards";
 import type { PaySchedule } from "@/lib/periods";
 
 // Credit cards on the Debts page (8b-2).
@@ -62,5 +62,28 @@ describe("cardOwedText", () => {
     expect(cardOwedText(840_000)).toBe("₱8,400 owed");
     expect(cardOwedText(0)).toBe("₱0 owed");
     expect(cardOwedText(-20_000)).toBe("₱200 credit");
+  });
+});
+
+describe("cardImpactLine: the add sheet's line for a purchase on a card (8b-3)", () => {
+  it("adds the purchase to what's owed and says the cash stays the same", () => {
+    expect(cardImpactLine({ name: "BPI card", balance: 840_000, amount: 120_000 })).toBe(
+      "BPI card: ₱8,400 → ₱9,600 owed. Your cash stays the same.",
+    );
+  });
+
+  it("counts only the change when editing a purchase already on this card", () => {
+    expect(cardImpactLine({ name: "BPI card", balance: 960_000, amount: 150_000, replaced: 120_000 })).toBe(
+      "BPI card: ₱9,600 → ₱9,900 owed. Your cash stays the same.",
+    );
+  });
+
+  it("words a credit on the card", () => {
+    expect(cardImpactLine({ name: "BPI card", balance: -20_000, amount: 10_000 })).toBe(
+      "BPI card: ₱200 credit → ₱100 credit. Your cash stays the same.",
+    );
+    expect(cardImpactLine({ name: "BPI card", balance: -20_000, amount: 120_000 })).toBe(
+      "BPI card: ₱200 credit → ₱1,000 owed. Your cash stays the same.",
+    );
   });
 });

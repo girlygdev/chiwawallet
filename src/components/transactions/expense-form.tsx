@@ -7,8 +7,10 @@ import type { AddSheetData, EditingTransaction, SaveExpenseResult } from "@/app/
 import { createCategory } from "@/app/(app)/settings/categories/actions";
 import { FormError } from "@/components/auth/form-error";
 import { SubmitButton } from "@/components/auth/submit-button";
-import { TextField } from "@/components/auth/text-field";
+import { FieldShell, inputClassName, TextField } from "@/components/auth/text-field";
 import { CategoryForm } from "@/components/categories/category-form";
+import { Segmented } from "@/components/segmented";
+import { cardImpactLine } from "@/lib/cards";
 import { formatPesoInput, parsePesoInput } from "@/lib/money";
 import { todayInManila } from "@/lib/periods";
 import { cn } from "@/lib/utils";
@@ -24,7 +26,10 @@ import { DateButton } from "./date-button";
 import { DeleteLink } from "./delete-link";
 import { budgetLine, sheetImpact } from "./sheet-impact";
 
-const FIELD_ORDER = ["amount", "categoryId", "date", "note"] as const;
+const FIELD_ORDER = ["amount", "categoryId", "cardId", "date", "note"] as const;
+
+/** Up to this many cards, "Paid with" is a segmented control (with Cash, four options); more, a dropdown. */
+const SEGMENTED_CARDS = 3;
 
 /** What the sheet shows: the form, the category picker, or New category (3h-3). */
 export type ExpenseView = "form" | "picker" | "new-category";
@@ -101,8 +106,9 @@ export function ExpenseForm({
           categoryId: editing.categoryId,
           date: editing.date,
           note: editing.note ?? "",
+          cardId: editing.cardId ?? "",
         }
-      : { type: "expense", amount: defaultAmount, categoryId: "", date: today, note: "" },
+      : { type: "expense", amount: defaultAmount, categoryId: "", date: today, note: "", cardId: "" },
   });
 
   const amountText = useWatch({ control, name: "amount" }) ?? "";
@@ -117,6 +123,22 @@ export function ExpenseForm({
   const budget = budgetLine({ data, editing, categoryId, amount: validAmount, date });
   const moneyOut = sheetImpact({ data, editing, kind: "out", amount: validAmount, date });
   const impact = budget ?? (moneyOut ? { text: moneyOut, over: false } : null);
+
+  // "Paid with" (8b-3): open cards, plus a closed one this purchase is already on.
+  const cardId = useWatch({ control, name: "cardId" }) ?? "";
+  const cards = (data?.cards ?? []).filter((c) => !c.closed || c.id === editing?.cardId);
+  const card = cards.find((c) => c.id === cardId);
+  // "BPI card: ₱8,400 → ₱9,600 owed. Your cash stays the same." (lib/cards.ts)
+  const cardLine =
+    card && validAmount != null
+      ? cardImpactLine({
+          name: card.name,
+          balance: card.balance,
+          amount: validAmount,
+          replaced: editing?.cardId === card.id ? editing.amount : 0,
+        })
+      : null;
+  const pickCard = (id: string) => setValue("cardId", id, { shouldValidate: errors.cardId != null });
 
   const finish = (result: SaveExpenseResult) => {
     if (result.formError) setFormError(result.formError);
@@ -137,6 +159,7 @@ export function ExpenseForm({
       categoryId: values.categoryId,
       date: values.date,
       note: values.note ?? "",
+      cardId: values.cardId ?? "",
     };
     startTransition(async () => finish(await onSave(input)));
   };
@@ -205,6 +228,40 @@ export function ExpenseForm({
           ref={gridRef}
         />
 
+        {/* Only once there's a card (8b-3); everyone else never sees it. Cash first, picked by default. */}
+        {cards.length > 0 &&
+          (cards.length <= SEGMENTED_CARDS ? (
+            <Segmented
+              name="expense-paid-with"
+              legend="Paid with"
+              options={[{ value: "", label: "Cash" }, ...cards.map((c) => ({ value: c.id, label: c.name }))]}
+              value={cardId}
+              onChange={pickCard}
+              wrap={cards.length === SEGMENTED_CARDS}
+              error={errors.cardId?.message}
+            />
+          ) : (
+            <FieldShell id="expense-paid-with" label="Paid with" error={errors.cardId?.message}>
+              {(describedBy) => (
+                <select
+                  id="expense-paid-with"
+                  value={cardId}
+                  onChange={(e) => pickCard(e.target.value)}
+                  aria-describedby={describedBy}
+                  aria-invalid={errors.cardId ? true : undefined}
+                  className={cn(inputClassName, "h-12 appearance-auto")}
+                >
+                  <option value="">Cash</option>
+                  {cards.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </FieldShell>
+          ))}
+
         <DateButton
           id="expense-date"
           value={date}
@@ -225,7 +282,7 @@ export function ExpenseForm({
           {...register("note")}
         />
 
-        <div aria-live="polite">
+        <div aria-live="polite" className="flex flex-col gap-2">
           {impact && (
             // Yellow, not red, when it goes over (style-guide.md: red is for deleting only).
             <p
@@ -237,6 +294,7 @@ export function ExpenseForm({
               {impact.text}
             </p>
           )}
+          {cardLine && <p className="rounded-[14px] bg-mint px-4 py-3 text-sm font-bold text-link-hover">{cardLine}</p>}
         </div>
 
         <FormError message={formError} />

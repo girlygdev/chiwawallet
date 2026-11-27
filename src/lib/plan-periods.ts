@@ -7,7 +7,7 @@ import type { Budget } from "@/lib/current-budget";
 import { type DebtTerms, debtLeft, debtLeftAfter, debtPaidFor } from "@/lib/debts";
 import { receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers } from "@/lib/money";
-import { formatPeriodRange, formatShortDate, getPeriod, type Period, type PaySlot, scheduleFromBudget } from "@/lib/periods";
+import { formatPeriodRange, formatShortDate, getPeriod, type Period, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { potBalance } from "@/lib/pots";
 import {
   generatePlan,
@@ -163,7 +163,7 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
   const ended = row.end_date < today;
   const future = row.start_date > today;
 
-  const [sources, money] = await Promise.all([loadSources(supabase, budget), loadMoney(supabase, row, future)]);
+  const [sources, money] = await Promise.all([loadSources(supabase, budget, today), loadMoney(supabase, row, future)]);
 
   // A period that hasn't ended follows its sources (5h-1); past ones never change.
   if (!ended) await syncPeriods(supabase, [{ id: row.id, period }], schedule, sources);
@@ -262,7 +262,8 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
       detail: paidOn ? `Paid ${formatShortDate(paidOn)}` : detail,
       tickable,
       paidOn,
-      varies: bill?.amount_varies ?? false,
+      // A card's payment varies (8b-4): Mark paid asks how much.
+      varies: (bill?.amount_varies ?? false) || debt?.payment_type === "card",
       dueOn,
       actual,
       bar: actual != null && !tickable ? budgetBar(item.planned_amount, actual) : null,
@@ -288,8 +289,10 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
   });
   const carriedIn = numbers?.carryIn ?? null;
   const pay = rows.filter((r) => r.section === "income").reduce((sum, r) => sum + r.planned_amount, 0);
+  const isCard = (debtId: string | null) => sources.debts.some((d) => d.id === debtId && d.payment_type === "card");
   const summary = planSummary({
-    items: rows.map((r) => ({ ...r, origin: r.origin as PlanOrigin })),
+    // Card payments are in Planned but not the 50/30/20 split (8b-4).
+    items: rows.map((r) => ({ ...r, origin: r.origin as PlanOrigin, card: isCard(r.debt_id) })),
     income,
     carriedIn: carriedIn ?? 0,
     targets: budget,
@@ -335,7 +338,7 @@ export async function syncOpenPeriods(supabase: Client, budget: Budget, today: s
       .gte("end_date", today);
     if (error) fail("load open periods", error);
     if (!rows?.length) return;
-    const sources = await loadSources(supabase, budget);
+    const sources = await loadSources(supabase, budget, today);
     const periods = rows.map((r) => ({
       id: r.id,
       // The column's check constraint allows only the three pay slots.
@@ -397,7 +400,7 @@ export async function openCurrentPlan(
   const schedule = scheduleFromBudget(budget);
   let sources: Awaited<ReturnType<typeof loadSources>> | null = null;
   try {
-    sources = await loadSources(supabase, budget);
+    sources = await loadSources(supabase, budget, today);
     await syncPeriods(supabase, [{ id: row.id, period }], schedule, sources);
   } catch (error) {
     console.error("plan: couldn't sync the current period", error);
@@ -449,7 +452,7 @@ export async function openCurrentPlan(
       section,
       tickable: isTickable({ section }),
       dueOn: itemDueOn({ ...i, origin }, { period, schedule, bill, debt }),
-      varies: bill?.amount_varies ?? false,
+      varies: (bill?.amount_varies ?? false) || debt?.payment_type === "card",
       spent: section === "spending" ? (spentOf[i.id] ?? 0) : null,
       bar: section === "spending" ? budgetBar(i.planned_amount, spentOf[i.id] ?? 0) : null,
       leftAfter: debt && i.paid_at == null ? debtLeftAfter(debtLeft(debt), i.planned_amount) : null,
@@ -893,7 +896,7 @@ async function syncPeriods(
 }
 
 /** Everything generatePlan() and the detail lines are made from. */
-async function loadSources(supabase: Client, budget: Budget) {
+async function loadSources(supabase: Client, budget: Budget, today: string) {
   const [sources, bills, pots, debts, payments, categories, charges] = await Promise.all([
     supabase.from("income_sources").select("id, name, amount, pay_slot, start_date, end_date").eq("budget_id", budget.id),
     supabase
@@ -903,7 +906,7 @@ async function loadSources(supabase: Client, budget: Budget) {
     supabase.from("savings_pots").select("id, name, pay_slot, planned_contribution"),
     supabase
       .from("debts")
-      .select("id, name, total_amount, payment_type, num_payments, payment_amount, first_due_date, paid_off_at")
+      .select("id, name, total_amount, payment_type, num_payments, payment_amount, first_due_date, due_day, pay_slot, paid_off_at, created_at")
       .order("created_at"),
     // Every live debt payment, for what's been paid (never stored).
     supabase
@@ -939,8 +942,12 @@ async function loadSources(supabase: Client, budget: Budget) {
       // Total paid, and the extra payments that shrink the last payments (debts.md §5).
       ...debtPaidFor(payments.data!, d.id),
       charged: chargedFor(d, charges),
+      // A card's due date before it was added is never late (8b-4).
+      added_on: todayInManila(new Date(d.created_at)),
     })),
     spending: categories.data!,
+    // A card's payment goes on the payday that pays its next due date (8b-4).
+    today,
     /** Each category's group (empty for income), for the sections and the split. */
     categoryGroups: categories.data!.map((c) => [c.id, c.budget_group] as const),
   } satisfies PlanSources & { categoryGroups: unknown };
@@ -1014,7 +1021,7 @@ export async function loadPaydaysOverview(
   const ids = periods.flatMap((p) => rowOf.get(p.start)?.id ?? []);
 
   const [sources, items] = await Promise.all([
-    loadSources(supabase, budget),
+    loadSources(supabase, budget, today),
     ids.length
       ? supabase
           .from("plan_items")

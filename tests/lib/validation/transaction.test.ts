@@ -3,6 +3,7 @@ import { incomeSchemaFor, savingsSchemaFor, transactionSchemaFor } from "@/lib/v
 
 const FOOD = "3f1c2a4e-8b7d-4c6a-9e5f-1a2b3c4d5e6f";
 const SALARY = "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d";
+const CARD = "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e";
 
 const schema = transactionSchemaFor({ today: "2026-11-20", firstPeriodStart: "2026-11-15" });
 const valid = { type: "expense", amount: "180", categoryId: FOOD, date: "2026-11-20", note: "" };
@@ -22,6 +23,7 @@ describe("transactionSchemaFor", () => {
       date: "2026-11-20",
       note: null,
       incomeSourceId: null,
+      cardId: null,
     });
   });
 
@@ -66,6 +68,16 @@ describe("transactionSchemaFor", () => {
   it("keeps the note to 100 characters", () => {
     expect(errorsFor({ note: "a".repeat(100) })).toEqual({});
     expect(errorsFor({ note: "a".repeat(101) }).note).toBe("Keep the note to 100 characters or fewer.");
+  });
+
+  it("keeps the card an expense was paid with, or null for cash (8b-3)", () => {
+    expect(schema.parse({ ...valid, cardId: CARD }).cardId).toBe(CARD);
+    expect(schema.parse({ ...valid, cardId: "" }).cardId).toBeNull();
+    expect(errorsFor({ cardId: "not-a-card" }).cardId).toBeDefined();
+  });
+
+  it("refuses a card on income", () => {
+    expect(errorsFor({ type: "income", cardId: CARD }).cardId).toBe("Only an expense can be paid with a card.");
   });
 
   it("refuses an income source on an expense", () => {

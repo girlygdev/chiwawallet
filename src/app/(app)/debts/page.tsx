@@ -25,7 +25,7 @@ import {
 import { formatPeso } from "@/lib/money";
 import { formatMonthYear, formatShortDate, getPeriod, type PaySchedule, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { potProgress } from "@/lib/pots";
-import { debtItemToPay } from "@/lib/plan";
+import { cardDueInPeriod, debtItemToPay } from "@/lib/plan";
 import { payableDebtItems } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
@@ -258,7 +258,7 @@ async function DebtsContent() {
                 ))}
                 {openCards.map((card) => (
                   <li key={card.id}>
-                    <CreditCard card={card} schedule={schedule} today={today} />
+                    <CreditCard card={card} schedule={schedule} today={today} payable={payable} />
                   </li>
                 ))}
               </ul>
@@ -462,9 +462,26 @@ function DebtCard({
 
 // A credit card (8b-2): what's owed on it, its next payment and the payday
 // that pays it, and what was bought with it this period. No schedule and no
-// "left of": a card you keep using has no end. Mark paid comes in 8b-4.
-function CreditCard({ card, schedule, today }: { card: Card; schedule: PaySchedule; today: string }) {
+// "left of": a card you keep using has no end. Once its payday has started,
+// Mark paid pays the Plan's payment and asks how much (8b-4).
+function CreditCard({
+  card,
+  schedule,
+  today,
+  payable,
+}: {
+  card: Card;
+  schedule: PaySchedule;
+  today: string;
+  payable: Awaited<ReturnType<typeof payableDebtItems>>;
+}) {
   const next = cardNextPayment(card, today, schedule);
+  // The card's unpaid Plan payment in a payday that has started (oldest first: a late one).
+  const toPay = payable.filter((i) => i.debt_id === card.id).sort((a, b) => a.period_start.localeCompare(b.period_start))[0];
+  const tick = toPay && { id: toPay.id, name: toPay.name, planned_amount: toPay.planned_amount, paid: false, pot: false, varies: true };
+  // The due date that payment is for; before today when it's late.
+  const tickDue = toPay ? cardDueInPeriod(card, getPeriod(toPay.period_start, schedule), schedule) : null;
+  const late = tickDue != null && tickDue < today;
   const detail = ["Credit card", card.interest_rate != null ? `${card.interest_rate}% interest` : null, card.lender]
     .filter(Boolean)
     .join(" · ");
@@ -481,9 +498,21 @@ function CreditCard({ card, schedule, today }: { card: Card; schedule: PaySchedu
         <p className="shrink-0 text-right font-display text-xl font-semibold text-ink">{cardOwedText(card.balance)}</p>
       </header>
 
-      <p className="rounded-[12px] bg-bg px-3 py-2 text-sm font-bold text-ink">
-        Next payment due {formatShortDate(next.due)} · from the {formatShortDate(next.payday)} payday
-      </p>
+      <div
+        className={cn(
+          "flex items-center justify-between gap-2 rounded-[12px] px-3 py-1.5 text-sm font-bold",
+          late ? "bg-bad-bg text-bad-fg" : "bg-bg text-ink",
+        )}
+      >
+        <p className="py-1">
+          {tick && tickDue
+            ? late
+              ? `Late: ${formatPeso(tick.planned_amount)} was due ${formatShortDate(tickDue)}`
+              : `Next: ${formatPeso(tick.planned_amount)} due ${formatShortDate(tickDue)}`
+            : `Next payment due ${formatShortDate(next.due)} · from the ${formatShortDate(next.payday)} payday`}
+        </p>
+        {tick && <MarkPaidPill item={tick} />}
+      </div>
       <p className="text-[13px] text-text-2">
         {card.chargedNow > 0 ? `${formatPeso(card.chargedNow)} charged this period` : "Nothing charged this period"}
       </p>

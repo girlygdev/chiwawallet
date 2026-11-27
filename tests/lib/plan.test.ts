@@ -11,6 +11,7 @@ import {
   assignPreset,
   assignState,
   billDueInPeriod,
+  cardDueInPeriod,
   billRowStatus,
   budgetImpact,
   budgetBar,
@@ -1578,5 +1579,98 @@ describe("groupBudgets (7i)", () => {
     const [needs, wants] = groupBudgets({ needs: 100_000, wants: 0, savings_debt: 0 }, 0, targets);
     expect(needs).toMatchObject({ target: 0, left: -100_000, share: 1, text: "₱1,000 over" });
     expect(wants).toMatchObject({ target: 0, left: 0, share: 0, text: "₱0 left" });
+  });
+});
+
+describe("credit cards on the Plan (8b-4)", () => {
+  const TODAY = "2026-11-27";
+  // Due on the 5th, paid from the 30th: Dec 5 is paid by the Nov 30 payday.
+  // ₱8,400 when added + ₱1,200 bought − ₱1,000 paid = ₱8,600 owed.
+  const card = (fields: Partial<PlanSources["debts"][number]> = {}) => ({
+    id: "bpi",
+    name: "BPI card",
+    total_amount: 840_000,
+    payment_type: "card" as const,
+    num_payments: null,
+    payment_amount: null,
+    first_due_date: null,
+    due_day: 5,
+    pay_slot: "payday_2",
+    charged: 120_000,
+    paid: 100_000,
+    paid_off_at: null,
+    ...fields,
+  });
+  const DEC_30 = P("2026-12-30", "2027-01-14", "payday_2");
+
+  it("finds the due date a period pays, by the bills' rule", () => {
+    expect(cardDueInPeriod({ due_day: 5, pay_slot: "payday_2" }, NOV_30, SEMI)).toBe("2026-12-05");
+    expect(cardDueInPeriod({ due_day: 5, pay_slot: "payday_2" }, NOV_15, SEMI)).toBeNull();
+    // The 31st in February is Feb 28, paid by that day's payday.
+    expect(cardDueInPeriod({ due_day: 31, pay_slot: "payday_2" }, P("2027-02-28", "2027-03-14", "payday_2"), SEMI)).toBe("2027-02-28");
+    expect(cardDueInPeriod({ due_day: 5, pay_slot: "every" }, P("2026-12-01", "2026-12-31", "every"), MONTHLY)).toBe("2026-12-05");
+  });
+
+  it("plans the full balance on the payday that pays the next due date", () => {
+    const items = generatePlan(NOV_30, SEMI, sources({ today: TODAY, debts: [card()] }));
+    expect(short(items)).toEqual(["BPI card 860000"]);
+    expect(items[0]).toMatchObject({ category_id: "cat-debt", debt_id: "bpi", origin: "recurring" });
+  });
+
+  it("plans only the next payment, not later months (their balance isn't known yet)", () => {
+    expect(generatePlan(NOV_15, SEMI, sources({ today: TODAY, debts: [card()] }))).toEqual([]);
+    expect(generatePlan(DEC_30, SEMI, sources({ today: TODAY, debts: [card()] }))).toEqual([]);
+  });
+
+  it("keeps a payment whose due date has passed on its payday while that period is open", () => {
+    // Dec 8: Dec 5 has passed (maybe unpaid); Jan 5 is next.
+    expect(short(generatePlan(NOV_30, SEMI, sources({ today: "2026-12-08", debts: [card()] })))).toEqual(["BPI card 860000"]);
+    expect(short(generatePlan(DEC_30, SEMI, sources({ today: "2026-12-08", debts: [card()] })))).toEqual(["BPI card 860000"]);
+  });
+
+  it("doesn't call a due date late when the card was added after it", () => {
+    // Added Dec 7: Dec 5 was before the app knew the card; only Jan 5 is planned.
+    const added = card({ added_on: "2026-12-07" });
+    expect(generatePlan(NOV_30, SEMI, sources({ today: "2026-12-08", debts: [added] }))).toEqual([]);
+    expect(short(generatePlan(DEC_30, SEMI, sources({ today: "2026-12-08", debts: [added] })))).toEqual(["BPI card 860000"]);
+    // Added on the due date itself: it counts.
+    expect(short(generatePlan(NOV_30, SEMI, sources({ today: "2026-12-08", debts: [card({ added_on: "2026-12-05" })] })))).toEqual([
+      "BPI card 860000",
+    ]);
+  });
+
+  it("plans nothing for a card with nothing owed, a credit, or closed, or without today", () => {
+    expect(generatePlan(NOV_30, SEMI, sources({ today: TODAY, debts: [card({ charged: 0, total_amount: 100_000 })] }))).toEqual([]);
+    expect(generatePlan(NOV_30, SEMI, sources({ today: TODAY, debts: [card({ paid: 2_000_000 })] }))).toEqual([]);
+    expect(generatePlan(NOV_30, SEMI, sources({ today: TODAY, debts: [card({ paid_off_at: "2026-11-20T00:00:00Z" })] }))).toEqual([]);
+    expect(generatePlan(NOV_30, SEMI, sources({ debts: [card()] }))).toEqual([]);
+  });
+
+  it("works on a one-payday budget", () => {
+    const december = P("2026-12-01", "2026-12-31", "every");
+    expect(short(generatePlan(december, MONTHLY, sources({ today: TODAY, debts: [card({ pay_slot: "every" })] })))).toEqual(["BPI card 860000"]);
+  });
+
+  it("gives the card's item its due date and a Credit card detail line", () => {
+    const item = { origin: "recurring" as const, income_source_id: null, bill_id: null, pot_id: null, debt_id: "bpi", needed_by: null, group: "needs" as const };
+    expect(planItemDetail(item, { period: NOV_30, schedule: SEMI, debt: card() })).toBe("Credit card · Due Dec 5");
+    expect(itemDueOn(item, { period: NOV_30, schedule: SEMI, debt: card() })).toBe("2026-12-05");
+  });
+
+  it("counts a card payment in Planned but not in the 50/30/20 split (its purchases already were)", () => {
+    const targets = { needs_pct: 50, wants_pct: 30, savings_debt_pct: 20 };
+    const base = { origin: "recurring" as const, income_source_id: null, bill_id: null, pot_id: null, group: "needs" as const };
+    const s = planSummary({
+      items: [
+        { ...base, debt_id: "bpi", planned_amount: 860_000, card: true },
+        { ...base, debt_id: "loan", planned_amount: 400_000 },
+      ],
+      income: 2_500_000,
+      carriedIn: 0,
+      targets,
+    });
+    expect(s).toMatchObject({ planned: 1_260_000, notAssigned: 1_240_000 });
+    expect(s.sections.debts).toBe(1_260_000);
+    expect(s.split.needs.planned).toBe(400_000);
   });
 });

@@ -12,6 +12,12 @@ export type ActivityRow = TransactionRow & {
   category: { id: string; name: string; icon: string; color: string };
   /** The income source, for pay from one; null otherwise. */
   source: { name: string } | null;
+  /**
+   * The credit card on the row (8b-3), loaded with
+   * `card:debts!transactions_card_fkey(name)`: the name has to say which link,
+   * since transactions point at debts twice. Left out where it isn't loaded.
+   */
+  card?: { name: string } | null;
 };
 
 /** The filter chips (fix #2: the four desktop types on both). */
@@ -22,8 +28,16 @@ export type ActivityFilter = "all" | "spending" | "income" | "savings";
  * - expense: its note ("Lunch", detail "Food"), else the category ("Food", "Expense")
  * - pay from a source: the source ("Main job", "Income")
  * - one-time income: its name, saved as the note ("Bonus", "Income · One-time")
+ * - a purchase on a card adds the card to the detail ("Food · BPI card", 8b-3)
  */
 export function rowLabels(row: ActivityRow): { name: string; detail: string } {
+  const labels = baseLabels(row);
+  // Only purchases: a payment to the card isn't paid with it.
+  if (row.type === "expense" && row.card) return { ...labels, detail: `${labels.detail} · ${row.card.name}` };
+  return labels;
+}
+
+function baseLabels(row: ActivityRow): { name: string; detail: string } {
   if (row.type === "income") {
     if (row.source) return { name: row.source.name, detail: "Income" };
     // No source and no note: pay from a source that was since deleted.
@@ -66,7 +80,7 @@ export function filterRows(
     if (categoryId && row.category.id !== categoryId) return false;
     if (!needle) return true;
     const { name, detail } = rowLabels(row);
-    return [name, detail, row.note, row.category.name, row.source?.name].some((text) =>
+    return [name, detail, row.note, row.category.name, row.source?.name, row.card?.name].some((text) =>
       text?.toLocaleLowerCase("en").includes(needle),
     );
   });

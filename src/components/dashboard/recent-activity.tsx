@@ -8,7 +8,7 @@ import { OpenAddSheetButton, useTransactionSheet } from "@/components/transactio
 import type { DeleteTarget } from "@/components/transactions/delete-transaction-dialog";
 import { type ActivityRow, dayHeading, rowLabels } from "@/lib/activity";
 import { formatPeso } from "@/lib/money";
-import { signedAmount } from "@/lib/transactions";
+import { displayAmount } from "@/lib/transactions";
 
 /** A recent row plus what its Delete link shows, worked out on the server. */
 export type RecentRow = ActivityRow & {
@@ -67,7 +67,7 @@ export function RecentActivity({ rows, today }: { rows: RecentRow[]; today: stri
                   <button
                     type="button"
                     onClick={() => sheet.openEditSheet(row.id, deleteTargetFor(row, row.impact, row.periodLabel))}
-                    aria-label={`Edit ${name}, ${formatPeso(signedAmount(row), { signed: true })}`}
+                    aria-label={`Edit ${name}, ${formatPeso(displayAmount(row), { signed: true })}`}
                     className="flex w-full items-center gap-3 rounded-[14px] px-3.5 py-3 text-left outline-link hover:bg-bg focus-visible:outline-2 focus-visible:-outline-offset-2"
                   >
                     <RowSummary row={row} name={name} detail={`${detail} · ${dayHeading(row.date, today)}`} />
@@ -104,7 +104,7 @@ export function RecentActivity({ rows, today }: { rows: RecentRow[]; today: stri
                         <button
                           type="button"
                           onClick={() => sheet.openEditSheet(row.id, deleteTargetFor(row, row.impact, row.periodLabel))}
-                          aria-label={`Edit ${name}, ${formatPeso(signedAmount(row), { signed: true })}`}
+                          aria-label={`Edit ${name}, ${formatPeso(displayAmount(row), { signed: true })}`}
                           className="flex min-h-11 w-full items-center gap-3 rounded-[10px] px-2 py-1.5 text-left outline-link hover:bg-bg focus-visible:outline-2"
                         >
                           <CategoryIconTile icon={row.category.icon} color={row.category.color} />
@@ -112,7 +112,10 @@ export function RecentActivity({ rows, today }: { rows: RecentRow[]; today: stri
                         </button>
                       </td>
                       {/* Below 1280px the column is left out so the amounts fit; the name and tile still show it. */}
-                      <td className="hidden px-4 py-2 text-text-2 xl:table-cell">{row.category.name}</td>
+                      <td className="hidden px-4 py-2 text-text-2 xl:table-cell">
+                        {row.category.name}
+                        {row.type === "expense" && row.card && ` · ${row.card.name}`}
+                      </td>
                       <td className="px-4 py-2 whitespace-nowrap text-text-2">{dayHeading(row.date, today)}</td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
                         <Amount row={row} className="text-base" />

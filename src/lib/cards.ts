@@ -1,6 +1,6 @@
 import { formatPeso } from "@/lib/money";
-import { dateInMonth, type PaySchedule } from "@/lib/periods";
-import { payingPeriodStart } from "@/lib/plan";
+import type { PaySchedule } from "@/lib/periods";
+import { cardNextDue, payingPeriodStart } from "@/lib/plan";
 
 // Credit cards (Week 8 task 8b): pure helpers for the Debts page and the
 // card form. A card's balance itself is cardBalance() in lib/debts.ts. Kept
@@ -16,10 +16,7 @@ export type CardTerms = { due_day: number; pay_slot: string };
  * card's payday on or before the due date. Due Dec 5 from the 30th → Nov 30.
  */
 export function cardNextPayment(card: CardTerms, today: string, schedule: PaySchedule): { due: string; payday: string } {
-  const year = Number(today.slice(0, 4));
-  const month = Number(today.slice(5, 7));
-  let due = dateInMonth(year, month, card.due_day);
-  if (due < today) due = dateInMonth(year, month + 1, card.due_day);
+  const due = cardNextDue(card.due_day, today);
   return { due, payday: payingPeriodStart(due, card.pay_slot, schedule) };
 }
 
@@ -42,4 +39,30 @@ export function cardCharged(
 /** The card's balance in words: "₱8,400 owed", or "₱200 credit" once more was paid than owed. */
 export function cardOwedText(balance: number): string {
   return balance >= 0 ? `${formatPeso(balance)} owed` : `${formatPeso(-balance)} credit`;
+}
+
+/**
+ * The add sheet's line for a purchase on a card (8b-3): "BPI card: ₱8,400 →
+ * ₱9,600 owed. Your cash stays the same." `balance` is the card's balance now
+ * (cardBalance()); `replaced` is the old amount when editing a purchase
+ * that's already on this card, so only the change counts.
+ */
+export function cardImpactLine({
+  name,
+  balance,
+  amount,
+  replaced = 0,
+}: {
+  name: string;
+  balance: number;
+  amount: number;
+  replaced?: number;
+}): string {
+  const after = balance - replaced + amount;
+  // "₱8,400 → ₱9,600 owed" when both are owed; spelled out when either is a credit.
+  const change =
+    balance >= 0 && after >= 0
+      ? `${formatPeso(balance)} → ${cardOwedText(after)}`
+      : `${cardOwedText(balance)} → ${cardOwedText(after)}`;
+  return `${name}: ${change}. Your cash stays the same.`;
 }

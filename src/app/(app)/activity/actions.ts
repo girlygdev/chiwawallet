@@ -78,6 +78,18 @@ export type AddSheetData = {
   budgets: Record<string, CategoryBudget>;
   /** To a debt's choices (6d-2): debts not paid off, oldest first. */
   debts: SheetDebt[];
+  /** "Paid with" on the Expense tab (8b-3): every credit card, closed ones too (an old purchase may be on one). */
+  cards: SheetCard[];
+};
+
+/** A card in "Paid with" (8b-3). */
+export type SheetCard = {
+  id: string;
+  name: string;
+  /** cardBalance(): what's owed now, below ₱0 for a credit. */
+  balance: number;
+  /** Closed cards aren't offered, except on a purchase already on one. */
+  closed: boolean;
 };
 
 /** A debt card on To a debt (6d-2). */
@@ -188,7 +200,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
     recentIds: recentCategories(categories.data!, latestIds, RECENT_TILES).map((c) => c.id),
     targets: { needs: budget.needs_pct, wants: budget.wants_pct, savings_debt: budget.savings_debt_pct },
     pots: pots.map((p) => ({ ...p, planned: potItems.data!.find((i) => i.pot_id === p.id)?.planned_amount ?? null })),
-    debts: await loadSheetDebts(period, schedule),
+    ...(await loadSheetDebts(period, schedule)),
     budgets: categoryBudgets(
       categories.data!,
       budgetItems.data!,
@@ -199,17 +211,18 @@ export async function getAddSheetData(): Promise<AddSheetData> {
 
 /**
  * The user's debts that aren't paid off, with what's left and this
- * period's unpaid scheduled payment (6d-2), for To a debt.
+ * period's unpaid scheduled payment (6d-2), for To a debt; and every credit
+ * card with its balance, for "Paid with" (8b-3).
  */
 async function loadSheetDebts(
   period: { id: string; start_date: string; end_date: string; pay_slot: string },
   schedule: PaySchedule,
-): Promise<SheetDebt[]> {
+): Promise<{ debts: SheetDebt[]; cards: SheetCard[] }> {
   const supabase = await createClient();
   const [debts, payments, items, charges] = await Promise.all([
     supabase
       .from("debts")
-      .select("id, name, total_amount, payment_type, num_payments, payment_amount, first_due_date, paid_off_at")
+      .select("id, name, total_amount, payment_type, num_payments, payment_amount, first_due_date, due_day, pay_slot, paid_off_at")
       .order("created_at"),
     supabase
       .from("transactions")
@@ -232,14 +245,24 @@ async function loadSheetDebts(
     if (result.error) throw new Error(`Couldn't load debts: ${result.error.message}`, { cause: result.error });
   }
   const current = { start: period.start_date, end: period.end_date, paySlot: period.pay_slot as PaySlot };
-  return debts
+  // A payment to a card has the card as its debt_id, so `paid` counts it.
+  const paidOn = (id: string) => debtPaid(payments.data!.filter((p) => p.debt_id === id));
+  const cards = debts
+    .data!.filter((d) => d.payment_type === "card")
+    .map((d) => ({
+      id: d.id,
+      name: d.name,
+      balance: d.total_amount + chargedFor(d, charges) - paidOn(d.id),
+      closed: d.paid_off_at != null,
+    }));
+  const sheetDebts = debts
     .data!.map((d) => {
       const terms = { ...d, payment_type: d.payment_type as DebtTerms["payment_type"] };
       const item = items.data!.find((i) => i.debt_id === d.id);
       return {
         id: d.id,
         name: d.name,
-        left: debtLeft({ ...d, paid: debtPaid(payments.data!.filter((p) => p.debt_id === d.id)), charged: chargedFor(d, charges) }),
+        left: debtLeft({ ...d, paid: paidOn(d.id), charged: chargedFor(d, charges) }),
         scheduled: item
           ? {
               amount: item.planned_amount,
@@ -252,6 +275,7 @@ async function loadSheetDebts(
       };
     })
     .filter((d) => d.left > 0);
+  return { debts: sheetDebts, cards };
 }
 
 /** The user's pots with their balances, for the Savings tab and its checks. */
@@ -327,6 +351,8 @@ async function writeExpense(input: TransactionFormInput, id: string | null): Pro
   if (!category || category.kind !== "expense" || category.system_key != null) {
     return { fieldErrors: { categoryId: "Pick a category." } };
   }
+  const cardProblem = await checkCard(values.cardId, id);
+  if (cardProblem) return cardProblem;
 
   try {
     // The period that contains the date, created if it's the first entry there.
@@ -338,6 +364,8 @@ async function writeExpense(input: TransactionFormInput, id: string | null): Pro
       amount: values.amount,
       date: values.date,
       note: values.note,
+      // Cash is null; switching back to cash clears it.
+      card_id: values.cardId,
     };
     const { data, error } = await (id
       ? supabase.from("transactions").update(fields).eq("id", id).is("deleted_at", null)
@@ -350,6 +378,31 @@ async function writeExpense(input: TransactionFormInput, id: string | null): Pro
   } catch (error) {
     return fail("find period", error as Error);
   }
+}
+
+/**
+ * "Paid with" (8b-3): the card must be one of the user's credit cards (RLS
+ * hides anyone else's) and open. A purchase already on a closed card can
+ * keep it when edited. The database checks card_id points at a card too.
+ */
+async function checkCard(cardId: string | null, editingId: string | null): Promise<SaveExpenseResult | null> {
+  if (cardId == null) return null;
+  const supabase = await createClient();
+  const { data: card, error } = await supabase
+    .from("debts")
+    .select("payment_type, paid_off_at")
+    .eq("id", cardId)
+    .maybeSingle();
+  if (error) return fail("load card", error);
+  const pickAgain = { fieldErrors: { cardId: "Pick Cash or one of your cards." } };
+  if (!card || card.payment_type !== "card") return pickAgain;
+  if (card.paid_off_at == null) return null;
+  if (editingId) {
+    const { data: row, error: rowError } = await supabase.from("transactions").select("card_id").eq("id", editingId).maybeSingle();
+    if (rowError) return fail("load the transaction", rowError);
+    if (row?.card_id === cardId) return null;
+  }
+  return { fieldErrors: { cardId: "That card is closed. Pick Cash or another card." } };
 }
 
 export type SaveIncomeResult = {
@@ -727,6 +780,8 @@ export type EditingTransaction = {
   incomeSourceId: string | null;
   /** Savings rows only: the pot. */
   potId: string | null;
+  /** Expenses only: the card it was paid with (8b-3), null for cash. */
+  cardId: string | null;
   /** The source's name and amount, in case it no longer pays (no card in the list). */
   source: { name: string; amount: number } | null;
   period: { start: string; end: string };
@@ -773,6 +828,7 @@ export async function getEditTransaction(id: string): Promise<EditingTransaction
     categoryId: row.category_id,
     incomeSourceId: row.income_source_id,
     potId: row.pot_id,
+    cardId: row.type === "expense" ? row.card_id : null,
     source,
     period: { start: period.start_date, end: period.end_date },
     periodRows: rows as EditingTransaction["periodRows"],

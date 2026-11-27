@@ -2,6 +2,51 @@
 
 Newest entry first.
 
+## 2026-11-27 · Week 8 · 8b-4 Credit cards: the payment on the Plan
+- **What:**
+  - A card's full balance is planned on the payday that pays its next due date ("BPI card · Credit card · Due Dec 20 · ₱9,300"). It updates with purchases until you edit it or mark it paid.
+  - Mark paid asks how much. On the Debts card it reads "Next: ₱9,300 due Nov 28" with Mark paid.
+  - It shows in Due this period, Safe to spend and the Paydays overview.
+- **Files:** src/lib/plan.ts, src/lib/cards.ts, src/lib/plan-periods.ts, src/app/(app)/debts/page.tsx, src/app/(app)/activity/actions.ts, tests/lib/plan.test.ts, docs/designs/debts.md, docs/week-8-tasks.md
+- **Decisions:**
+  - **Next payment only:** later months aren't planned, so the same balance doesn't repeat on every payday ahead.
+  - **Late payments:** a passed due date stays on its open payday, unless the card was added after it (`added_on`).
+  - **50/30/20 (owner: option A):** card payments count in Planned and Safe to spend, not the split, because their purchases already counted.
+  - **Reuse:** `cardNextDue()` moved to lib/plan.ts, which lib/cards.ts imports. That avoids an import loop.
+- **Tests:** written first; 9 new Vitest cases (699 pass). Lint and typecheck pass.
+- **Browser** (throwaway local account, 390 and 1280px, no console errors):
+  - Due the 20th from the 15th: ₱9,300 on the Dec 15 plan and in the overview's Dec 15 row (Debts ₱9,300, Not assigned ₱15,700). Needs stayed ₱0 of ₱12,500.
+  - Moved to the 28th: on the Nov 15 plan, Due Nov 28, and in Safe to spend.
+  - Mark paid on Debts asked the amount ("Pays ₱5,000 (planned ₱9,300)"). The card went to ₱4,300 owed and Safe to spend to −₱1,000.
+  - A new card due on the 20th (already passed) appeared only on Dec 15.
+- **AI notes:** my first version marked a just-added card's passed due date as late, which put ₱9,300 in this period and showed Safe to spend at −₱5,300. The browser check caught it; it's fixed and tested.
+- **Open:** when a card payment has been paid, the Plan row still shows the planned ₱9,300, not the ₱5,000 paid. Bills with varying amounts work the same way today.
+- **Next:** 8b is done. Then: 8a phone check, privacy pages, Export/Delete account, RLS sweep, Turnstile/Resend, demo account, Supabase ping.
+
+## 2026-11-27 · Week 8 · 8b-3 Credit cards: Paid with a card
+- **What:**
+  - Add expense has **Paid with: Cash | BPI card** once you have an open card (a dropdown past three). It defaults to Cash.
+  - With a card picked: "BPI card: ₱8,600 → ₱9,100 owed. Your cash stays the same."
+  - Saving checks the card is your own, open card. Edit can switch between cash and a card.
+  - Activity and Recent activity show "Groceries · BPI card" with what it cost (−₱500).
+- **Files:**
+  - lib: src/lib/cards.ts, src/lib/transactions.ts, src/lib/activity.ts, src/lib/validation/transaction.ts
+  - screens: src/components/transactions/expense-form.tsx, src/app/(app)/activity/actions.ts, src/app/(app)/activity/page.tsx, src/app/(app)/dashboard/page.tsx, src/components/activity/activity-list.tsx, src/components/dashboard/recent-activity.tsx
+  - tests: tests/lib/cards.test.ts, transactions.test.ts, activity.test.ts, validation/transaction.test.ts
+  - docs: docs/designs/debts.md, docs/week-8-tasks.md
+- **Decisions:**
+  - **Amount shown:** `displayAmount()` is for display; totals keep `signedAmount()`. Before this, a card purchase showed as ₱0 in lists.
+  - **Day net:** stays cash only.
+  - **Card name:** loaded with `card:debts!transactions_card_fkey(name)`, which says which of the two links to debts to use.
+  - **Closed cards:** not offered, except on a purchase already on one.
+- **Tests:** written first; 9 new Vitest cases (690 pass). Lint and typecheck pass.
+- **Browser:** throwaway local account at 390 and 1280px, no console errors.
+  - A ₱500 purchase on BPI card: the card went from ₱8,600 to ₱9,100 owed, and Safe to spend stayed ₱4,000.
+  - Editing it to ₱700 counted only the change (₱9,100 → ₱9,300).
+  - Switching it to Cash: the card went back to ₱8,600 and Safe to spend fell to ₱3,300.
+  - Switching it back to the card restored both.
+- **Next:** 8b-4, the card's payment on the Plan.
+
 ## 2026-11-27 · Week 8 · 8b-2 Credit cards: add a card and see it
 - **What:**
   - **New debt** has a Kind choice: *Loan or money owed* | *Credit card*. A card asks for its name, bank, what's owed today (₱0 is fine), the payment due day and which payday pays it (defaults like bills), with "Your Nov 30 payday pays the Dec 5 payment."

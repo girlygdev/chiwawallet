@@ -16,7 +16,7 @@ import {
 } from "@/lib/activity";
 import { formatPeso } from "@/lib/money";
 import { formatShortDate } from "@/lib/periods";
-import { editImpact, groupByDay, signedAmount } from "@/lib/transactions";
+import { displayAmount, editImpact, groupByDay } from "@/lib/transactions";
 import { cn } from "@/lib/utils";
 import { SEARCH_INPUT_ID, useActivitySearch } from "./search-context";
 
@@ -38,7 +38,7 @@ export function deleteTargetFor(row: ActivityRow, impact: DeleteTarget["impact"]
     id: row.id,
     name,
     detail: `${detail} · ${formatShortDate(row.date)}`,
-    signedAmount: signedAmount(row),
+    signedAmount: displayAmount(row),
     icon: row.category.icon,
     color: row.category.color,
     impact,
@@ -203,9 +203,13 @@ function DeleteButton({ row, actions }: { row: ActivityRow; actions: RowActions 
   );
 }
 
-/** "−₱180" for money out, "+₱25,000" (green) for money in. */
+/**
+ * "−₱180" for money out, "+₱25,000" (green) for money in. A purchase on a
+ * card shows what it cost too (displayAmount(), 8b-3), though the day's net
+ * above it is cash only.
+ */
 export function Amount({ row, className }: { row: ActivityRow; className?: string }) {
-  const signed = signedAmount(row);
+  const signed = displayAmount(row);
   return (
     <span className={cn("shrink-0 font-display font-semibold", signed > 0 ? "text-link" : "text-ink", className)}>
       {formatPeso(signed, { signed: true })}
@@ -254,7 +258,7 @@ function MobileDays({ days, today, actions }: { days: Days; today: string; actio
                   <button
                     type="button"
                     onClick={() => actions.edit(row)}
-                    aria-label={`Edit ${name}, ${formatPeso(signedAmount(row), { signed: true })}`}
+                    aria-label={`Edit ${name}, ${formatPeso(displayAmount(row), { signed: true })}`}
                     className="flex min-w-0 flex-1 items-center gap-3 rounded-[14px] py-3 pl-3.5 text-left outline-link focus-visible:outline-2 focus-visible:-outline-offset-2"
                   >
                     <RowSummary row={row} name={name} detail={detail} />
@@ -323,7 +327,11 @@ function DesktopTable({ days, today, actions }: { days: Days; today: string; act
                   </td>
                   <td className="px-4 py-2.5 text-text-2">{row.note ?? "—"}</td>
                   <td className="px-4 py-2.5 text-text-2">{row.category.name}</td>
-                  <td className="px-4 py-2.5 text-text-2">{typeLabel(row.type)}</td>
+                  <td className="px-4 py-2.5 text-text-2">
+                    {typeLabel(row.type)}
+                    {/* "Expense · BPI card" (8b-3); a payment to a card isn't tagged. */}
+                    {row.type === "expense" && row.card && ` · ${row.card.name}`}
+                  </td>
                   <td className="px-4 py-2.5 text-right">
                     <Amount row={row} className="text-base" />
                   </td>

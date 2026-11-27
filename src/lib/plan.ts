@@ -3,7 +3,7 @@ import { billDueDates, type BillFrequency, billStatus, type BillTiming, splitHal
 import { type DebtTerms, debtSchedule, paydayFor, reducedSchedule } from "@/lib/debts";
 import { isActiveOn } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
-import { formatShortDate, getPeriod, type PaySchedule, type Period, type PaySlot, paydayLabel } from "@/lib/periods";
+import { dateInMonth, formatShortDate, getPeriod, type PaySchedule, type Period, type PaySlot, paydayLabel } from "@/lib/periods";
 import { type BudgetGroup, periodTotals } from "@/lib/transactions";
 
 // Plan math (plan.md §1 and §5, week-5-tasks.md 5b): pure functions, no
@@ -39,11 +39,26 @@ export type PlanSources = {
     pay_slot: string;
   }[];
   pots: { id: string; name: string; pay_slot: string; planned_contribution: number }[];
-  /** `paid`: the debt's payments so far; `extraPaid`: the extra ones among them (debtPaidByKind()). */
-  debts: (DebtTerms & { id: string; name: string; paid: number; extraPaid?: number; paid_off_at: string | null })[];
+  /**
+   * `paid`: the debt's payments so far; `extraPaid`: the extra ones among them (debtPaidByKind()).
+   * A credit card (8b-4) also has its due day, payday and `charged`, what was bought with it.
+   */
+  debts: (DebtTerms &
+    CardTiming & { id: string; name: string; paid: number; extraPaid?: number; charged?: number; paid_off_at: string | null })[];
   /** The user's categories; only expense ones with a budget per payday become items. */
   spending: { id: string; name: string; kind: string; system_key: string | null; default_budget: number | null }[];
+  /**
+   * Manila "YYYY-MM-DD". Only credit cards need it: their next due date
+   * decides which payday plans the payment. Without it, cards aren't planned.
+   */
+  today?: string;
 };
+
+/**
+ * A credit card's timing (8b-2); empty on other debts. `added_on`: the
+ * Manila day it was added, so a due date before that is never "late".
+ */
+export type CardTiming = { due_day?: number | null; pay_slot?: string | null; added_on?: string | null };
 
 const ISO_DATE = "yyyy-MM-dd";
 const shift = (date: string, days: number) => format(addDays(parseISO(date), days), ISO_DATE);
@@ -120,12 +135,61 @@ function debtAmount(debt: PlanSources["debts"][number], period: Period, schedule
 }
 
 /**
+ * A credit card's next due date (8b-2): this month's due day if it hasn't
+ * passed (today counts), otherwise next month's. A day the month doesn't
+ * have becomes its last day.
+ */
+export function cardNextDue(dueDay: number, today: string): string {
+  const year = Number(today.slice(0, 4));
+  const month = Number(today.slice(5, 7));
+  const due = dateInMonth(year, month, dueDay);
+  return due < today ? dateInMonth(year, month + 1, dueDay) : due;
+}
+
+/**
+ * The card's due date that `period` pays (8b-4), by the bills' rule
+ * (payingPeriodStart()): due Dec 5 from the 30th → the Nov 30 payday. Empty
+ * when the period pays none. A period pays due dates on or after its start,
+ * so this month and the next two are enough to look at.
+ */
+export function cardDueInPeriod(card: { due_day: number; pay_slot: string }, period: Period, schedule: PaySchedule): string | null {
+  const year = Number(period.start.slice(0, 4));
+  const month = Number(period.start.slice(5, 7));
+  for (const ahead of [0, 1, 2]) {
+    const due = dateInMonth(year, month + ahead, card.due_day);
+    if (payingPeriodStart(due, card.pay_slot, schedule) === period.start) return due;
+  }
+  return null;
+}
+
+/**
+ * What a period plans for a credit card (8b-4, owner Nov 27): the full
+ * balance, on the payday that pays the next due date. Later months aren't
+ * planned: their balance isn't known yet, and the same balance shouldn't
+ * show in every payday ahead. The payment before it stays on its payday
+ * while that period is open, so a late one isn't dropped, unless the card
+ * was added after that due date. Nothing when nothing is owed or the card is closed.
+ */
+function cardAmount(debt: PlanSources["debts"][number], period: Period, schedule: PaySchedule, today: string | undefined): number {
+  if (!today || debt.paid_off_at != null || debt.due_day == null || !debt.pay_slot) return 0;
+  const balance = debt.total_amount + (debt.charged ?? 0) - debt.paid;
+  if (balance <= 0) return 0;
+  const due = cardDueInPeriod({ due_day: debt.due_day, pay_slot: debt.pay_slot }, period, schedule);
+  if (!due) return 0;
+  const next = cardNextDue(debt.due_day, today);
+  const before = dateInMonth(Number(next.slice(0, 4)), Number(next.slice(5, 7)) - 1, debt.due_day);
+  const late = due === before && period.end >= today && (debt.added_on == null || debt.added_on <= before);
+  return due === next || late ? balance : 0;
+}
+
+/**
  * The recurring items for one period (mvp-brief.md, Week 5), in the Plan
  * screen's order: income, bills, debt payments, savings, spending budgets.
  * - Income sources active on the payday, for that payday.
  * - Bills whose due date this period pays; split bills in two halves.
  * - Installment and one-time debt payments due in this period, less what's
- *   paid; never paid-off or "When I can" debts.
+ *   paid; never paid-off or "When I can" debts. A credit card's full
+ *   balance on the payday that pays its next due date (8b-4).
  * - Pot contributions above ₱0 for that payday.
  * - Spending budgets: expense categories with a budget per payday.
  * Items that come to ₱0 are left out.
@@ -144,7 +208,7 @@ export function generatePlan(period: Period, schedule: PaySchedule, sources: Pla
     if (amount > 0) items.push(item({ name: b.name, category_id: b.category_id, planned_amount: amount, bill_id: b.id }));
   }
   for (const d of sources.debts) {
-    const amount = debtAmount(d, period, schedule);
+    const amount = d.payment_type === "card" ? cardAmount(d, period, schedule, sources.today) : debtAmount(d, period, schedule);
     if (amount > 0) items.push(item({ name: d.name, category_id: categories.debtPayment, planned_amount: amount, debt_id: d.id }));
   }
   for (const p of sources.pots) {
@@ -315,7 +379,8 @@ export function planSummary({
   carriedIn,
   targets,
 }: {
-  items: (SectionItem & { planned_amount: number })[];
+  /** `card`: a payment to a credit card (8b-4), left out of the split. */
+  items: (SectionItem & { planned_amount: number; card?: boolean })[];
   income: number;
   carriedIn: number;
   targets: Targets;
@@ -326,7 +391,9 @@ export function planSummary({
     const section = planSection(i);
     if (section === "income" || i.group == null) continue;
     sections[section] += i.planned_amount;
-    groups[i.group] += i.planned_amount;
+    // A card payment pays for purchases already counted in their own groups
+    // when bought (8b-4, owner Nov 27): Planned, but not the 50/30/20 split.
+    if (!i.card) groups[i.group] += i.planned_amount;
   }
   const planned = Object.values(sections).reduce((sum, n) => sum + n, 0);
   const moneyForPeriod = income + carriedIn;
@@ -387,8 +454,14 @@ export type DetailContext = {
   /** The item's bill, pot or debt, when it has one. */
   bill?: (BillTiming & { pay_slot: string }) | null;
   pot?: { pay_slot: string } | null;
-  debt?: DebtTerms | null;
+  debt?: (DebtTerms & CardTiming) | null;
 };
+
+/** The due date a period pays for a card's planned payment; empty for other debts. */
+function cardDue(debt: (DebtTerms & CardTiming) | null | undefined, period: Period, schedule: PaySchedule): string | null {
+  if (debt?.payment_type !== "card" || debt.due_day == null || !debt.pay_slot) return null;
+  return cardDueInPeriod({ due_day: debt.due_day, pay_slot: debt.pay_slot }, period, schedule);
+}
 
 const GROUP_NAMES: Record<BudgetGroup, string> = { needs: "Needs", wants: "Wants", savings_debt: "Savings & debt" };
 
@@ -426,6 +499,11 @@ export function planItemDetail(item: SectionItem & { needed_by: string | null },
     }
     case "debts": {
       if (!recurring) return "Extra payment";
+      if (ctx.debt?.payment_type === "card") {
+        // "Credit card · Due Dec 5" (8b-4); the amount may be edited, so not "Full balance".
+        const due = cardDue(ctx.debt, period, schedule);
+        return due ? `Credit card · Due ${formatShortDate(due)}` : "Credit card";
+      }
       const schedulePayments = ctx.debt ? debtSchedule(ctx.debt) : [];
       const payment = schedulePayments.find((p) => paydayFor(p.due, schedule) === period.start);
       if (!payment) return "Debt payment";
@@ -791,9 +869,17 @@ export function debtItemToPay<T extends { debt_id: string | null; period_start: 
  */
 export function itemDueOn(
   item: { bill_id: string | null; debt_id: string | null; pot_id: string | null; needed_by: string | null; origin: PlanOrigin },
-  ctx: { period: Period; schedule: PaySchedule; bill?: (BillTiming & { pay_slot: string }) | null; debt?: DebtTerms | null },
+  ctx: {
+    period: Period;
+    schedule: PaySchedule;
+    bill?: (BillTiming & { pay_slot: string }) | null;
+    debt?: (DebtTerms & CardTiming) | null;
+  },
 ): string | null {
   if (item.bill_id && ctx.bill) return billDueInPeriod(ctx.bill, ctx.period, ctx.schedule);
+  if (item.debt_id && item.origin === "recurring" && ctx.debt?.payment_type === "card") {
+    return cardDue(ctx.debt, ctx.period, ctx.schedule);
+  }
   if (item.debt_id && item.origin === "recurring" && ctx.debt) {
     return debtSchedule(ctx.debt).find((p) => paydayFor(p.due, ctx.schedule) === ctx.period.start)?.due ?? null;
   }

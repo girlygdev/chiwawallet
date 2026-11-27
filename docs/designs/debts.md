@@ -115,4 +115,12 @@ A card is a revolving debt: what's owed goes up with every purchase and down wit
 - **Owed** = what was owed when added + purchases (expenses "paid with" the card) − payments. Never stored.
 - **Close card** instead of Delete once it has purchases or payments (the database refuses the delete). A closed card is listed under Paid off as "Closed", and Edit can reopen it. A card with no history deletes normally.
 - **Money rules:** a purchase on a card is spending (budgets, 50/30/20) but no cash leaves; paying the card takes the cash but isn't spending again.
-- **Still to come:** "Paid with" in the add sheet (8b-3), and the card's payment on the Plan (8b-4).
+- **Paid with (8b-3):** the add sheet's Expense tab shows **Paid with: Cash | BPI card** under the category once there's an open card (a dropdown past three cards). Cash is picked by default. With a card picked, a second line reads "BPI card: ₱8,400 → ₱9,600 owed. Your cash stays the same." The category's budget line still shows. Editing can switch an expense between cash and a card; a purchase on a since-closed card keeps it.
+- **In lists:** a card purchase shows what it cost (−₱1,200) with "Groceries · BPI card" (desktop Type column: "Expense · BPI card"). The day's net stays cash, so card purchases add ₱0 to it. Payments to the card aren't tagged.
+- **On the Plan (8b-4):**
+  - **Which payday:** the card's payment is planned on the payday that pays its next due date, by the bills' rule. It shows as "BPI card · Credit card · Due Dec 5".
+  - **Only the next payment:** later months aren't planned, because their balance isn't known yet.
+  - **Late payments:** a due date that has passed stays on its payday while that period is open, unless the card was added after it.
+  - **Amount:** the full balance, updated as you buy until you edit it or mark it paid. Nothing is planned for ₱0 owed, a credit or a closed card.
+  - **Mark paid** asks how much (it varies). On the Debts card it reads "Next: ₱9,300 due Nov 28" with **Mark paid**, or "Late: … was due …" in red once the date has passed.
+  - **Money:** it counts in Planned, Not assigned yet, Due this period, Safe to spend and the Paydays overview. It doesn't count in the 50/30/20 budgets, because its purchases were counted in their own groups when bought (owner, Nov 27).

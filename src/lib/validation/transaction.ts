@@ -69,8 +69,17 @@ export function transactionSchemaFor(limits: DateLimits) {
         .union([z.uuid(), z.literal("")])
         .optional()
         .transform((id) => (id ? id : null)),
+      // "Paid with" (8b-3): a credit card's id, or empty for cash. Whether
+      // it's the user's own open card is checked on the server.
+      cardId: z
+        .union([z.uuid("Pick Cash or one of your cards."), z.literal("")])
+        .optional()
+        .transform((id) => (id ? id : null)),
     })
     .superRefine((v, ctx) => {
+      if (v.cardId != null && v.type !== "expense") {
+        ctx.addIssue({ code: "custom", path: ["cardId"], message: "Only an expense can be paid with a card." });
+      }
       if (v.incomeSourceId != null && v.type !== "income") {
         ctx.addIssue({ code: "custom", path: ["incomeSourceId"], message: "Only income can come from a source." });
       }

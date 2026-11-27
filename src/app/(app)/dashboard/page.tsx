@@ -97,7 +97,7 @@ async function DashboardBody() {
     supabase
       .from("transactions")
       .select(
-        "id, type, amount, card_id, date, note, created_at, deleted_at, period_id, category:categories(id, name, icon, color), source:income_sources(name)",
+        "id, type, amount, card_id, date, note, created_at, deleted_at, period_id, category:categories(id, name, icon, color), source:income_sources(name), card:debts!transactions_card_fkey(name)",
       )
       .is("deleted_at", null)
       .order("date", { ascending: false })

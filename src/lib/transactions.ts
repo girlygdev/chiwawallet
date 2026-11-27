@@ -38,6 +38,15 @@ function live<T extends Row>(rows: T[]): T[] {
  */
 export function signedAmount(t: Pick<TransactionRow, "type" | "amount" | "card_id">): number {
   if (t.type === "expense" && t.card_id != null) return 0;
+  return displayAmount(t);
+}
+
+/**
+ * The amount a list row shows (8b-3): what it cost or brought in, signed.
+ * The same as signedAmount() except a purchase on a card, which shows
+ * "−₱1,200" although no cash left. Not for totals: they use signedAmount().
+ */
+export function displayAmount(t: Pick<TransactionRow, "type" | "amount">): number {
   return t.type === "income" ? t.amount : -t.amount;
 }
 

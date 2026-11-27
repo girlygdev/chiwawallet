@@ -54,6 +54,21 @@ describe("rowLabels: a row's name and detail line", () => {
     expect(rowLabels(bonus)).toEqual({ name: "Bonus", detail: "Income · One-time" });
   });
 
+  it("tags a purchase on a card with the card's name (8b-3)", () => {
+    expect(rowLabels(row({ type: "expense", amount: 1, note: "Lunch", card: { name: "BPI card" } }))).toEqual({
+      name: "Lunch",
+      detail: "Food · BPI card",
+    });
+    expect(rowLabels(row({ type: "expense", amount: 1, card: { name: "BPI card" } }))).toEqual({
+      name: "Food",
+      detail: "Expense · BPI card",
+    });
+  });
+
+  it("doesn't tag a payment to a card (it isn't paid with it)", () => {
+    expect(rowLabels(row({ type: "debt_payment", amount: 1, note: "Card bill", card: { name: "BPI card" } })).detail).toBe("Food");
+  });
+
   it("calls income with neither a source nor a note (a deleted source) Income", () => {
     expect(rowLabels(row({ type: "income", amount: 1, category: incomeCategory }))).toEqual({
       name: "Income",
@@ -93,6 +108,11 @@ describe("filterRows", () => {
     expect(ids(filterRows(all, { type: "all", query: "transport", categoryId: "" }))).toEqual(ids([jeep]));
     expect(ids(filterRows(all, { type: "all", query: "main", categoryId: "" }))).toEqual(ids([pay]));
     expect(filterRows(all, { type: "all", query: "zzz", categoryId: "" })).toEqual([]);
+  });
+
+  it("finds a card purchase by the card's name", () => {
+    const onCard = row({ type: "expense", amount: 1, card: { name: "BPI card" } });
+    expect(ids(filterRows([...all, onCard], { type: "all", query: "bpi", categoryId: "" }))).toEqual(ids([onCard]));
   });
 
   it("filters by category, combined with the chip", () => {

@@ -7,6 +7,7 @@ import {
   moneyInImpact,
   moneyOutImpact,
   periodTotals,
+  displayAmount,
   signedAmount,
   gridCategories,
   groupCategories,
@@ -355,6 +356,13 @@ describe("credit cards (8b-1)", () => {
   it("leaves cash on hand alone for a card purchase and lowers it for a card payment", () => {
     expect(cashOnHand(500_000, [onCard])).toBe(500_000);
     expect(cashOnHand(500_000, [onCard, payCard])).toBe(0);
+  });
+
+  it("still shows a card purchase as what it cost (displayAmount, 8b-3)", () => {
+    expect(displayAmount(onCard)).toBe(-120_000);
+    expect(displayAmount(payCard)).toBe(-500_000);
+    expect(displayAmount(lunch)).toBe(signedAmount(lunch));
+    expect(displayAmount(pay)).toBe(2_500_000);
   });
 
   it("gives a day with only card purchases a net of ₱0", () => {
