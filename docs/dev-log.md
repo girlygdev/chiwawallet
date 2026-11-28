@@ -2,6 +2,15 @@
 
 Newest entry first.
 
+## 2026-11-28 · Week 8 · Toast at the top of the screen
+- **What:** the toast (Undo after logging, ticking or removing) moved from the bottom to the top: below the status bar on phones, top right on desktop.
+- **Files:** src/components/toast.tsx, docs/designs/style-guide.md
+- **Decisions:** app-wide, because there's one toast; Undo always appears in the same place. Phones use `env(safe-area-inset-top)`, which works because the layout already sets `viewport-fit=cover`.
+- **Tests:** lint and typecheck pass; `npm run test` passes (699) when run from PowerShell. Not yet checked in the browser.
+- **AI notes:** run from Git Bash (`/d/…` path), every suite failed with "Cannot read properties of undefined (reading 'config')". Claude first blamed leftover pnpm files in `node_modules`. With the owner's OK it deleted the stray `pnpm-lock.yaml` and reinstalled with `npm ci`, but that wasn't the cause: the same run passes from PowerShell, and HEAD failed the same way in Git Bash. Run Vitest from PowerShell or the VS Code terminal.
+- **Open:** queued after this: A Plan savings, B bill payment method, C paid early (5 days, pick the source), D start the next period early (D1–D3).
+- **Next:** Task A, Plan savings.
+
 ## 2026-11-27 · Week 8 · 8b-4 Credit cards: the payment on the Plan
 - **What:**
   - A card's full balance is planned on the payday that pays its next due date ("BPI card · Credit card · Due Dec 20 · ₱9,300"). It updates with purchases until you edit it or mark it paid.

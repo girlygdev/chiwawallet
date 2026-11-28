@@ -12,8 +12,8 @@ export type ToastMessage = {
   action?: { label: string; onClick: () => void };
 };
 
-// Our own toast (decided Nov 20): ink background, white text, at the bottom
-// above the navigation, with one action like Undo. Gone after 5 seconds.
+// Our own toast (decided Nov 20): ink background, white text, at the top of
+// the screen (moved from the bottom Nov 28), with one action like Undo. Gone after 5 seconds.
 // The live region is always on the page, so screen readers announce each
 // message as it's put inside.
 export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDismiss: () => void }) {
@@ -27,8 +27,10 @@ export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDism
     <div
       role="status"
       aria-live="polite"
-      // Above the 84px bottom bar on phones; bottom right of the page on desktop.
-      className="pointer-events-none fixed inset-x-4 bottom-[calc(96px+env(safe-area-inset-bottom))] z-50 flex justify-center md:inset-x-auto md:right-6 md:bottom-6"
+      // Top of the screen (owner, Nov 28): below the notch/status bar on
+      // phones, top right of the page on desktop. Only the toast itself
+      // takes taps; the empty strip around it lets them through.
+      className="pointer-events-none fixed inset-x-4 top-[calc(12px+env(safe-area-inset-top))] z-50 flex justify-center md:inset-x-auto md:top-6 md:right-6"
     >
       {toast && (
         <div className="pointer-events-auto flex w-full max-w-[420px] items-center justify-between gap-3 rounded-lg bg-ink py-2 pr-2 pl-4 text-[15px] font-bold text-surface shadow-xl">

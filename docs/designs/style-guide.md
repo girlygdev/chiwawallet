@@ -217,7 +217,7 @@ Button labels say what happens: "Add ₱2,000 to Travel", not "Submit". Disabled
 - **Bottom sheet (mobile):** white, 28px top corners, grab handle, title plus close button, dims the screen behind at 50%. Used for add and edit forms and confirmations.
 - **Dialog (desktop):** centered, max 440px wide, sticker border, Esc or clicking outside cancels. **Side panel (desktop):** 480px from the right for longer forms.
 - **Impact box:** a mint (or yellow) note before the save button, stating the result in pesos.
-- **Toast:** ink background, white text, bottom of the screen above the navigation, with an action like Undo. It disappears after 5 seconds.
+- **Toast:** ink background, white text, with an action like Undo. At the top of the screen: below the status bar on mobile, top right on desktop (changed Nov 28, owner: it was at the bottom, above the navigation). It disappears after 5 seconds.
 - **Deleting:** follow the three-level delete pattern on the design canvas.
 
 ### Navigation
