@@ -2,6 +2,15 @@
 
 Newest entry first.
 
+## 2026-11-28 · Week 8 · Fix: the date field did nothing on phones
+- **What:** tapping Date on the transaction sheet did nothing on the owner's phone (found while editing; adding was probably affected too). The button called `showPicker()` on a visually hidden date input, which phone browsers ignore without an error, so the focus fallback never ran. Now the real date input lies invisibly on top of the button, so a tap opens the phone's own picker. A mouse click or Enter still calls `showPicker()` for desktop browsers.
+- **Files:** src/components/transactions/date-button.tsx
+- **Decisions:** the date limits stay as they were (first period's start to today; only Paid early saves a future date). The input is now the one focusable control, with the same label; its focus ring shows on the look-alike button.
+- **Tests:** lint, typecheck, build and 740 unit tests pass. No unit test covers it (it's browser behaviour); to be checked on the owner's phone after deploy.
+- **AI notes:** none of the earlier checks could catch it: there's no browser testing yet.
+- **Ops:** migrations 20261128100000, 20261128110000 and 20261128120000 were pushed to the hosted project on Nov 28 (D3's "Next" item); the generated types matched types.ts.
+- **Next:** the owner checks the date field on a phone (Expense, Income and Savings, adding and editing).
+
 ## 2026-11-28 · Week 8 · D3 Start my next period now
 - **What:** the button and dialog that start the next period early, finishing Task D.
   - Shows once pay for the next payday is logged early, 1–5 days before it, until that period starts. It goes inside the Cash card on phones and as a banner on desktop.
