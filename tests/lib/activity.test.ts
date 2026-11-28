@@ -139,7 +139,7 @@ describe("resolvePeriod: the ?period= in the URL", () => {
   });
 
   it("snaps any day to the period that contains it", () => {
-    expect(resolvePeriod("2026-11-03", semi, limits)).toEqual({ start: "2026-10-30", end: "2026-11-14", paySlot: "payday_2" });
+    expect(resolvePeriod("2026-11-03", semi, limits)).toEqual({ start: "2026-10-30", end: "2026-11-14", paySlot: "payday_2", firstDay: "2026-10-30" });
   });
 
   it("keeps to the first period through the current one", () => {
@@ -159,6 +159,30 @@ describe("periodNav: the period bar's arrows", () => {
     expect(periodNav({ start: "2026-10-30", end: "2026-11-14" }, semi, limits)).toEqual({
       prev: null,
       next: "2026-11-15",
+    });
+  });
+});
+
+describe("Activity with a period started early (Task D2, owner Nov 28)", () => {
+  // The Nov 30 period started early, on Nov 28; today is Nov 28.
+  const early = { "2026-11-30": "2026-11-28" };
+  const limits = { today: "2026-11-28", firstStart: "2026-10-30" };
+
+  it("shows the started-early period as the current one", () => {
+    expect(resolvePeriod(undefined, semi, limits, early)).toEqual({
+      start: "2026-11-30", end: "2026-12-14", paySlot: "payday_2", firstDay: "2026-11-28",
+    });
+    expect(resolvePeriod("2026-11-20", semi, limits, early)).toMatchObject({ start: "2026-11-15", end: "2026-11-27" });
+  });
+
+  it("steps between the shortened period and the early one", () => {
+    expect(periodNav({ start: "2026-11-15", end: "2026-11-27", firstDay: "2026-11-15" }, semi, limits, early)).toEqual({
+      prev: "2026-10-30",
+      next: "2026-11-30",
+    });
+    expect(periodNav({ start: "2026-11-30", end: "2026-12-14", firstDay: "2026-11-28" }, semi, limits, early)).toEqual({
+      prev: "2026-11-15",
+      next: null,
     });
   });
 });

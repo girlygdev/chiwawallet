@@ -93,6 +93,14 @@ export function periodAt(date: string, schedule: PaySchedule, early: EarlyStarts
   return nextBegan && date >= nextBegan ? actual(next, schedule, early, current) : actual(current, schedule, early);
 }
 
+/**
+ * A getPeriod() period (found by its payday) with its real first and last
+ * days, for lists of periods like the Plan's picker (Task D2).
+ */
+export function actualPeriod(period: Period, schedule: PaySchedule, early: EarlyStarts = {}): ActualPeriod {
+  return actual(period, schedule, early);
+}
+
 /** `period` with its real first and last days. `before` is the period it follows, when already known. */
 function actual(period: Period, schedule: PaySchedule, early: EarlyStarts, before?: Period): ActualPeriod {
   const previous = before ?? getPeriod(dayBeforeIso(period.start), schedule);
@@ -135,15 +143,19 @@ export function formatPeriodRange(start: string, end: string): string {
   return `${format(from, "MMM d")} – ${format(to, "d")}`;
 }
 
-/** `count` periods in a row, starting with the one that contains `date`. */
-export function nextPeriods(date: string, schedule: PaySchedule, count: number): Period[] {
-  const periods: Period[] = [];
-  let day = date;
+/**
+ * `count` periods in a row, starting with the one that contains `date`,
+ * counting early starts (Task D2): from a started-early period's first day,
+ * the list starts with that period.
+ */
+export function nextPeriods(date: string, schedule: PaySchedule, count: number, early: EarlyStarts = {}): ActualPeriod[] {
+  const periods: ActualPeriod[] = [];
+  // Stepped payday to payday (getPeriod()), so a shortened period can't
+  // come up twice; each one then gets its real days.
+  let period = getPeriod(periodAt(date, schedule, early).start, schedule);
   for (let i = 0; i < count; i++) {
-    const period = getPeriod(day, schedule);
-    periods.push(period);
-    // The day after this period ends is the first day of the next one.
-    day = format(addDays(parseDate(period.end), 1), ISO_DATE);
+    periods.push(actual(period, schedule, early));
+    period = periodAfter(period, schedule);
   }
   return periods;
 }
@@ -221,10 +233,12 @@ export function daysLeft(today: string, end: string): number {
 
 /**
  * The period switcher's second line (app-shell.md §4): "15th payday · 10 days
- * left", "15th payday · Last day", "Starts Nov 30" or "Ended Nov 14".
+ * left", "15th payday · Last day", "Starts Nov 30" or "Ended Nov 14". A
+ * period started early (`firstDay`, Task D2) has started from that day.
  */
-export function periodStatusLine(period: Period, schedule: PaySchedule, today: string): string {
-  if (today < period.start) return `Starts ${formatShortDate(period.start)}`;
+export function periodStatusLine(period: Period & { firstDay?: string }, schedule: PaySchedule, today: string): string {
+  const firstDay = period.firstDay ?? period.start;
+  if (today < firstDay) return `Starts ${formatShortDate(firstDay)}`;
   if (today > period.end) return `Ended ${formatShortDate(period.end)}`;
   const left = daysLeft(today, period.end);
   const when = left === 1 ? "Last day" : `${left} days left`;
@@ -232,8 +246,8 @@ export function periodStatusLine(period: Period, schedule: PaySchedule, today: s
 }
 
 /** "Day 1 of 15": today's place in the period, for the first payday period (dashboard.md §4). */
-export function periodDayLine(period: Period, today: string): string {
-  const length = daysLeft(period.start, period.end);
+export function periodDayLine(period: Period & { firstDay?: string }, today: string): string {
+  const length = daysLeft(period.firstDay ?? period.start, period.end);
   return `Day ${length - daysLeft(today, period.end) + 1} of ${length}`;
 }
 

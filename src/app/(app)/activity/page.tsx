@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { type ActivityRow, periodNav, resolvePeriod } from "@/lib/activity";
-import { getOrCreatePeriod } from "@/lib/budget-periods";
+import { getOrCreatePeriod, loadEarlyStarts } from "@/lib/budget-periods";
 import { duePay, receivedSourceIds } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
 import { formatPeriodRange, type PaySlot, periodStatusLine, scheduleFromBudget, todayInManila } from "@/lib/periods";
@@ -48,6 +48,8 @@ async function ActivityContent({ searchParams }: { searchParams: PageProps<"/act
   // The current period's row, created the first time it's needed (like the
   // Dashboard). Older periods are only read: browsing never creates one.
   const currentRow = await getOrCreatePeriod(supabase, budget, today);
+  // Periods that started early (Task D2), so each day shows in the period it's in.
+  const early = await loadEarlyStarts(supabase, budget.id);
   const { data: firstRow, error: firstError } = await supabase
     .from("budget_periods")
     .select("start_date")
@@ -58,7 +60,7 @@ async function ActivityContent({ searchParams }: { searchParams: PageProps<"/act
   if (firstError) throw new Error(`Couldn't load the first period: ${firstError.message}`, { cause: firstError });
   const limits = { today, firstStart: firstRow.start_date };
 
-  const period = resolvePeriod(typeof param === "string" ? param : undefined, schedule, limits);
+  const period = resolvePeriod(typeof param === "string" ? param : undefined, schedule, limits, early);
   const isCurrent = period.start === currentRow.start_date;
   const isFirst = period.start === firstRow.start_date;
   let periodRow = isCurrent ? currentRow : null;
@@ -92,7 +94,7 @@ async function ActivityContent({ searchParams }: { searchParams: PageProps<"/act
   }
 
   const totals = periodTotals(rows);
-  const nav = periodNav(period, schedule, limits);
+  const nav = periodNav(period, schedule, limits, early);
   const count = `${rows.length} ${rows.length === 1 ? "transaction" : "transactions"}${isCurrent ? " this period" : ""}`;
 
   // The empty state's "I got paid ₱25,000": only for the current period.
@@ -111,7 +113,7 @@ async function ActivityContent({ searchParams }: { searchParams: PageProps<"/act
       sources,
       schedule,
     );
-    due = duePay(sources, received, schedule, today);
+    due = duePay(sources, received, schedule, today, early);
   }
 
   return (

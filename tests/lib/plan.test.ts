@@ -393,7 +393,7 @@ describe("plannablePeriods (5c)", () => {
 
   it("works for weekly and monthly budgets", () => {
     const weekly = plannablePeriods("2026-11-25", WEEKLY, "2026-01-02");
-    expect(weekly[0]).toEqual({ start: "2026-11-13", end: "2026-11-19", paySlot: "every" });
+    expect(weekly[0]).toEqual({ start: "2026-11-13", end: "2026-11-19", paySlot: "every", firstDay: "2026-11-13" });
     expect(starts(weekly).at(-1)).toBe("2027-02-19");
     expect(weekly).toHaveLength(15);
     expect(starts(plannablePeriods("2026-11-25", MONTHLY, "2026-01-01"))).toEqual([
@@ -1672,5 +1672,25 @@ describe("credit cards on the Plan (8b-4)", () => {
     expect(s).toMatchObject({ planned: 1_260_000, notAssigned: 1_240_000 });
     expect(s.sections.debts).toBe(1_260_000);
     expect(s.split.needs.planned).toBe(400_000);
+  });
+});
+
+describe("the Plan with a period started early (Task D2, owner Nov 28)", () => {
+  // The Nov 30 period started on Nov 28; today is Nov 28.
+  const early = { "2026-11-30": "2026-11-28" };
+
+  it("plannablePeriods() makes it the current period, with real dates", () => {
+    const periods = plannablePeriods("2026-11-28", SEMI, "2026-11-15", early);
+    expect(periods[0]).toEqual({ start: "2026-11-15", end: "2026-11-27", paySlot: "payday_1", firstDay: "2026-11-15" });
+    expect(periods[1]).toEqual({ start: "2026-11-30", end: "2026-12-14", paySlot: "payday_2", firstDay: "2026-11-28" });
+  });
+
+  it("dashboardNeighbors() points from it", () => {
+    expect(dashboardNeighbors("2026-11-28", SEMI, "2026-11-15", early)).toEqual({ prev: "2026-11-15", next: "2026-12-15" });
+  });
+
+  it("paidOnDate() pays from the day it began", () => {
+    expect(paidOnDate("2026-11-28", { ...NOV_30, firstDay: "2026-11-28" })).toBe("2026-11-28");
+    expect(paidOnDate("2026-11-27", { ...NOV_30, firstDay: "2026-11-28" })).toBeNull();
   });
 });

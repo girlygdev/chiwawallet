@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadEarlyStarts } from "@/lib/budget-periods";
 import type { Budget } from "@/lib/current-budget";
 import { earlyPay } from "@/lib/income";
 import { nextPeriods, scheduleFromBudget } from "@/lib/periods";
@@ -14,8 +15,10 @@ export type EarlyPay = {
 /**
  * Paid early? (owner, Nov 28): loads the budget's sources and the income
  * already logged for the next payday, then asks earlyPay(). `excludeId` is
- * a row being edited, so its own source still counts as not logged. RLS
- * limits both queries to the user's own rows.
+ * a row being edited, so its own source still counts as not logged. Once
+ * the next period has started early (Task D2), it's the current one and
+ * there's nothing to offer until the payday after it. RLS limits the
+ * queries to the user's own rows.
  */
 export async function loadEarlyPay(
   supabase: SupabaseClient<Database>,
@@ -24,7 +27,8 @@ export async function loadEarlyPay(
   excludeId: string | null = null,
 ): Promise<EarlyPay | null> {
   const schedule = scheduleFromBudget(budget);
-  const [, next] = nextPeriods(today, schedule, 2);
+  const early = await loadEarlyStarts(supabase, budget.id);
+  const [, next] = nextPeriods(today, schedule, 2, early);
   const [sources, rows] = await Promise.all([
     supabase
       .from("income_sources")
@@ -42,11 +46,12 @@ export async function loadEarlyPay(
   for (const result of [sources, rows]) {
     if (result.error) throw new Error(`Couldn't load early pay: ${result.error.message}`, { cause: result.error });
   }
-  const early = earlyPay(
+  const due = earlyPay(
     sources.data!,
     rows.data!.filter((r) => r.id !== excludeId),
     schedule,
     today,
+    early,
   );
-  return early && { payday: early.payday, sources: early.sources.map((s) => ({ id: s.id, name: s.name, amount: s.amount })) };
+  return due && { payday: due.payday, sources: due.sources.map((s) => ({ id: s.id, name: s.name, amount: s.amount })) };
 }

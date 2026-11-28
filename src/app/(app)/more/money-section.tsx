@@ -6,7 +6,8 @@ import { getCurrentBudget } from "@/lib/current-budget";
 import { describeIncome, isActiveOn } from "@/lib/income";
 import { type DebtTerms, debtPaidFor, debtsSummary } from "@/lib/debts";
 import { formatPeso } from "@/lib/money";
-import { getPeriod, scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { currentPeriod } from "@/lib/budget-periods";
+import { scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { potBalance, totalSaved } from "@/lib/pots";
 import { createClient } from "@/lib/supabase/server";
 
@@ -137,7 +138,8 @@ async function DebtsDetail() {
       charged: chargedFor(d, charges),
     })),
     today,
-    getPeriod(today, scheduleFromBudget(budget)),
+    // Counting a period that started early (Task D2).
+    await currentPeriod(supabase, budget, today),
   );
   if (summary.activeCount === 0) return <span className={DETAIL}>No active debts</span>;
   return (

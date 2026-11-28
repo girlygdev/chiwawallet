@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  actualPeriod,
   dateInMonth,
   formatMonthYear,
   daysLeft,
@@ -311,10 +312,10 @@ describe("scheduleFromBudget", () => {
 describe("nextPeriods: the onboarding preview list", () => {
   it("starts with the period containing the date, then follows on without gaps", () => {
     expect(nextPeriods("2026-11-19", semi(15, 30), 4)).toEqual([
-      { start: "2026-11-15", end: "2026-11-29", paySlot: "payday_1" },
-      { start: "2026-11-30", end: "2026-12-14", paySlot: "payday_2" },
-      { start: "2026-12-15", end: "2026-12-29", paySlot: "payday_1" },
-      { start: "2026-12-30", end: "2027-01-14", paySlot: "payday_2" },
+      { start: "2026-11-15", end: "2026-11-29", paySlot: "payday_1", firstDay: "2026-11-15" },
+      { start: "2026-11-30", end: "2026-12-14", paySlot: "payday_2", firstDay: "2026-11-30" },
+      { start: "2026-12-15", end: "2026-12-29", paySlot: "payday_1", firstDay: "2026-12-15" },
+      { start: "2026-12-30", end: "2027-01-14", paySlot: "payday_2", firstDay: "2026-12-30" },
     ]);
   });
 
@@ -497,5 +498,38 @@ describe("periodAt: periods with an early start (Task D1, owner Nov 28)", () => 
   it("ignores an early start that isn't after the period before it began", () => {
     // Nonsense data (the database refuses it): Nov 30 "started" on Nov 10.
     expect(periodAt("2026-11-20", semi, { "2026-11-30": "2026-11-10" })).toMatchObject({ start: "2026-11-15", end: "2026-11-29" });
+  });
+});
+
+describe("early starts in the other period helpers (Task D2, owner Nov 28)", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const early = { "2026-11-30": "2026-11-28" };
+
+  it("actualPeriod() gives a getPeriod() period its real days", () => {
+    expect(actualPeriod(getPeriod("2026-11-20", semi), semi, early)).toEqual({
+      start: "2026-11-15", end: "2026-11-27", paySlot: "payday_1", firstDay: "2026-11-15",
+    });
+    expect(actualPeriod(getPeriod("2026-12-01", semi), semi, early)).toMatchObject({ start: "2026-11-30", firstDay: "2026-11-28" });
+  });
+
+  it("nextPeriods() starts from the period a date is really in", () => {
+    const [first, second] = nextPeriods("2026-11-28", semi, 2, early);
+    expect(first).toMatchObject({ start: "2026-11-30", firstDay: "2026-11-28", end: "2026-12-14" });
+    expect(second).toMatchObject({ start: "2026-12-15", end: "2026-12-29" });
+    expect(nextPeriods("2026-11-27", semi, 2, early).map((p) => [p.start, p.end])).toEqual([
+      ["2026-11-15", "2026-11-27"],
+      ["2026-11-30", "2026-12-14"],
+    ]);
+  });
+
+  it("periodStatusLine() counts a started-early period as started", () => {
+    const nov30 = { start: "2026-11-30", end: "2026-12-14", paySlot: "payday_2", firstDay: "2026-11-28" } as const;
+    expect(periodStatusLine(nov30, semi, "2026-11-28")).toBe("30th payday · 17 days left");
+    expect(periodStatusLine(nov30, semi, "2026-11-27")).toBe("Starts Nov 28");
+  });
+
+  it("periodDayLine() counts from the day it began", () => {
+    const nov30 = { start: "2026-11-30", end: "2026-12-14", paySlot: "payday_2", firstDay: "2026-11-28" } as const;
+    expect(periodDayLine(nov30, "2026-11-28")).toBe("Day 1 of 17");
   });
 });

@@ -3,7 +3,19 @@ import { billDueDates, type BillFrequency, billStatus, type BillTiming, splitHal
 import { type DebtTerms, debtSchedule, paydayFor, reducedSchedule } from "@/lib/debts";
 import { isActiveOn } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
-import { dateInMonth, formatShortDate, getPeriod, type PaySchedule, type Period, type PaySlot, paydayLabel } from "@/lib/periods";
+import {
+  type ActualPeriod,
+  actualPeriod,
+  dateInMonth,
+  type EarlyStarts,
+  formatShortDate,
+  getPeriod,
+  type PaySchedule,
+  type Period,
+  type PaySlot,
+  paydayLabel,
+  periodAt,
+} from "@/lib/periods";
 import { type BudgetGroup, periodTotals } from "@/lib/transactions";
 
 // Plan math (plan.md §1 and §5, week-5-tasks.md 5b): pure functions, no
@@ -232,10 +244,13 @@ export function generatePlan(period: Period, schedule: PaySchedule, sources: Pla
  * The periods the Plan can open, oldest first: one before the current one
  * (never before `firstStart`, the budget's first period), the current one,
  * and every period starting within 3 months of today. `firstStart` is empty
- * when no period exists yet.
+ * when no period exists yet. With `early` (Task D2), a period that started
+ * early is the current one from its first day, and every period has its
+ * real first and last days.
  */
-export function plannablePeriods(today: string, schedule: PaySchedule, firstStart: string | null): Period[] {
-  const current = getPeriod(today, schedule);
+export function plannablePeriods(today: string, schedule: PaySchedule, firstStart: string | null, early: EarlyStarts = {}): ActualPeriod[] {
+  // Payday to payday (getPeriod()), then each with its real days below.
+  const current = getPeriod(periodAt(today, schedule, early).start, schedule);
   const periods: Period[] = [];
   const previous = getPeriod(shift(current.start, -1), schedule);
   if (firstStart != null && previous.start >= firstStart) periods.push(previous);
@@ -245,7 +260,7 @@ export function plannablePeriods(today: string, schedule: PaySchedule, firstStar
   for (let period = current; period.start <= last; period = getPeriod(shift(period.end, 1), schedule)) {
     periods.push(period);
   }
-  return periods;
+  return periods.map((p) => actualPeriod(p, schedule, early));
 }
 
 /**
@@ -801,10 +816,11 @@ export function upcomingLine(count: number): string | null {
 /**
  * The date a payment from the Plan gets: today in the current period, the
  * last day of an earlier period that hasn't closed (never after its end,
- * owner Nov 26), and none for a future period, which can't be paid yet.
+ * owner Nov 26), and none for a future period, which can't be paid yet. A
+ * period that started early (`firstDay`, Task D2) can be paid from that day.
  */
-export function paidOnDate(today: string, period: { start: string; end: string }): string | null {
-  if (today < period.start) return null;
+export function paidOnDate(today: string, period: { start: string; end: string; firstDay?: string }): string | null {
+  if (today < (period.firstDay ?? period.start)) return null;
   return today > period.end ? period.end : today;
 }
 
@@ -1360,9 +1376,10 @@ export function dashboardNeighbors(
   today: string,
   schedule: PaySchedule,
   firstStart: string | null,
+  early: EarlyStarts = {},
 ): { prev: string | null; next: string | null } {
-  const periods = plannablePeriods(today, schedule, firstStart);
-  const current = periods.findIndex((p) => p.start === getPeriod(today, schedule).start);
+  const periods = plannablePeriods(today, schedule, firstStart, early);
+  const current = periods.findIndex((p) => p.start === periodAt(today, schedule, early).start);
   return { prev: periods[current - 1]?.start ?? null, next: periods[current + 1]?.start ?? null };
 }
 

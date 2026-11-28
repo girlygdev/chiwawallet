@@ -38,7 +38,7 @@ async function PaydayContent({ searchParams }: { searchParams: Params }) {
 
   const { data: old, error } = await supabase
     .from("budget_periods")
-    .select("id, start_date, end_date, closed_at")
+    .select("id, start_date, end_date, closed_at, started_early_on")
     .eq("budget_id", budget.id)
     .eq("start_date", start)
     .maybeSingle();

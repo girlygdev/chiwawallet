@@ -1,5 +1,5 @@
 import { addDays, format, isValid, parseISO, subDays } from "date-fns";
-import { getPeriod, type PaySchedule, type Period } from "@/lib/periods";
+import { type ActualPeriod, type EarlyStarts, type PaySchedule, periodAt } from "@/lib/periods";
 import type { TransactionRow, TransactionType } from "@/lib/transactions";
 
 // The Activity list (activity.md §1–2, week-3-tasks.md 3e). Pure functions:
@@ -110,26 +110,35 @@ function isRealDate(text: string): boolean {
  * The period that `/activity?period=YYYY-MM-DD` shows: the one containing that
  * day, kept between the first period and the current one. A missing or broken
  * value shows the current period (owner, Nov 23: the URL holds a date, not a
- * period id, so browsing never has to create a period).
+ * period id, so browsing never has to create a period). `early` holds the
+ * periods that started early (Task D2), so a day goes to the period it's in.
  */
-export function resolvePeriod(param: string | undefined, schedule: PaySchedule, { today, firstStart }: Limits): Period {
-  const current = getPeriod(today, schedule);
+export function resolvePeriod(
+  param: string | undefined,
+  schedule: PaySchedule,
+  { today, firstStart }: Limits,
+  early: EarlyStarts = {},
+): ActualPeriod {
+  const current = periodAt(today, schedule, early);
   if (!param || !isRealDate(param)) return current;
   if (param > current.end) return current;
-  if (param < firstStart) return getPeriod(firstStart, schedule);
-  return getPeriod(param, schedule);
+  if (param < firstStart) return periodAt(firstStart, schedule, early);
+  return periodAt(param, schedule, early);
 }
 
 /** The period bar's arrows: the previous and next periods' starts, or null at either end. */
 export function periodNav(
-  period: { start: string; end: string },
+  period: { start: string; end: string; firstDay?: string },
   schedule: PaySchedule,
   { today, firstStart }: Limits,
+  early: EarlyStarts = {},
 ): { prev: string | null; next: string | null } {
-  const prev = getPeriod(iso(subDays(parseISO(period.start), 1)), schedule).start;
-  const next = getPeriod(iso(addDays(parseISO(period.end), 1)), schedule).start;
+  // The day before this period's first day, and the day after its last.
+  const prev = periodAt(iso(subDays(parseISO(period.firstDay ?? period.start), 1)), schedule, early);
+  const next = periodAt(iso(addDays(parseISO(period.end), 1)), schedule, early);
   return {
-    prev: prev >= firstStart ? prev : null,
-    next: next <= today ? next : null,
+    prev: prev.start >= firstStart ? prev.start : null,
+    // A period that started early can be opened from its first day.
+    next: next.firstDay <= today ? next.start : null,
   };
 }

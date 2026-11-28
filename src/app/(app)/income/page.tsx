@@ -6,7 +6,7 @@ import { HeaderStickerLink, PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { LogOneTimeIncomeButton } from "@/components/transactions/add-transaction-provider";
-import { getOrCreatePeriod } from "@/lib/budget-periods";
+import { getOrCreatePeriod, loadEarlyStarts } from "@/lib/budget-periods";
 import {
   expectedIncome,
   incomeResult,
@@ -85,6 +85,8 @@ async function IncomeContent() {
   // This period's income (for Received) and the latest pay from sources.
   // The Dashboard creates the period the same way when it's missing.
   const period = await getOrCreatePeriod(supabase, budget, today);
+  // A period that started early is the current one from its first day (Task D2).
+  const early = await loadEarlyStarts(supabase, budget.id);
   const [periodIncome, recent] = await Promise.all([
     supabase
       .from("transactions")
@@ -111,7 +113,7 @@ async function IncomeContent() {
     sources,
     schedule,
   );
-  const statusFor = (s: Source) => sourceStatusLines(s, schedule, today, received.get(s.id) ?? null);
+  const statusFor = (s: Source) => sourceStatusLines(s, schedule, today, received.get(s.id) ?? null, early);
   const byId = new Map(sources.map((s) => [s.id, s]));
   const recentRows: RecentRow[] = recent.data!.map((row) => ({
     id: row.id,
@@ -158,7 +160,7 @@ async function IncomeContent() {
             </div>
             <div className="flex flex-col gap-6">
               <UpcomingPaydays
-                paydays={upcomingPaydays(today, schedule, sources, 4, new Set(received.keys()))}
+                paydays={upcomingPaydays(today, schedule, sources, 4, new Set(received.keys()), early)}
                 schedule={schedule}
               />
               <RecentlyReceived rows={recentRows} />

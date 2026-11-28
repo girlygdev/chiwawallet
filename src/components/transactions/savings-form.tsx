@@ -123,7 +123,7 @@ export function SavingsForm({
   const pot = pots.find((p) => p.id === potId);
   const toPot = moving ? pots.find((p) => p.id === toPotId && p.id !== potId) : undefined;
   // "Planned ₱2,000" is this period's: only for a deposit dated in it.
-  const inCurrent = data != null && date >= data.currentPeriod.start && date <= data.currentPeriod.end;
+  const inCurrent = data != null && date >= data.currentPeriod.firstDay && date <= data.currentPeriod.end;
   const showPlanned = direction === "add" && !editing && inCurrent;
 
   // A locked pot can't be taken from: withdrawing or moving drops it.

@@ -2,6 +2,20 @@
 
 Newest entry first.
 
+## 2026-11-28 · Week 8 · D2 Start the next period early: the app follows early starts
+- **What:** every screen now puts a date in the period it's really in once a period has started early. Nothing calls `start_period_early()` yet (D3), so nothing changes for users until then.
+  - `getOrCreatePeriod()` and a new `currentPeriod()` load the budget's early starts (`loadEarlyStarts()`, one small query) and use `periodAt()`.
+  - Carry-in and leftover count from a period's first day, not its payday: Dashboard, Plan, closing periods, the payday screen.
+  - "Has it started?" uses the first day: the Plan's `future`, Mark paid's date (`paidOnDate()`), the period switcher line, "Day 1 of 17".
+  - Period lists and arrows (Plan picker, Dashboard and Activity arrows, upcoming paydays, source status lines) start from the started-early period and show real end dates ("Nov 15 – 27").
+  - Paid early? goes away once the period has started; a source still due on that payday shows as the normal I got paid prompt.
+  - The add sheet gets the early starts too, so "Goes in…" and the budget line agree with the server.
+- **Files:** src/lib/periods.ts, budget-periods.ts, plan.ts, plan-periods.ts, activity.ts, income.ts, early-pay.ts; src/app/(app)/dashboard, activity (page and actions), plan/actions.ts, payday, bills, debts, savings, income pages, more/money-section.tsx; src/components/transactions/sheet-impact.ts, savings-form.tsx; tests/lib/periods, plan, activity, income tests.
+- **Decisions:** `start` stays the payday everywhere (plan math and URLs key on it); `firstDay` is added where dates are counted. Period labels show payday to real end. Lists step payday to payday, then get their real days, so a shortened period never comes up twice. Left as plain `getPeriod()`: onboarding (no early starts yet), pot goal dates, a new income source's default start.
+- **Tests:** 16 new unit tests, written first and seen failing; 2 older expectations gained `firstDay`. Lint, typecheck, build, 734 unit and 321 database tests pass. A throwaway local-Supabase check (not committed) started a period early on Nov 28 and ran the real server functions: today's period is Nov 30's, the Plan isn't "future", carry-in ₱9,000 (today's ₱180 moved over), Mark paid dates today, the old period waits for the payday screen with ₱9,000 leftover.
+- **AI notes:** Claude's first search missed `period={period}` props on Bills; typecheck caught it. Not checked in a browser.
+- **Next:** D3, the "Start my next period now" button and confirm dialog. Open: re-date early pay to the start day?
+
 ## 2026-11-28 · Week 8 · D1 Start the next period early: data model
 - **What:** the database side of starting a period early, plus `periodAt()`. Nothing visible changes yet.
   - `budget_periods.started_early_on`: the day the period actually began, up to 5 days before its payday.

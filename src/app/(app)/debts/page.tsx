@@ -23,6 +23,7 @@ import {
   paymentStatusText,
 } from "@/lib/debts";
 import { formatPeso } from "@/lib/money";
+import { currentPeriod } from "@/lib/budget-periods";
 import { formatMonthYear, formatShortDate, getPeriod, type PaySchedule, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { potProgress } from "@/lib/pots";
 import { cardDueInPeriod, debtItemToPay } from "@/lib/plan";
@@ -116,7 +117,8 @@ async function DebtsContent() {
   }
   const schedule = scheduleFromBudget(budget);
   const today = todayInManila(new Date());
-  const period = getPeriod(today, schedule);
+  // Counting a period that started early (Task D2).
+  const period = await currentPeriod(supabase, budget, today);
 
   const debts: Debt[] = debtRows
     .data!.filter((d) => d.payment_type !== "card")
@@ -142,7 +144,7 @@ async function DebtsContent() {
         paid_off_at: d.paid_off_at,
         paid,
         charged: cardCharged(charges, d.id),
-        chargedNow: cardCharged(charges, d.id, period),
+        chargedNow: cardCharged(charges, d.id, { start: period.firstDay, end: period.end }),
         // Purchases and payments both carry card_id; payments came in above.
         balance: cardBalance(d.total_amount, charges, d.id) - paid,
       };

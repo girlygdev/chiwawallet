@@ -1,6 +1,6 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { formatPeso } from "@/lib/money";
-import { formatShortDate, nextPeriods, type PaySchedule, type PaySlot, paydayLabel } from "@/lib/periods";
+import { type EarlyStarts, formatShortDate, nextPeriods, type PaySchedule, type PaySlot, paydayLabel } from "@/lib/periods";
 
 // Expected income per payday and per month (income.md §1). Pure functions:
 // amounts are integer centavos, and screens only display what these return.
@@ -80,8 +80,9 @@ export function upcomingPaydays(
   sources: (DatedSource & { id?: string })[],
   count: number,
   receivedIds: Set<string> = new Set(),
+  early: EarlyStarts = {},
 ): UpcomingPayday[] {
-  return nextPeriods(today, schedule, count).map((period, i) => {
+  return nextPeriods(today, schedule, count, early).map((period, i) => {
     const paying = sources.filter((s) => paysIn(s, schedule, period));
     return {
       date: period.start,
@@ -177,8 +178,9 @@ export function sourcePayday(
   source: DatedSource,
   schedule: PaySchedule,
   today: string,
+  early: EarlyStarts = {},
 ): { date: string; thisPeriod: boolean } | null {
-  const periods = nextPeriods(today, schedule, LOOKAHEAD_PERIODS);
+  const periods = nextPeriods(today, schedule, LOOKAHEAD_PERIODS, early);
   const i = periods.findIndex((p) => paysIn(source, schedule, p));
   return i === -1 ? null : { date: periods[i].start, thisPeriod: i === 0 };
 }
@@ -236,8 +238,9 @@ export function sourceStatusLines(
   schedule: PaySchedule,
   today: string,
   receivedDate: string | null,
+  early: EarlyStarts = {},
 ): StatusLine[] {
-  const [current, ...later] = nextPeriods(today, schedule, LOOKAHEAD_PERIODS);
+  const [current, ...later] = nextPeriods(today, schedule, LOOKAHEAD_PERIODS, early);
   const lines: StatusLine[] = [];
   if (paysIn(source, schedule, current)) {
     const label = paydayLabel(schedule, current.paySlot);
@@ -270,15 +273,17 @@ export function incomeResult(amount: number, expected: number): { text: string; 
 /**
  * The pay the Activity empty state offers to log ("I got paid ₱25,000",
  * activity.md §5): the first source paying this period that isn't received.
- * The period's payday is its first day, so it's always on or before today.
+ * The period's payday is its first day, so it's on or before today, unless
+ * the period started early (`early`, Task D2).
  */
 export function duePay<T extends DatedSource & { id: string }>(
   sources: T[],
   receivedIds: Set<string>,
   schedule: PaySchedule,
   today: string,
+  early: EarlyStarts = {},
 ): T | null {
-  const [current] = nextPeriods(today, schedule, 1);
+  const [current] = nextPeriods(today, schedule, 1, early);
   return sources.find((s) => !receivedIds.has(s.id) && paysIn(s, schedule, current)) ?? null;
 }
 
@@ -297,8 +302,11 @@ export function earlyPay<T extends DatedSource & { id: string }>(
   rows: { type: string; income_source_id: string | null; date: string; deleted_at: string | null }[],
   schedule: PaySchedule,
   today: string,
+  early: EarlyStarts = {},
 ): { payday: string; sources: T[] } | null {
-  const [, next] = nextPeriods(today, schedule, 2);
+  // After the next period started early it's the current one, so "next" is
+  // the payday after it (Task D2).
+  const [, next] = nextPeriods(today, schedule, 2, early);
   const daysAway = differenceInCalendarDays(parseISO(next.start), parseISO(today));
   if (daysAway < 1 || daysAway > EARLY_PAY_DAYS) return null;
   const logged = new Set(

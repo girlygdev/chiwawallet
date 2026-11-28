@@ -545,7 +545,7 @@ export async function closeWithChoice(input: z.input<typeof closeChoiceSchema>):
 
   const { data: old, error } = await supabase
     .from("budget_periods")
-    .select("id, start_date, end_date, closed_at")
+    .select("id, start_date, end_date, closed_at, started_early_on")
     .eq("budget_id", budget.id)
     .eq("start_date", start)
     .maybeSingle();
@@ -625,17 +625,22 @@ async function loadPayable(
   const supabase = await createClient();
   const { data: item, error } = await supabase
     .from("plan_items")
-    .select("name, planned_amount, pot_id, deleted_at, period:budget_periods(budget_id, start_date, end_date, closed_at)")
+    .select("name, planned_amount, pot_id, deleted_at, period:budget_periods(budget_id, start_date, end_date, closed_at, started_early_on)")
     .eq("id", id)
     .maybeSingle();
   if (error) return fail("load plan item", error);
   // Each item has exactly one period.
   const period = item?.period as unknown as
-    | { budget_id: string; start_date: string; end_date: string; closed_at: string | null }
+    | { budget_id: string; start_date: string; end_date: string; closed_at: string | null; started_early_on: string | null }
     | undefined;
   if (!item || item.deleted_at != null || !period || period.budget_id !== budgetId) return { formError: GONE };
   if (period.closed_at != null) return { formError: "This period is closed, so its plan can't change." };
-  const paidOn = paidOnDate(todayInManila(new Date()), { start: period.start_date, end: period.end_date });
+  // A period that started early can be paid from its first day (Task D2).
+  const paidOn = paidOnDate(todayInManila(new Date()), {
+    start: period.start_date,
+    end: period.end_date,
+    firstDay: period.started_early_on ?? period.start_date,
+  });
   if (!paidOn) return { formError: "This payday hasn't started yet, so it can't be paid." };
   return { item, paidOn };
 }

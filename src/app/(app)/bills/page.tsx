@@ -19,7 +19,7 @@ import {
 import { formatPeso } from "@/lib/money";
 import { billRowStatus, paidThisPeriod, stillDue, upcomingCounts } from "@/lib/plan";
 import { type CurrentItem, openCurrentPlan, upcomingItems } from "@/lib/plan-periods";
-import { formatShortDate, getPeriod, type PaySchedule, paydayLabel, scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { formatShortDate, type PaySchedule, paydayLabel, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -90,7 +90,6 @@ async function BillsContent() {
 
   const schedule = scheduleFromBudget(budget);
   const today = todayInManila(new Date());
-  const period = getPeriod(today, schedule);
   const perMonth = billsPerMonth(bills);
   const recurring = bills.length === 1 ? "1 recurring bill" : `${bills.length} recurring bills`;
 
@@ -172,11 +171,11 @@ async function BillsContent() {
             <div className="flex flex-col gap-6">
               {schedule.frequency === "semi_monthly" ? (
                 <>
-                  <BillSection slot="payday_1" bills={bills} schedule={schedule} today={today} period={period} items={itemOf} />
-                  <BillSection slot="payday_2" bills={bills} schedule={schedule} today={today} period={period} items={itemOf} />
+                  <BillSection slot="payday_1" bills={bills} schedule={schedule} today={today} period={current.period} items={itemOf} />
+                  <BillSection slot="payday_2" bills={bills} schedule={schedule} today={today} period={current.period} items={itemOf} />
                 </>
               ) : (
-                <BillSection slot="every" bills={bills} schedule={schedule} today={today} period={period} items={itemOf} />
+                <BillSection slot="every" bills={bills} schedule={schedule} today={today} period={current.period} items={itemOf} />
               )}
             </div>
             {/* Mobile: right under the hero. Desktop: the side column (bills.md §3). */}

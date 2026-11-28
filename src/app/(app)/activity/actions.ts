@@ -2,11 +2,11 @@
 
 import { z } from "zod";
 import { chargedFor, loadCardCharges } from "@/lib/card-charges";
-import { getOrCreatePeriod } from "@/lib/budget-periods";
+import { firstDayOf, getOrCreatePeriod, loadEarlyStarts } from "@/lib/budget-periods";
 import { type EarlyPay, loadEarlyPay } from "@/lib/early-pay";
 import { isActiveOn, receivedSourceIds, sourcePayday } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
-import { type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { type EarlyStarts, type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { debtLeft, debtPaid, debtPaymentSplit, type DebtTerms } from "@/lib/debts";
 import { type CategoryBudget, categoryBudgets, itemDueOn } from "@/lib/plan";
 import { potBalance, potBalanceAfter } from "@/lib/pots";
@@ -61,7 +61,10 @@ export type AddSheetData = {
   /** The first period's first day, the earliest date allowed. */
   firstPeriodStart: string;
   schedule: PaySchedule;
-  currentPeriod: { start: string; end: string };
+  /** Periods that started early (Task D2), so a date's period is found the same way as on the server. */
+  early: EarlyStarts;
+  /** `start` is its payday; `firstDay` is the day it began, earlier if it started early. */
+  currentPeriod: { start: string; end: string; firstDay: string };
   /** This period's live rows, for the impact line. */
   periodRows: Pick<TransactionRow, "type" | "amount" | "deleted_at" | "card_id">[];
   /** The Income tab's cards: sources paying today, oldest first. */
@@ -126,7 +129,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
   const today = todayInManila(new Date());
   const period = await getOrCreatePeriod(supabase, budget, today);
 
-  const [categories, recent, rows, sources, first, pots, budgetItems, potItems, early] = await Promise.all([
+  const [categories, recent, rows, sources, first, pots, budgetItems, potItems, earlyPay, early] = await Promise.all([
     supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color, default_budget"),
     supabase
       .from("transactions")
@@ -166,6 +169,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
       .is("deleted_at", null)
       .is("paid_at", null),
     loadEarlyPay(supabase, budget, today),
+    loadEarlyStarts(supabase, budget.id),
   ]);
   for (const result of [categories, recent, rows, sources, budgetItems, potItems]) {
     if (result.error) throw new Error(`Couldn't load the add sheet: ${result.error.message}`, { cause: result.error });
@@ -186,7 +190,8 @@ export async function getAddSheetData(): Promise<AddSheetData> {
     today,
     firstPeriodStart: first ?? period.start_date,
     schedule,
-    currentPeriod: { start: period.start_date, end: period.end_date },
+    early,
+    currentPeriod: { start: period.start_date, end: period.end_date, firstDay: firstDayOf(period) },
     // The generated types say `string`; the column's check constraint allows
     // only the four transaction types.
     periodRows: rows.data! as AddSheetData["periodRows"],
@@ -196,7 +201,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
         id: s.id,
         name: s.name,
         amount: s.amount,
-        payday: sourcePayday(s, schedule, today),
+        payday: sourcePayday(s, schedule, today, early),
         received: received.has(s.id),
       })),
     categories: topCategories(categories.data!, latestIds, Infinity),
@@ -205,7 +210,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
     targets: { needs: budget.needs_pct, wants: budget.wants_pct, savings_debt: budget.savings_debt_pct },
     pots: pots.map((p) => ({ ...p, planned: potItems.data!.find((i) => i.pot_id === p.id)?.planned_amount ?? null })),
     ...(await loadSheetDebts(period, schedule)),
-    earlyPay: early,
+    earlyPay,
     budgets: categoryBudgets(
       categories.data!,
       budgetItems.data!,
@@ -797,7 +802,8 @@ export type EditingTransaction = {
   cardId: string | null;
   /** The source's name and amount, in case it no longer pays (no card in the list). */
   source: { name: string; amount: number } | null;
-  period: { start: string; end: string };
+  /** `firstDay`: the day it began, earlier than `start` if it started early (Task D2). */
+  period: { start: string; end: string; firstDay: string };
   /** The row's period, including the row as it is now. */
   periodRows: Pick<TransactionRow, "type" | "amount" | "deleted_at" | "card_id">[];
 };
@@ -810,7 +816,7 @@ export async function getEditTransaction(id: string): Promise<EditingTransaction
   const { data: row, error } = await supabase
     .from("transactions")
     .select(
-      "id, type, amount, card_id, date, note, category_id, income_source_id, pot_id, period_id, source:income_sources(name, amount), period:budget_periods(start_date, end_date)",
+      "id, type, amount, card_id, date, note, category_id, income_source_id, pot_id, period_id, source:income_sources(name, amount), period:budget_periods(start_date, end_date, started_early_on)",
     )
     .eq("id", id)
     .is("deleted_at", null)
@@ -830,7 +836,7 @@ export async function getEditTransaction(id: string): Promise<EditingTransaction
   if (rowsError) throw new Error(`Couldn't load the period: ${rowsError.message}`, { cause: rowsError });
 
   // Each row has exactly one period and at most one source.
-  const period = row.period as unknown as { start_date: string; end_date: string };
+  const period = row.period as unknown as { start_date: string; end_date: string; started_early_on: string | null };
   const source = row.source as unknown as { name: string; amount: number } | null;
   return {
     id: row.id,
@@ -843,7 +849,7 @@ export async function getEditTransaction(id: string): Promise<EditingTransaction
     potId: row.pot_id,
     cardId: row.type === "expense" ? row.card_id : null,
     source,
-    period: { start: period.start_date, end: period.end_date },
+    period: { start: period.start_date, end: period.end_date, firstDay: firstDayOf(period) },
     periodRows: rows as EditingTransaction["periodRows"],
   };
 }

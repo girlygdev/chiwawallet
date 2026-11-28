@@ -1,6 +1,6 @@
 import type { AddSheetData, EditingTransaction } from "@/app/(app)/activity/actions";
 import { formatPeso } from "@/lib/money";
-import { formatPeriodRange, getPeriod } from "@/lib/periods";
+import { formatPeriodRange, periodAt } from "@/lib/periods";
 import { budgetLeft } from "@/lib/plan";
 import { editImpact, moneyInImpact, moneyOutImpact } from "@/lib/transactions";
 
@@ -29,9 +29,10 @@ export function sheetImpact({
 }): string | null {
   if (!data || amount == null) return null;
   const label = kind === "out" ? "Money out" : "Money in";
-  const inside = (p: { start: string; end: string }) => date >= p.start && date <= p.end;
+  // From the period's first day, earlier than its payday if it started early (Task D2).
+  const inside = (p: { firstDay: string; end: string }) => date >= p.firstDay && date <= p.end;
   const range = () => {
-    const period = getPeriod(date, data.schedule);
+    const period = periodAt(date, data.schedule, data.early);
     return formatPeriodRange(period.start, period.end);
   };
 
@@ -75,7 +76,7 @@ export function budgetLine({
 }): { text: string; over: boolean } | null {
   if (!data || amount == null || !categoryId) return null;
   const current = data.currentPeriod;
-  if (date < current.start || date > current.end) return null;
+  if (date < current.firstDay || date > current.end) return null;
   if (editing && editing.period.start !== current.start) return null;
   const name = data.categories.find((c) => c.id === categoryId)?.name;
   const entry = data.budgets[categoryId];

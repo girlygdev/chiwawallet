@@ -8,7 +8,8 @@ import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { CategoryIconTile } from "@/components/transactions/category-grid";
 import { formatPeso, stillDueTotal } from "@/lib/money";
-import { getPeriod, type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { currentPeriod } from "@/lib/budget-periods";
+import { type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import {
   monthlySavingPlan,
   morePlannedLine,
@@ -88,7 +89,8 @@ async function SavingsContent() {
 
   const schedule = scheduleFromBudget(budget);
   const today = todayInManila(new Date());
-  const period = getPeriod(today, schedule);
+  // Counting a period that started early (Task D2).
+  const period = await currentPeriod(supabase, budget, today);
   // "Due this period: ₱2,000 to Travel" (savings.md §2, 5h-3): this period's
   // unpaid pot items. Paying doesn't tick them off until Week 6.
   const current = await openCurrentPlan(supabase, budget, today);
@@ -107,7 +109,7 @@ async function SavingsContent() {
   // Net deposits this period (savings.md §2 "+₱3,000 this period").
   const thisPeriod = potBalance(
     { starting_balance: 0 },
-    rows.filter((r) => r.date >= period.start && r.date <= period.end),
+    rows.filter((r) => r.date >= period.firstDay && r.date <= period.end),
   );
   const plan = monthlySavingPlan(pots, schedule);
   // The desktop stat lines (savings.md §3, 7e): what's still planned this

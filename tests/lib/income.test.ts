@@ -450,3 +450,33 @@ describe("earlyPay: Paid early? (owner, Nov 28)", () => {
     expect(earlyPay(sources, [], monthly, "2026-11-27")).toEqual({ payday: "2026-12-01", sources });
   });
 });
+
+describe("income after the next period started early (Task D2, owner Nov 28)", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const sources = [
+    { id: "freelance", name: "Freelance", amount: 800_000, pay_slot: "payday_2", start_date: "2026-11-01", end_date: null },
+    { id: "main", name: "Company A", amount: 2_500_000, pay_slot: "every", start_date: "2026-11-01", end_date: null },
+    { id: "allowance", name: "Allowance", amount: 300_000, pay_slot: "payday_1", start_date: "2026-11-01", end_date: null },
+  ];
+  // The Nov 30 period started on Nov 28; today is Nov 28.
+  const early = { "2026-11-30": "2026-11-28" };
+
+  it("duePay() looks at the Nov 30 payday, not the 15th", () => {
+    // Company A came early; Freelance is still due on the 30th.
+    expect(duePay(sources, new Set(["main"]), semi, "2026-11-28", early)?.id).toBe("freelance");
+    expect(duePay(sources, new Set(["main", "freelance"]), semi, "2026-11-28", early)).toBeNull();
+  });
+
+  it("earlyPay() has nothing to offer: the next payday is Dec 15", () => {
+    expect(earlyPay(sources, [], semi, "2026-11-28", early)).toBeNull();
+  });
+
+  it("upcomingPaydays() and sourceStatusLines() start from the Nov 30 payday", () => {
+    expect(upcomingPaydays("2026-11-28", semi, sources, 2, new Set(), early).map((p) => p.date)).toEqual(["2026-11-30", "2026-12-15"]);
+    expect(sourceStatusLines(sources[0], semi, "2026-11-28", null, early)[0].text).toBe("30th: Expected Nov 30");
+  });
+
+  it("sourcePayday() calls the Nov 30 payday this period's", () => {
+    expect(sourcePayday(sources[0], semi, "2026-11-28", early)).toEqual({ date: "2026-11-30", thisPeriod: true });
+  });
+});

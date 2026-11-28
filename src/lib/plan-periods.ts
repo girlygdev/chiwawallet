@@ -2,12 +2,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, format, parseISO } from "date-fns";
 import { chargedFor, loadCardCharges } from "@/lib/card-charges";
 import type { BillFrequency } from "@/lib/bills";
-import { type BudgetPeriod, getOrCreatePeriod } from "@/lib/budget-periods";
+import { type BudgetPeriod, firstDayOf, getOrCreatePeriod, loadEarlyStarts, periodOf } from "@/lib/budget-periods";
 import type { Budget } from "@/lib/current-budget";
 import { type DebtTerms, debtLeft, debtLeftAfter, debtPaidFor } from "@/lib/debts";
 import { receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers } from "@/lib/money";
-import { formatPeriodRange, formatShortDate, getPeriod, type Period, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
+import {
+  actualPeriod,
+  formatPeriodRange,
+  formatShortDate,
+  getPeriod,
+  type Period,
+  type PaySchedule,
+  type PaySlot,
+  periodAt,
+  scheduleFromBudget,
+  todayInManila,
+} from "@/lib/periods";
 import { potBalance } from "@/lib/pots";
 import {
   generatePlan,
@@ -143,6 +154,16 @@ const dayAfter = (date: string) => format(addDays(parseISO(date), 1), "yyyy-MM-d
 const dayBefore = (date: string) => format(addDays(parseISO(date), -1), "yyyy-MM-dd");
 
 /**
+ * The period after the one whose payday is `start`, payday to payday. Not
+ * from the day after a row's end_date: that day is still the same payday's
+ * period when the next one started early (Task D2).
+ */
+const paydayAfter = (start: string, schedule: PaySchedule) => getPeriod(dayAfter(getPeriod(start, schedule).end), schedule);
+
+/** A period being closed: started_early_on moves its first day (Task D2); missing means none. */
+type OldPeriod = { id: string; start_date: string; end_date: string; started_early_on?: string | null };
+
+/**
  * Opens the period `/plan?start=…` asks for (or the current one), creating it
  * the first time. A period that hasn't ended gets its generated items: the
  * first time, everything; after that, only what's new (a bill added since),
@@ -162,14 +183,17 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     .maybeSingle();
   if (firstError) fail("load your periods", firstError);
 
-  const periods = plannablePeriods(today, schedule, first?.start_date ?? null);
-  const currentStart = getPeriod(today, schedule).start;
+  // Periods that started early (Task D2): one is current from its first day.
+  const early = await loadEarlyStarts(supabase, budget.id);
+  const periods = plannablePeriods(today, schedule, first?.start_date ?? null, early);
+  const currentStart = periodAt(today, schedule, early).start;
   const start = resolvePlanStart(requested, periods, currentStart);
 
   const row = await getOrCreatePeriod(supabase, budget, start);
-  const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
+  const period = periodOf(row);
   const ended = row.end_date < today;
-  const future = row.start_date > today;
+  // A period that started early has begun, though its payday hasn't come.
+  const future = period.firstDay > today;
 
   const [sources, money] = await Promise.all([loadSources(supabase, budget, today), loadMoney(supabase, row, future)]);
 
@@ -318,7 +342,8 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     items: rows,
     income,
     carriedIn,
-    previous: getPeriod(dayBefore(period.start), schedule),
+    // Payday to payday, then with its real last day (shorter if this one started early).
+    previous: actualPeriod(getPeriod(dayBefore(period.start), schedule), schedule, early),
     summary,
     // No period before it existed when this one opened, or this is the oldest.
     isFirst: first == null || row.start_date <= first.start_date,
@@ -411,7 +436,7 @@ export async function openCurrentPlan(
   options: { withNext?: boolean } = {},
 ): Promise<{ period: Period; items: CurrentItem[]; next: NextPreview | null }> {
   const row = await getOrCreatePeriod(supabase, budget, today);
-  const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
+  const period: Period = periodOf(row);
   const schedule = scheduleFromBudget(budget);
   let sources: Awaited<ReturnType<typeof loadSources>> | null = null;
   try {
@@ -492,7 +517,7 @@ async function previewNextPeriod(
   groupOf: Map<string, string | null>,
 ): Promise<NextPreview | null> {
   const schedule = scheduleFromBudget(budget);
-  const period = getPeriod(dayAfter(current.end), schedule);
+  const period = paydayAfter(current.start, schedule);
   const { data: row, error } = await supabase
     .from("budget_periods")
     .select("id")
@@ -592,7 +617,7 @@ export async function loadAssignData(
       cap: debtAssignCap(d.left, sum(debtItems!.filter((i) => i.debt_id === d.id))),
     })),
   ];
-  const next = getPeriod(format(addDays(parseISO(plan.period.end_date), 1), "yyyy-MM-dd"), scheduleFromBudget(budget));
+  const next = paydayAfter(plan.period.start_date, scheduleFromBudget(budget));
   return { destinations, next: formatPeriodRange(next.start, next.end) };
 }
 
@@ -614,7 +639,7 @@ export async function closeEndedPeriods(
 ): Promise<{ awaiting: { id: string; start: string } | null }> {
   const { data: periods, error } = await supabase
     .from("budget_periods")
-    .select("id, start_date, end_date, closed_at")
+    .select("id, start_date, end_date, closed_at, started_early_on")
     .eq("budget_id", budget.id);
   if (error) fail("load periods", error);
   const { close, awaiting } = periodsToClose(periods!, today, budget.ask_on_payday);
@@ -628,7 +653,7 @@ export async function closeEndedPeriods(
   const { data: rows, error: rowsError } = await supabase
     .from("transactions")
     .select("type, amount, deleted_at, card_id")
-    .lt("date", period.start_date)
+    .lt("date", firstDayOf(period))
     .is("deleted_at", null);
   if (rowsError) fail("load transactions", rowsError);
   const carriedIn = cashOnHand(budget.opening_balance, rows as Parameters<typeof cashOnHand>[1]);
@@ -647,7 +672,7 @@ export async function closeEndedPeriods(
 export async function closePeriod(
   supabase: Client,
   budget: Budget,
-  period: { id: string; start_date: string; end_date: string },
+  period: OldPeriod,
   choice: "carry" | "pot" | "debt" | "split",
 ): Promise<void> {
   const { data: rows, error } = await supabase
@@ -659,9 +684,12 @@ export async function closePeriod(
   type Row = Parameters<typeof cashOnHand>[1][number] & { date: string };
   // The generated types say `string` for type; its check constraint allows only the four.
   const all = rows as Row[];
-  const carriedIn = cashOnHand(budget.opening_balance, all.filter((r) => r.date < period.start_date));
-  const { leftover } = carryOver(carriedIn, all.filter((r) => r.date >= period.start_date));
+  // From the day it began (earlier if it started early, Task D2).
+  const firstDay = firstDayOf(period);
+  const carriedIn = cashOnHand(budget.opening_balance, all.filter((r) => r.date < firstDay));
+  const { leftover } = carryOver(carriedIn, all.filter((r) => r.date >= firstDay));
 
+  // The day after its last day is in the next period, even one that started early.
   const next = await getOrCreatePeriod(supabase, budget, dayAfter(period.end_date));
   const { error: carryError } = await supabase.from("budget_periods").update({ carried_in: leftover }).eq("id", next.id);
   if (carryError) fail("carry the leftover", carryError);
@@ -700,7 +728,7 @@ export type PaydayData = {
 export async function loadPaydayData(
   supabase: Client,
   budget: Budget,
-  old: { id: string; start_date: string; end_date: string },
+  old: OldPeriod,
   today: string,
 ): Promise<PaydayData> {
   const [{ data: rows, error }, oldPlan, currentPlan] = await Promise.all([
@@ -716,8 +744,9 @@ export async function loadPaydayData(
   type Row = Parameters<typeof cashOnHand>[1][number] & { date: string; pot_id: string | null; pot: unknown };
   // The generated types say `string` for type; its check constraint allows only the four.
   const all = rows as Row[];
-  const inOld = all.filter((r) => r.date >= old.start_date);
-  const review = carryOver(cashOnHand(budget.opening_balance, all.filter((r) => r.date < old.start_date)), inOld);
+  const oldFirstDay = firstDayOf(old);
+  const inOld = all.filter((r) => r.date >= oldFirstDay);
+  const review = carryOver(cashOnHand(budget.opening_balance, all.filter((r) => r.date < oldFirstDay)), inOld);
 
   // The wins: payments made (on time?), spending under plan, savings.
   const ticked = oldPlan.period.start_date === old.start_date ? oldPlan.items.filter((i) => i.tickable) : [];
@@ -1023,7 +1052,8 @@ async function loadMoney(supabase: Client, row: BudgetPeriod, future: boolean) {
       .select("type, amount, deleted_at, card_id, income_source_id, category_id, plan_item_id")
       .eq("period_id", row.id)
       .is("deleted_at", null),
-    supabase.from("transactions").select("type, amount, deleted_at, card_id").lt("date", row.start_date).is("deleted_at", null),
+    // Before its first day: earlier than its payday if it started early (Task D2).
+    supabase.from("transactions").select("type, amount, deleted_at, card_id").lt("date", firstDayOf(row)).is("deleted_at", null),
   ]);
   for (const result of [period, earlier]) {
     if (result.error) fail("load this period's money", result.error);

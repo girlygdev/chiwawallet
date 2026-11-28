@@ -18,7 +18,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import type { ActivityRow } from "@/lib/activity";
-import { getOrCreatePeriod } from "@/lib/budget-periods";
+import { firstDayOf, getOrCreatePeriod, loadEarlyStarts, periodOf } from "@/lib/budget-periods";
 import { checklistSteps, potStarted } from "@/lib/checklist";
 import { loadEarlyPay } from "@/lib/early-pay";
 import { isChecklistDismissed } from "@/lib/checklist-cookie";
@@ -29,8 +29,6 @@ import { closeEndedPeriodsOnVisit, openCurrentPlan } from "@/lib/plan-periods";
 import { potBalance, potCardLine, potPeriodLine } from "@/lib/pots";
 import {
   formatPeriodRange,
-  type PaySlot,
-  type Period,
   paydayLabel,
   periodDayLine,
   periodStatusLine,
@@ -80,7 +78,9 @@ async function DashboardBody() {
   // A period waiting for its leftover choice: the payday screen first (6h-2).
   if (awaiting) redirect(`/payday?start=${awaiting.start}`);
   const row = await getOrCreatePeriod(supabase, budget, today);
-  const period: Period = { start: row.start_date, end: row.end_date, paySlot: row.pay_slot as PaySlot };
+  // Its real first day too: earlier than its payday if it started early (Task D2).
+  const period = periodOf(row);
+  const early = await loadEarlyStarts(supabase, budget.id);
 
   const [sources, periodRows, earlierRows, recent] = await Promise.all([
     supabase
@@ -94,7 +94,7 @@ async function DashboardBody() {
       .eq("period_id", row.id)
       .is("deleted_at", null),
     // Every earlier transaction, for carry-in (type and amount only).
-    supabase.from("transactions").select("type, amount, deleted_at, card_id").lt("date", period.start).is("deleted_at", null),
+    supabase.from("transactions").select("type, amount, deleted_at, card_id").lt("date", firstDayOf(row)).is("deleted_at", null),
     supabase
       .from("transactions")
       .select(
@@ -208,9 +208,9 @@ async function DashboardBody() {
       isActiveOn(s, period.start) &&
       (schedule.frequency !== "semi_monthly" || s.pay_slot === "every" || s.pay_slot === period.paySlot),
   );
-  const due = duePay(sources.data!, received, schedule, today);
+  const due = duePay(sources.data!, received, schedule, today, early);
   // Paid early? (Nov 28): only while this period's pay is logged, so the two prompts never stack.
-  const early = due ? null : await loadEarlyPay(supabase, budget, today);
+  const earlyPay = due ? null : await loadEarlyPay(supabase, budget, today);
 
   // Get started (7d-1): until all five steps are done or it's dismissed. Its
   // counts are skipped once dismissed. The first period gets "Day 1 of 15".
@@ -250,7 +250,7 @@ async function DashboardBody() {
   // Nothing logged and nothing planned yet: "Your starting balance."
   const fresh = periodRows.data!.length === 0 && planned.length === 0;
   // The period arrows and Next period (7d-2); both open periods on the Plan.
-  const neighbors = dashboardNeighbors(today, schedule, firstPeriod.data?.start_date ?? null);
+  const neighbors = dashboardNeighbors(today, schedule, firstPeriod.data?.start_date ?? null, early);
   const next = current.next;
   const nextLine = next ? nextPeriodLine(next.expected, next.names) : "";
   const duePrompt = due && { id: due.id, name: due.name, amount: due.amount, payday: period.start };
@@ -269,7 +269,7 @@ async function DashboardBody() {
       {/* Desktop (§3): the pay prompt as a banner, then the stat row; phones
           have both inside the Cash card. */}
       {duePrompt && <PayPrompt due={duePrompt} today={today} className="hidden rounded-2xl bg-green-700 lg:flex" />}
-      {!duePrompt && early && <EarlyPayPrompt early={early} className="hidden rounded-2xl bg-green-700 lg:flex" />}
+      {!duePrompt && earlyPay && <EarlyPayPrompt early={earlyPay} className="hidden rounded-2xl bg-green-700 lg:flex" />}
       {/* Get started: above the stat row on desktop, under the Cash card on
           phones. Two copies; the hidden one is out of the accessibility tree. */}
       {getStarted && <div className="hidden lg:block">{getStarted}</div>}
@@ -287,7 +287,7 @@ async function DashboardBody() {
           column adds space below Recent activity, not between the cards. */}
       <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
         <div className="lg:hidden">
-          <CashCard numbers={numbers} safe={safe} stillDue={stillDue} daily={daily} due={duePrompt} early={early} today={today} fresh={fresh} />
+          <CashCard numbers={numbers} safe={safe} stillDue={stillDue} daily={daily} due={duePrompt} early={earlyPay} today={today} fresh={fresh} />
         </div>
         {getStarted && <div className="lg:hidden">{getStarted}</div>}
         <div className="lg:col-start-1 lg:row-start-1">
