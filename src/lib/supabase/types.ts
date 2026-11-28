@@ -457,6 +457,7 @@ export type Database = {
           amount: number
           amount_varies: boolean
           budget_id: string
+          card_id: string | null
           category_id: string
           created_at: string
           due_day: number
@@ -473,6 +474,7 @@ export type Database = {
           amount: number
           amount_varies?: boolean
           budget_id: string
+          card_id?: string | null
           category_id: string
           created_at?: string
           due_day: number
@@ -489,6 +491,7 @@ export type Database = {
           amount?: number
           amount_varies?: boolean
           budget_id?: string
+          card_id?: string | null
           category_id?: string
           created_at?: string
           due_day?: number
@@ -507,6 +510,13 @@ export type Database = {
             columns: ["budget_id", "user_id"]
             isOneToOne: false
             referencedRelation: "budgets"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recurring_bills_card_fkey"
+            columns: ["card_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "debts"
             referencedColumns: ["id", "user_id"]
           },
           {

@@ -41,6 +41,13 @@ export function billSchemaFor(budgetFrequency: string) {
       firstDueMonth: z.number().nullable().optional(),
       paySlot: z.enum(BILL_PAY_SLOTS, { error: PAY_SLOT_MESSAGE }),
       remind: z.boolean(),
+      // "Paid with" (Nov 28): a credit card's id, or empty for Cash. Whether
+      // it's the user's own open card is checked on the server (and by the
+      // database).
+      cardId: z
+        .union([z.uuid("Pick Cash or one of your cards."), z.literal("")])
+        .optional()
+        .transform((id) => (id ? id : null)),
     })
     .superRefine((v, ctx) => {
       const m = v.firstDueMonth;

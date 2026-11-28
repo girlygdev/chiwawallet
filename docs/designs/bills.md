@@ -62,6 +62,7 @@ A bottom sheet on mobile, a dialog or side panel on desktop. Title "New bill", s
 | How often? | Segmented: Monthly, Quarterly, Yearly | Monthly | `frequency` |
 | Paid from | Segmented: 15th payday, 30th payday, Split (uses the real dates) | 30th payday | `pay_slot` |
 | Remind me before it's due | Switch, with the hint "2 days before, as a notification" | On | `remind` |
+| Paid with (added Nov 28) | Segmented: Cash and each open card (a dropdown past three), only once you have an open card | BPI card | `card_id` (empty = Cash) |
 
 - **Category:** bills use the Bills category by default. Add a category row if you want electricity, rent and so on tracked separately.
 - **Suggested payday:** the line under Paid from explains the default: "Suggested: the 30th comes right before the 10th."
@@ -74,6 +75,7 @@ A bottom sheet on mobile, a dialog or side panel on desktop. Title "New bill", s
 
 - **Fixed bills:** Mark paid creates the expense for the planned amount, today, in the Bills category, with an Undo toast.
 - **Variable bills:** Mark paid opens a small sheet with the amount pre-filled: "Electricity came to…".
+- **Bills on a card (added Nov 28, owner):** Mark paid records a card charge (an expense with `card_id`): the card's balance goes up and cash stays the same. The form says "Charged to BPI card when you mark it paid. Your cash stays the same until you pay the card." Rows read "Every 20th · BPI card". Unpaid card bills don't count against Safe to spend, but still count in Planned and their 50/30/20 group. Closing or deleting the card moves its bills back to Cash.
 - **Reminders** (`remind = on`) use `profiles.bill_reminders`. In the MVP the "notification" is the dashboard bell dot and a line in Due this period. Real push notifications are v1.1.
 
 ## 6. Accessibility

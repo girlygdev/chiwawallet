@@ -2,6 +2,24 @@
 
 Newest entry first.
 
+## 2026-11-28 · Week 8 · Bills paid with a card
+- **What:** New and Edit bill have **Paid with: Cash | BPI card** (once you have an open card). Mark paid on a card bill records a card charge: the card's balance goes up, cash stays the same. Bills and Plan rows read "… · BPI card". Unpaid card bills are left out of Safe to spend.
+- **Files:**
+  - Migration: supabase/migrations/20261128100000_bill_cards.sql
+  - lib: src/lib/money.ts (`stillDueTotal` skips `on_card`), src/lib/plan-periods.ts, src/lib/validation/bill.ts, src/lib/supabase/types.ts
+  - screens: src/components/bills/bill-form.tsx, src/app/(app)/bills/page.tsx, bill-sheet.tsx, actions.ts
+  - tests: tests/db/bill-cards.test.ts, tests/lib/money.test.ts, tests/lib/validation/bill.test.ts
+  - docs: docs/designs/bills.md, docs/mvp-brief.md (data model)
+- **Decisions (owner, Nov 28):**
+  - Card bills count in Planned and their group (like card purchases, 8b-4 option A), but not in Safe to spend: no cash leaves until the card is paid.
+  - Closing (`paid_off_at`) or deleting a card moves its bills back to Cash. This is done by a trigger and `on delete set null (card_id)`. Reopening doesn't put them back.
+  - `mark_plan_item_paid()` reads the bill's card at pay time, so changing a bill's card changes its next payment.
+  - Only the dashboard's Safe to spend changes. The Bills page's "still due this period" and the Plan's totals still include card bills.
+- **Tests:** 8 new database tests (310 pass on local Supabase) and 4 new Vitest cases (705 pass). Lint, typecheck and `npm run build` pass. Not clicked through in a browser: Playwright isn't installed yet.
+- **AI notes:** `types.ts` was edited by hand (`card_id` and its relationship). The local generator's formatting would have rewritten the whole file. Regenerate from the hosted project after the migration is pushed. The database tests were written before the migration but only run after it was applied, so they weren't seen failing first.
+- **Open:** push the migration to the hosted project (`npx supabase db push`) before deploying.
+- **Next:** Task C, Paid early (5-day window, pick the source).
+
 ## 2026-11-28 · Week 8 · Plan savings
 - **What:** **Plan savings** in the Plan options menu (when you have a pot): pick a pot, an amount and a payday, see "not assigned: ₱X → ₱Y", then Add to plan. It shows under SAVINGS, counts as Savings & debt payoff, and Mark paid makes it a deposit.
 - **Files:**

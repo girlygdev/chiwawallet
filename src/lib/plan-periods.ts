@@ -70,6 +70,8 @@ export type PlanRow = PlanItem & {
   paidOn: string | null;
   /** A bill whose amount changes: Mark paid asks for the real amount. */
   varies: boolean;
+  /** A bill charged to a card (Nov 28): not in Safe to spend while unpaid. */
+  on_card: boolean;
   /** When it's due this period (itemDueOn()); empty for pots and budgets. */
   dueOn: string | null;
   /**
@@ -239,6 +241,7 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
         tickable: false,
         paidOn: null,
         varies: false,
+        on_card: false,
         dueOn: null,
         actual: null,
         bar: null,
@@ -259,17 +262,21 @@ export async function openPlanPeriod(supabase: Client, budget: Budget, requested
     const dueOn = tickable ? itemDueOn(shaped, { period, schedule, bill, debt }) : null;
     // Ticked items: what was paid. Budgets and starter lines: spent, below.
     const actual = future ? null : tickable ? (item.paid_at != null ? (paidAmountOf.get(item.id) ?? 0) : 0) : (spent[item.id] ?? 0);
+    // A bill on a card (Nov 28): "Due Dec 10 · BPI card".
+    const card = billCard(bill, sources.debts);
+    const line = paidOn ? `Paid ${formatShortDate(paidOn)}` : detail;
     return {
       ...item,
       section,
       group,
       received: false,
       // "Paid Nov 15" replaces the detail line once paid (plan.md §3).
-      detail: paidOn ? `Paid ${formatShortDate(paidOn)}` : detail,
+      detail: card ? `${line} · ${card.name}` : line,
       tickable,
       paidOn,
       // A card's payment varies (8b-4): Mark paid asks how much.
       varies: (bill?.amount_varies ?? false) || debt?.payment_type === "card",
+      on_card: card != null,
       dueOn,
       actual,
       bar: actual != null && !tickable ? budgetBar(item.planned_amount, actual) : null,
@@ -377,6 +384,8 @@ export type CurrentItem = {
   dueOn: string | null;
   /** A bill whose amount changes: Mark paid asks for the amount. */
   varies: boolean;
+  /** A bill charged to a card (Nov 28): not in Safe to spend while unpaid. */
+  on_card: boolean;
   /** Spending budgets and starter lines (7a): spent so far and the bar, as on the Plan (6e). */
   spent: number | null;
   bar: ReturnType<typeof budgetBar> | null;
@@ -459,6 +468,7 @@ export async function openCurrentPlan(
       tickable: isTickable({ section }),
       dueOn: itemDueOn({ ...i, origin }, { period, schedule, bill, debt }),
       varies: (bill?.amount_varies ?? false) || debt?.payment_type === "card",
+      on_card: billCard(bill, sources?.debts ?? []) != null,
       spent: section === "spending" ? (spentOf[i.id] ?? 0) : null,
       bar: section === "spending" ? budgetBar(i.planned_amount, spentOf[i.id] ?? 0) : null,
       leftAfter: debt && i.paid_at == null ? debtLeftAfter(debtLeft(debt), i.planned_amount) : null,
@@ -936,13 +946,21 @@ export async function loadPlanPots(supabase: Client, budget: Budget, today: stri
   });
 }
 
+/**
+ * The card a bill is charged to (Nov 28), or nothing for Cash. Closing a
+ * card empties its bills' card_id in the database, so a found card is open.
+ */
+function billCard<D extends { id: string; name: string }>(bill: { card_id?: string | null } | undefined, debts: D[]): D | undefined {
+  return bill?.card_id ? debts.find((d) => d.id === bill.card_id) : undefined;
+}
+
 /** Everything generatePlan() and the detail lines are made from. */
 async function loadSources(supabase: Client, budget: Budget, today: string) {
   const [sources, bills, pots, debts, payments, categories, charges] = await Promise.all([
     supabase.from("income_sources").select("id, name, amount, pay_slot, start_date, end_date").eq("budget_id", budget.id),
     supabase
       .from("recurring_bills")
-      .select("id, name, amount, amount_varies, category_id, frequency, due_day, first_due_month, pay_slot")
+      .select("id, name, amount, amount_varies, category_id, frequency, due_day, first_due_month, pay_slot, card_id")
       .eq("budget_id", budget.id),
     supabase.from("savings_pots").select("id, name, pay_slot, planned_contribution"),
     supabase

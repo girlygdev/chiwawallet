@@ -84,10 +84,18 @@ function toRow(values: BillValues) {
     first_due_month: values.firstDueMonth,
     pay_slot: values.paySlot,
     remind: values.remind,
+    // Cash is null; switching back to Cash clears it.
+    card_id: values.cardId,
   };
 }
 
 function fail(what: string, error: { code?: string; message: string }): Result {
+  // Paid with (Nov 28): check_bill_card() refuses a debt that isn't an open
+  // card (23514), and the card's foreign key someone else's (23503). Matched
+  // on their exact wording, so a category named "Card fees" isn't mistaken.
+  if (/your credit cards|That card is closed|recurring_bills_card_fkey/.test(error.message)) {
+    return { fieldErrors: { cardId: "Pick Cash or one of your open cards." } };
+  }
   // 23514 from check_bill_category(): a system or income category; 23503: a
   // category that isn't the user's (or was just deleted).
   if (error.code === "23514" || error.code === "23503") {

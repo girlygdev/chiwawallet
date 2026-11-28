@@ -172,6 +172,15 @@ describe("Safe to spend (6c, dashboard.md §1)", () => {
     expect(stillDueTotal([])).toBe(0);
   });
 
+  it("skips bills charged to a card: no cash leaves until the card is paid (Nov 28)", () => {
+    const items = [
+      { tickable: true, paid_at: null, planned_amount: 250_000 },
+      { tickable: true, paid_at: null, planned_amount: 54_900, on_card: true },
+      { tickable: true, paid_at: null, planned_amount: 100_000, on_card: false },
+    ];
+    expect(stillDueTotal(items)).toBe(350_000);
+  });
+
   it("is cash now minus still due", () => {
     expect(safeToSpend(2_055_000, 700_000)).toBe(1_355_000);
     expect(safeToSpend(500_000, 700_000)).toBe(-200_000);

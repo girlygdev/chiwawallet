@@ -20,6 +20,21 @@ function errorsFor(frequency: string, input: Record<string, unknown>) {
   return Object.fromEntries(result.error.issues.map((i) => [i.path[0], i.message]));
 }
 
+describe("billSchemaFor: Paid with (Nov 28)", () => {
+  const CARD = "8f14e45f-ceea-4e7a-8d8a-0e0f5b1a2c3d";
+
+  it("is Cash (null) when empty or left out, or a card's id", () => {
+    const parse = (cardId: unknown) => billSchemaFor("semi_monthly").parse({ ...valid, cardId }).cardId;
+    expect(parse(undefined)).toBeNull();
+    expect(parse("")).toBeNull();
+    expect(parse(CARD)).toBe(CARD);
+  });
+
+  it("refuses anything else", () => {
+    expect(errorsFor("semi_monthly", { cardId: "visa" })).toEqual({ cardId: "Pick Cash or one of your cards." });
+  });
+});
+
 describe("billSchemaFor", () => {
   it("parses the amount to centavos and trims the name", () => {
     expect(billSchemaFor("semi_monthly").parse({ ...valid, name: " Meralco ", amount: "₱2,500.50" })).toMatchObject({

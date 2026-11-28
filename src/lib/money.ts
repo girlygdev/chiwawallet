@@ -125,9 +125,13 @@ export function dashboardNumbers(
  * Still due: this period's unpaid planned money out, the bills, savings,
  * debt payments and one-offs (\`tickable\` plan items, owner Nov 26).
  * Spending budgets and income aren't due; they're measured by spending.
+ * Bills charged to a card (`on_card`, Nov 28) aren't either: no cash leaves
+ * until the card itself is paid, and that payment is its own item.
  */
-export function stillDueTotal(items: { tickable: boolean; paid_at: string | null; planned_amount: number }[]): number {
-  return items.reduce((sum, i) => (i.tickable && i.paid_at == null ? sum + i.planned_amount : sum), 0);
+export function stillDueTotal(
+  items: { tickable: boolean; paid_at: string | null; planned_amount: number; on_card?: boolean }[],
+): number {
+  return items.reduce((sum, i) => (i.tickable && i.paid_at == null && !i.on_card ? sum + i.planned_amount : sum), 0);
 }
 
 /** Safe to spend: cash now − still due. Below 0 when what's due is more than what's on hand. */

@@ -27,6 +27,8 @@ export type EditableBill = {
   first_due_month: number | null;
   pay_slot: string;
   remind: boolean;
+  /** The card it's charged to (Nov 28); empty for Cash. */
+  card_id: string | null;
 };
 
 export type BillFormResult = { ok?: true; formError?: string; fieldErrors?: Partial<Record<string, string>> };
@@ -35,8 +37,10 @@ type TotalsBill = { amount: number; frequency: BillFrequency; pay_slot: string }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
-const FIELD_ORDER = ["name", "amount", "dueDay", "firstDueMonth", "frequency", "paySlot", "categoryId"] as const;
+const FIELD_ORDER = ["name", "amount", "dueDay", "firstDueMonth", "frequency", "paySlot", "categoryId", "cardId"] as const;
 const SELECT = cn(inputClassName, "h-12 appearance-auto");
+/** Up to this many cards, Paid with is a segmented control (as on Add expense); more, a dropdown. */
+const SEGMENTED_CARDS = 3;
 
 /**
  * New and Edit bill (bills.md §4). The payday that pays it follows the
@@ -49,6 +53,7 @@ export function BillForm({
   defaultCategoryId,
   bill,
   otherBills,
+  cards = [],
   onSave,
   onDeleteRequest,
   onDone,
@@ -62,6 +67,8 @@ export function BillForm({
   bill?: EditableBill;
   /** The budget's other bills, for the impact box. */
   otherBills: TotalsBill[];
+  /** Paid with's choices: the user's open credit cards (Nov 28). */
+  cards?: { id: string; name: string }[];
   onSave: (input: BillFormInput) => Promise<BillFormResult>;
   onDeleteRequest?: () => void;
   onDone: () => void;
@@ -96,6 +103,7 @@ export function BillForm({
           firstDueMonth: bill.first_due_month,
           paySlot: bill.pay_slot as BillFormInput["paySlot"],
           remind: bill.remind,
+          cardId: bill.card_id ?? "",
         }
       : {
           name: "",
@@ -108,6 +116,7 @@ export function BillForm({
           firstDueMonth: null,
           paySlot: twicePaid ? "payday_1" : "every",
           remind: true,
+          cardId: "",
         },
   });
 
@@ -116,6 +125,9 @@ export function BillForm({
   const dueDay = useWatch({ control, name: "dueDay" });
   const paySlot = useWatch({ control, name: "paySlot" });
   const amountVaries = useWatch({ control, name: "amountVaries" });
+  const cardId = useWatch({ control, name: "cardId" }) ?? "";
+  const card = cards.find((c) => c.id === cardId);
+  const pickCard = (value: string) => setValue("cardId", value, { shouldValidate: errors.cardId != null });
   const centavos = parsePesoInput(amountText);
   const validAmount = centavos != null && centavos > 0 ? centavos : null;
   const hasDay = Number.isInteger(dueDay) && dueDay >= 1 && dueDay <= 31;
@@ -137,7 +149,8 @@ export function BillForm({
   const onSubmit = (values: BillValues) => {
     setFormError(undefined);
     // Send what was typed: the Server Action parses it again with the same schema.
-    const input: BillFormInput = { ...values, amount: amountText };
+    // The parsed card is null for Cash; the schema reads that back from "".
+    const input: BillFormInput = { ...values, amount: amountText, cardId: values.cardId ?? "" };
     startTransition(async () => {
       const result = await onSave(input);
       if (result.formError) setFormError(result.formError);
@@ -329,6 +342,50 @@ export function BillForm({
           </select>
         )}
       </FieldShell>
+
+      {/* Paid with (Nov 28): Cash, or a card the bill is charged to. Only
+          with an open card (plus a closed one it's already on can't happen:
+          closing a card moves its bills back to Cash). */}
+      {cards.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {cards.length <= SEGMENTED_CARDS ? (
+            <Segmented
+              name={`${id}-paid-with`}
+              legend="Paid with"
+              options={[{ value: "", label: "Cash" }, ...cards.map((c) => ({ value: c.id, label: c.name }))]}
+              value={cardId}
+              onChange={pickCard}
+              wrap={cards.length === SEGMENTED_CARDS}
+              error={errors.cardId?.message}
+            />
+          ) : (
+            <FieldShell id={`${id}-paid-with`} label="Paid with" error={errors.cardId?.message}>
+              {(describedBy) => (
+                <select
+                  id={`${id}-paid-with`}
+                  value={cardId}
+                  onChange={(e) => pickCard(e.target.value)}
+                  aria-describedby={describedBy}
+                  aria-invalid={errors.cardId ? true : undefined}
+                  className={SELECT}
+                >
+                  <option value="">Cash</option>
+                  {cards.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </FieldShell>
+          )}
+          {card && (
+            <p className="text-[13px] text-text-2">
+              Charged to {card.name} when you mark it paid. Your cash stays the same until you pay the card.
+            </p>
+          )}
+        </div>
+      )}
 
       <Controller
         control={control}

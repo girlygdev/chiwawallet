@@ -58,23 +58,28 @@ type Bill = {
   category_id: string;
   remind: boolean;
   category: { name: string; icon: string; color: string };
+  /** Paid with (Nov 28): the card it's charged to, or empty for Cash. */
+  card_id: string | null;
+  card: { name: string } | null;
 };
 
 async function BillsContent() {
   const { budget } = await requireAppUser();
   const supabase = await createClient();
-  const [billRows, categoryRows] = await Promise.all([
+  const [billRows, categoryRows, cardRows] = await Promise.all([
     supabase
       .from("recurring_bills")
       .select(
-        "id, name, amount, amount_varies, frequency, due_day, first_due_month, pay_slot, category_id, remind, category:categories(name, icon, color)",
+        "id, name, amount, amount_varies, frequency, due_day, first_due_month, pay_slot, category_id, remind, card_id, category:categories(name, icon, color), card:debts!recurring_bills_card_fkey(name)",
       )
       .eq("budget_id", budget.id)
       .order("name"),
     // The form's category choices: spending categories that aren't system ones.
     supabase.from("categories").select("id, name").eq("kind", "expense").is("system_key", null).order("name"),
+    // Paid with's choices (Nov 28): open credit cards, oldest first.
+    supabase.from("debts").select("id, name").eq("payment_type", "card").is("paid_off_at", null).order("created_at"),
   ]);
-  for (const result of [billRows, categoryRows]) {
+  for (const result of [billRows, categoryRows, cardRows]) {
     if (result.error) throw new Error(`Couldn't load bills: ${result.error.message}`, { cause: result.error });
   }
   // The check constraints allow only these frequencies; each bill has one category.
@@ -187,6 +192,7 @@ async function BillsContent() {
         upcoming={upcomingByBill}
         categories={categories}
         defaultCategoryId={defaultCategoryId}
+        cards={cardRows.data!}
         schedule={schedule}
         today={today}
       />
@@ -300,7 +306,11 @@ function BillSection({
                   <CategoryIconTile icon={bill.category.icon} color={bill.category.color} size="md" />
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="truncate font-extrabold text-ink">{bill.name}</span>
-                    <span className="truncate text-[13px] text-text-3">{billScheduleLine(bill, today)}</span>
+                    <span className="truncate text-[13px] text-text-3">
+                      {billScheduleLine(bill, today)}
+                      {/* Charged to a card (Nov 28): "Every 20th · BPI card". */}
+                      {bill.card && ` · ${bill.card.name}`}
+                    </span>
                     <span className="flex flex-wrap gap-1.5">
                       {/* Status in words, not only colour (bills.md §6). */}
                       <span

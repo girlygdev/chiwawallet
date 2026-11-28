@@ -22,6 +22,7 @@ export function BillSheet({
   upcoming,
   categories,
   defaultCategoryId,
+  cards,
   schedule,
   today,
 }: {
@@ -30,6 +31,8 @@ export function BillSheet({
   upcoming: Record<string, number>;
   categories: { id: string; name: string }[];
   defaultCategoryId: string;
+  /** Paid with's choices: open credit cards (Nov 28). */
+  cards: { id: string; name: string }[];
   schedule: PaySchedule;
   today: string;
 }) {
@@ -62,6 +65,7 @@ export function BillSheet({
             defaultCategoryId={defaultCategoryId}
             bill={editing}
             otherBills={others(editing)}
+            cards={cards}
             onSave={(input) => (editing ? updateBill(editing.id, input) : addBill(input))}
             onDeleteRequest={
               editing ? () => router.replace(`${pathname}?delete=${editing.id}`, { scroll: false }) : undefined
