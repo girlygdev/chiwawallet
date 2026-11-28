@@ -183,3 +183,18 @@ describe("mark_plan_item_paid: other users", () => {
     expect((await markPaid(a, item, "2027-01-20", 250_000, anonClient())).error?.code).toBe(PERMISSION_DENIED);
   });
 });
+
+describe("mark_plan_item_paid: the payment is named after the item (owner, Nov 28)", () => {
+  it("saves the item's name as the payment's note, so Activity shows it", async () => {
+    const s = await setUp();
+    const oneOff = await addItem(s, { ...items.oneOff(s), name: "Mama Hair Treatment" });
+    const bill = await addItem(s, items.bill(s));
+    const pot = await addItem(s, items.pot(s));
+    await markPaid(s, oneOff);
+    await markPaid(s, bill);
+    await markPaid(s, pot, "2027-01-15", 200_000);
+    expect((await payments(s, oneOff))[0].note).toBe("Mama Hair Treatment");
+    expect((await payments(s, bill))[0].note).toBe("Meralco");
+    expect((await payments(s, pot))[0].note).toBe("Laptop fund");
+  });
+});

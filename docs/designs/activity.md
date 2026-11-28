@@ -41,7 +41,7 @@ A 40px category tile, the name (weight 800), a 13px detail line "Category · not
 | Withdrawal from a pot | ←₱1,000, ink | Savings · From Travel |
 | Debt payment | −₱4,000, ink | Debt · SPayLater |
 
-- **Name:** the note if there is one, otherwise the category name (for example "Jeep fare").
+- **Name:** the note if there is one, otherwise the category name (for example "Jeep fare"). A payment made from a plan item (Mark paid, or a savings or debt payment that ticks one off) gets the item's name as its note, so it shows as "Mama Hair Treatment · Personal" (owner, Nov 28).
 - **Swipe left** shows two 64px actions: **Edit** (`track` fill) and **Delete** (#B42318, white text). On devices without touch, show the same two actions as icon buttons on hover or focus.
 - Tapping a row opens it in the add sheet in edit mode, with the title "Edit transaction".
 - Load 50 rows at a time, and more on scroll.

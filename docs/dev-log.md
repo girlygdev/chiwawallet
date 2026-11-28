@@ -2,6 +2,14 @@
 
 Newest entry first.
 
+## 2026-11-28 · Week 8 · Fix: plan payments named after their item
+- **What:** paying a plan item like "Mama Hair Treatment" (Personal) showed in Activity as just "Personal", because `mark_plan_item_paid()` left the note empty and Activity falls back to the category. The function now saves the item's name as the payment's note, and the same migration fills the note on earlier plan payments where it was empty.
+- **Files:** supabase/migrations/20261128130000_plan_payment_note.sql, tests/db/mark-paid.test.ts, docs/designs/activity.md
+- **Decisions:** owner: also fix past payments. A note someone already wrote is never replaced. Renaming an item after paying it doesn't rename the payment. Every way of paying a plan item goes through this one function (Plan, Bills, Debts and the add sheet), so no app code changed.
+- **Tests:** 1 database test, written first and seen failing. 324 database and 740 unit tests, lint and typecheck pass. Backfill checked on local data: all 227 plan payments named and matching their items, and a rolled-back check showed an existing note is kept.
+- **AI notes:** none.
+- **Next:** before deploying, `npx supabase db push` (this migration), then `git push`.
+
 ## 2026-11-28 · Week 8 · Fix: the date field did nothing on phones
 - **What:** tapping Date on the transaction sheet did nothing on the owner's phone (found while editing; adding was probably affected too). The button called `showPicker()` on a visually hidden date input, which phone browsers ignore without an error, so the focus fallback never ran. Now the real date input lies invisibly on top of the button, so a tap opens the phone's own picker. A mouse click or Enter still calls `showPicker()` for desktop browsers.
 - **Files:** src/components/transactions/date-button.tsx
