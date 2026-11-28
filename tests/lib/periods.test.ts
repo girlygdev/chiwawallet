@@ -10,6 +10,7 @@ import {
   formatShortDate,
   getPeriod,
   nextPeriods,
+  periodAt,
   ordinal,
   paydayLabel,
   type PaySchedule,
@@ -444,5 +445,57 @@ describe("periodDayLine: 'Day 1 of 15' for the first payday period", () => {
     ["2026-11-29", "Day 15 of 15"],
   ])("%s → %s", (today, text) => {
     expect(periodDayLine(period, today)).toBe(text);
+  });
+});
+
+describe("periodAt: periods with an early start (Task D1, owner Nov 28)", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  // The Nov 30 period started early, on Nov 28.
+  const early = { "2026-11-30": "2026-11-28" };
+  const nov15 = { start: "2026-11-15", paySlot: "payday_1" };
+  const nov30 = { start: "2026-11-30", paySlot: "payday_2" };
+
+  it("is getPeriod() with firstDay = start when nothing started early", () => {
+    expect(periodAt("2026-11-20", semi)).toEqual({ start: "2026-11-15", end: "2026-11-29", paySlot: "payday_1", firstDay: "2026-11-15" });
+    expect(periodAt("2026-11-20", semi, {})).toEqual(periodAt("2026-11-20", semi));
+  });
+
+  it("shortens the period before an early start", () => {
+    for (const date of ["2026-11-15", "2026-11-20", "2026-11-27"]) {
+      expect(periodAt(date, semi, early)).toEqual({ ...nov15, end: "2026-11-27", firstDay: "2026-11-15" });
+    }
+  });
+
+  it("moves the early days into the next period, which keeps its payday as start", () => {
+    for (const date of ["2026-11-28", "2026-11-29", "2026-11-30", "2026-12-14"]) {
+      expect(periodAt(date, semi, early)).toEqual({ ...nov30, end: "2026-12-14", firstDay: "2026-11-28" });
+    }
+  });
+
+  it("leaves other periods alone", () => {
+    expect(periodAt("2026-12-15", semi, early)).toEqual({ start: "2026-12-15", end: "2026-12-29", paySlot: "payday_1", firstDay: "2026-12-15" });
+    expect(periodAt("2026-11-10", semi, early).end).toBe("2026-11-14");
+  });
+
+  it("handles a payday moved to the month's end (Feb 28)", () => {
+    // The 30th in February 2027 is the 28th; that period started early on the 25th.
+    const feb = { "2027-02-28": "2027-02-25" };
+    expect(periodAt("2027-02-24", semi, feb)).toMatchObject({ start: "2027-02-15", end: "2027-02-24" });
+    expect(periodAt("2027-02-25", semi, feb)).toEqual({ start: "2027-02-28", end: "2027-03-14", paySlot: "payday_2", firstDay: "2027-02-25" });
+  });
+
+  it("works for monthly and weekly budgets", () => {
+    const monthly: PaySchedule = { frequency: "monthly", payDay1: 1 };
+    expect(periodAt("2026-11-29", monthly, { "2026-12-01": "2026-11-28" })).toMatchObject({ start: "2026-12-01", firstDay: "2026-11-28" });
+    expect(periodAt("2026-11-27", monthly, { "2026-12-01": "2026-11-28" })).toMatchObject({ start: "2026-11-01", end: "2026-11-27" });
+    // Paid on Fridays: Dec 4, 2026 is a Friday; started early on Wednesday Dec 2.
+    const weekly: PaySchedule = { frequency: "weekly", payWeekday: 5 };
+    expect(periodAt("2026-12-02", weekly, { "2026-12-04": "2026-12-02" })).toMatchObject({ start: "2026-12-04", firstDay: "2026-12-02" });
+    expect(periodAt("2026-12-01", weekly, { "2026-12-04": "2026-12-02" })).toMatchObject({ start: "2026-11-27", end: "2026-12-01" });
+  });
+
+  it("ignores an early start that isn't after the period before it began", () => {
+    // Nonsense data (the database refuses it): Nov 30 "started" on Nov 10.
+    expect(periodAt("2026-11-20", semi, { "2026-11-30": "2026-11-10" })).toMatchObject({ start: "2026-11-15", end: "2026-11-29" });
   });
 });

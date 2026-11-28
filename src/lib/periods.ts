@@ -70,6 +70,56 @@ export function getPeriod(date: string, schedule: PaySchedule): Period {
 }
 
 /**
+ * A period as it actually runs (Task D1, owner Nov 28). `start` stays its
+ * payday, which the plan math (bills, due dates, pay) keys on; `firstDay`
+ * is the day it really began, earlier when it was started early, and `end`
+ * is its real last day, earlier when the next period started early.
+ */
+export type ActualPeriod = Period & { firstDay: string };
+
+/** Early starts: a period's payday (`start`) → the day it actually began (budget_periods.started_early_on). */
+export type EarlyStarts = Record<string, string>;
+
+/**
+ * The period that contains `date`, counting early starts: getPeriod(), except
+ * that the days from an early start up to its payday belong to the next
+ * period. An early start counts only when it's after the start of the
+ * period it cuts short (the database guarantees it; this is a guard).
+ */
+export function periodAt(date: string, schedule: PaySchedule, early: EarlyStarts = {}): ActualPeriod {
+  const current = getPeriod(date, schedule);
+  const next = periodAfter(current, schedule);
+  const nextBegan = earlyStartAfter(next, current, early);
+  return nextBegan && date >= nextBegan ? actual(next, schedule, early, current) : actual(current, schedule, early);
+}
+
+/** `period` with its real first and last days. `before` is the period it follows, when already known. */
+function actual(period: Period, schedule: PaySchedule, early: EarlyStarts, before?: Period): ActualPeriod {
+  const previous = before ?? getPeriod(dayBeforeIso(period.start), schedule);
+  const following = periodAfter(period, schedule);
+  const followingBegan = earlyStartAfter(following, period, early);
+  return {
+    ...period,
+    firstDay: earlyStartAfter(period, previous, early) ?? period.start,
+    end: followingBegan ? dayBeforeIso(followingBegan) : period.end,
+  };
+}
+
+/** `period`'s early start, if it's a real one: after `previous` began and before its own payday. */
+function earlyStartAfter(period: Period, previous: Period, early: EarlyStarts): string | null {
+  const began = early[period.start];
+  return began && began > previous.start && began < period.start ? began : null;
+}
+
+function periodAfter(period: Period, schedule: PaySchedule): Period {
+  return getPeriod(format(addDays(parseDate(period.end), 1), ISO_DATE), schedule);
+}
+
+function dayBeforeIso(date: string): string {
+  return format(subDays(parseDate(date), 1), ISO_DATE);
+}
+
+/**
  * "Nov 15 – 29" in the same month, "Nov 30 – Dec 14" across months, and
  * "Dec 30, 2026 – Jan 14, 2027" across years.
  */

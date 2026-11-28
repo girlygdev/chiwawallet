@@ -2,6 +2,23 @@
 
 Newest entry first.
 
+## 2026-11-28 · Week 8 · D1 Start the next period early: data model
+- **What:** the database side of starting a period early, plus `periodAt()`. Nothing visible changes yet.
+  - `budget_periods.started_early_on`: the day the period actually began, up to 5 days before its payday.
+  - `start_period_early(period)`: starts it today (Manila, database clock), ends the period before it yesterday, and moves that period's transactions dated from today into the new one, all at once.
+  - `check_transaction_links()`: a period's dates now begin on `started_early_on`.
+  - `periodAt(date, schedule, earlyStarts)` in lib/periods.ts: which period a date belongs to, counting early starts. It returns `start` (the payday, unchanged for plan math), `firstDay` and the real `end`.
+- **Files:** supabase/migrations/20261128110000_start_period_early.sql, src/lib/periods.ts, src/lib/supabase/types.ts, tests/lib/periods.test.ts, tests/db/start-early.test.ts, docs/mvp-brief.md (data model)
+- **Decisions:**
+  - **`start_date` stays the payday.** Bills, due dates and pay all key on it, so only the boundaries move: the new `firstDay`, and the old period's `end_date`.
+  - **`security definer`:** users can't write `end_date` or `started_early_on`, so the function checks ownership with `auth.uid()`. A direct insert that sets `started_early_on` is refused by a trigger.
+  - **Today only, and not undoable** (owner). It's refused more than 5 days before the payday, on or after it, twice, when either period is closed, or when the old period began today.
+  - **Spending already logged today moves too,** because "from today" counts in the new period.
+- **Tests:** written first and seen failing: 7 Vitest cases (721 pass) and 11 database tests (321 pass). Lint and typecheck pass.
+- **AI notes:** my first version checked "already started" after looking up the period before. A second try then failed as "not there", because the first had moved that period's end. A test caught it. I re-ran only the fixed function on local Supabase with `create or replace`, not a `db reset`, so no local data was wiped. `types.ts` was edited by hand again.
+- **Open:** push both new migrations to the hosted project before deploying. Not yet decided for D3: whether early pay (dated the payday) is re-dated to the start day.
+- **Next:** D2, switching the 48 call sites from `getPeriod()` to `periodAt()`.
+
 ## 2026-11-28 · Week 8 · Paid early
 - **What:** from 5 days before the next payday, the Dashboard shows "Paid early? ₱25,000 from Company A is due Nov 30." with **I got paid early**. Add income then lists only that payday's sources that aren't logged yet (no date field, no one-time income) and saves the pay dated the payday. With several sources, each is logged on its own; the rest stay expected.
 - **Files:**

@@ -51,6 +51,7 @@ export type Database = {
           leftover_choice: string | null
           pay_slot: string
           start_date: string
+          started_early_on: string | null
           updated_at: string
           user_id: string
         }
@@ -65,6 +66,7 @@ export type Database = {
           leftover_choice?: string | null
           pay_slot: string
           start_date: string
+          started_early_on?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -79,6 +81,7 @@ export type Database = {
           leftover_choice?: string | null
           pay_slot?: string
           start_date?: string
+          started_early_on?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -717,6 +720,10 @@ export type Database = {
       }
       record_consent: {
         Args: { name: string; version: string }
+        Returns: undefined
+      }
+      start_period_early: {
+        Args: { target_period: string }
         Returns: undefined
       }
     }
