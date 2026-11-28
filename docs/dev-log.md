@@ -2,6 +2,18 @@
 
 Newest entry first.
 
+## 2026-11-28 · Week 8 · D3 Start my next period now
+- **What:** the button and dialog that start the next period early, finishing Task D.
+  - Shows once pay for the next payday is logged early, 1–5 days before it, until that period starts. It goes inside the Cash card on phones and as a banner on desktop.
+  - The dialog shows the effect in pesos first: the old period's leftover, today's spending that moves, and the pay that counts from today. The confirm button is green; "Not yet" has focus.
+  - With "Ask me on payday" on, it goes to the payday screen for the leftover. With it off, the leftover is carried over and a toast says so.
+  - `start_period_early()` now also re-dates the early pay to today, in the same transaction (new migration).
+- **Files:** supabase/migrations/20261128120000_start_early_redate.sql, src/lib/income.ts (`startEarlyOffer()`), src/lib/early-pay.ts (`loadStartEarly()`), src/app/(app)/dashboard/actions.ts (`startNextPeriodEarly()`) and page.tsx, src/components/dashboard/start-early.tsx (new) and cash-card.tsx, tests/lib/income.test.ts, tests/db/start-early.test.ts, docs/designs/dashboard.md, payday-rollover.md.
+- **Decisions:** owner: re-date the early pay (yes), no undo, carry over automatically when Ask me on payday is off. The server action works the offer out again from the database and takes no input. The dialog's leftover uses the same math as closing a period, so it matches the payday screen. It's a new dialog rather than ConfirmDelete, because red is for deletes only.
+- **Tests:** 6 unit and 2 database tests, written first and seen failing. Lint, typecheck, build, 740 unit and 323 database tests pass. A throwaway local check (not committed) logged early pay, read the offer (₱9,000 left, ₱180 moving, ₱25,000 pay), started the period, and confirmed the pay was re-dated and the payday screen showed the same ₱9,000.
+- **AI notes:** Claude's first test for the "no days left" rule used a weekly budget, which can never hit it (6 days is outside the 5-day window). Replaced it with a 25th & 28th budget in February. Not checked in a browser.
+- **Next:** try it on a phone before Nov 30. Before deploying, push migrations 20261128100000, 20261128110000 and 20261128120000 (`npx supabase db push`) and regenerate types.ts.
+
 ## 2026-11-28 · Week 8 · D2 Start the next period early: the app follows early starts
 - **What:** every screen now puts a date in the period it's really in once a period has started early. Nothing calls `start_period_early()` yet (D3), so nothing changes for users until then.
   - `getOrCreatePeriod()` and a new `currentPeriod()` load the budget's early starts (`loadEarlyStarts()`, one small query) and use `periodAt()`.

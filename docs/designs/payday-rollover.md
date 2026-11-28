@@ -10,6 +10,7 @@ Route: `/payday/[periodId]`. It's shown automatically, not linked from the navig
 
 - The first time the user opens the app on or after a payday, if the previous period isn't closed (`budget_periods.closed_at` is empty).
 - Only when `budgets.ask_on_payday` is on (the default). When it's off, the period closes silently and the leftover is carried in.
+- Also after **Start my next period now** (Nov 28, Task D; dashboard.md): the old period ends yesterday, so it shows right away, before the payday itself. Its numbers count from the old period's first day to yesterday; today's transactions are in the new period.
 - If several periods were missed (for example, no visits for a month), close them in order with the default **Carry** choice and show this screen only for the most recent one.
 - The user can leave with **Go to dashboard** without choosing. In that case the default (Carry) is applied, so the numbers are never left half-done.
 

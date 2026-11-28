@@ -17,6 +17,7 @@ import {
   sourcePayday,
   sourceScheduleLine,
   sourceStatusLines,
+  startEarlyOffer,
   upcomingPaydays,
 } from "@/lib/income";
 
@@ -478,5 +479,50 @@ describe("income after the next period started early (Task D2, owner Nov 28)", (
 
   it("sourcePayday() calls the Nov 30 payday this period's", () => {
     expect(sourcePayday(sources[0], semi, "2026-11-28", early)).toEqual({ date: "2026-11-30", thisPeriod: true });
+  });
+});
+
+describe("startEarlyOffer: Start my next period now (Task D3, owner Nov 28)", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const row = (type: string, amount: number, date: string, extra: object = {}) => ({
+    type, amount, date, card_id: null as string | null, deleted_at: null as string | null, ...extra,
+  });
+  // ₱10,000 to start; ₱1,000 spent Nov 20; ₱180 today (Nov 28); ₱25,000 paid early, dated Nov 30.
+  const rows = [row("expense", 100_000, "2026-11-20"), row("expense", 18_000, "2026-11-28"), row("income", 2_500_000, "2026-11-30")];
+
+  it("offers it once early pay is logged, with the leftover and what moves", () => {
+    expect(startEarlyOffer(1_000_000, rows, semi, "2026-11-28")).toEqual({
+      payday: "2026-11-30",
+      pay: 2_500_000,
+      leftover: 900_000,
+      movingOut: 18_000,
+    });
+  });
+
+  it("isn't offered before any early pay is logged", () => {
+    expect(startEarlyOffer(1_000_000, rows.slice(0, 2), semi, "2026-11-28")).toBeNull();
+    expect(startEarlyOffer(1_000_000, [...rows.slice(0, 2), row("income", 2_500_000, "2026-11-30", { deleted_at: "x" })], semi, "2026-11-28")).toBeNull();
+  });
+
+  it("is offered only 1 to 5 days before the payday", () => {
+    expect(startEarlyOffer(1_000_000, rows, semi, "2026-11-25")?.payday).toBe("2026-11-30");
+    expect(startEarlyOffer(1_000_000, rows, semi, "2026-11-24")).toBeNull();
+    expect(startEarlyOffer(1_000_000, rows, semi, "2026-11-30")).toBeNull();
+  });
+
+  it("isn't offered once the period has started early", () => {
+    expect(startEarlyOffer(1_000_000, rows, semi, "2026-11-28", { "2026-11-30": "2026-11-28" })).toBeNull();
+  });
+
+  it("isn't offered on the current period's first day (it would have no days left)", () => {
+    // Paid the 25th and 28th: in February 2027 the 25th's period is Feb 25 – 27.
+    const short: PaySchedule = { frequency: "semi_monthly", payDay1: 25, payDay2: 28 };
+    expect(startEarlyOffer(0, [row("income", 500_000, "2027-02-28")], short, "2027-02-25")).toBeNull();
+    expect(startEarlyOffer(0, [row("income", 500_000, "2027-02-28")], short, "2027-02-26")?.pay).toBe(500_000);
+  });
+
+  it("leaves card purchases out of the leftover, as cash on hand does", () => {
+    const withCard = [...rows, row("expense", 50_000, "2026-11-21", { card_id: "card" })];
+    expect(startEarlyOffer(1_000_000, withCard, semi, "2026-11-28")?.leftover).toBe(900_000);
   });
 });

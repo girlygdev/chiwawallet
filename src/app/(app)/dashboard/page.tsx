@@ -10,6 +10,7 @@ import { PeriodSwitcher } from "@/components/dashboard/period-switcher";
 import { type PotCard, PotsCard } from "@/components/dashboard/pots-card";
 import { type SpendingRow, SpendingCard } from "@/components/dashboard/spending-card";
 import { SplitCard } from "@/components/dashboard/split-card";
+import { StartEarlyPrompt } from "@/components/dashboard/start-early";
 import { StatRow } from "@/components/dashboard/stat-row";
 import { IncomeCard } from "@/components/dashboard/income-card";
 import { RecentActivity, type RecentRow } from "@/components/dashboard/recent-activity";
@@ -20,7 +21,7 @@ import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import type { ActivityRow } from "@/lib/activity";
 import { firstDayOf, getOrCreatePeriod, loadEarlyStarts, periodOf } from "@/lib/budget-periods";
 import { checklistSteps, potStarted } from "@/lib/checklist";
-import { loadEarlyPay } from "@/lib/early-pay";
+import { loadEarlyPay, loadStartEarly } from "@/lib/early-pay";
 import { isChecklistDismissed } from "@/lib/checklist-cookie";
 import { duePay, expectedForPeriod, isActiveOn, receivedSourceIds } from "@/lib/income";
 import { dashboardNumbers, perDay, periodMoneyLine, safeToSpend, spentSplit, stillDueTotal } from "@/lib/money";
@@ -211,6 +212,8 @@ async function DashboardBody() {
   const due = duePay(sources.data!, received, schedule, today, early);
   // Paid early? (Nov 28): only while this period's pay is logged, so the two prompts never stack.
   const earlyPay = due ? null : await loadEarlyPay(supabase, budget, today);
+  // Start my next period now (Nov 28, D3): once pay for the next payday is logged early.
+  const startEarly = await loadStartEarly(supabase, budget, today);
 
   // Get started (7d-1): until all five steps are done or it's dismissed. Its
   // counts are skipped once dismissed. The first period gets "Day 1 of 15".
@@ -270,6 +273,7 @@ async function DashboardBody() {
           have both inside the Cash card. */}
       {duePrompt && <PayPrompt due={duePrompt} today={today} className="hidden rounded-2xl bg-green-700 lg:flex" />}
       {!duePrompt && earlyPay && <EarlyPayPrompt early={earlyPay} className="hidden rounded-2xl bg-green-700 lg:flex" />}
+      {startEarly && <StartEarlyPrompt offer={startEarly} className="hidden rounded-2xl bg-green-700 lg:flex" />}
       {/* Get started: above the stat row on desktop, under the Cash card on
           phones. Two copies; the hidden one is out of the accessibility tree. */}
       {getStarted && <div className="hidden lg:block">{getStarted}</div>}
@@ -287,7 +291,7 @@ async function DashboardBody() {
           column adds space below Recent activity, not between the cards. */}
       <div className="flex flex-col gap-4 md:gap-6 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start">
         <div className="lg:hidden">
-          <CashCard numbers={numbers} safe={safe} stillDue={stillDue} daily={daily} due={duePrompt} early={earlyPay} today={today} fresh={fresh} />
+          <CashCard numbers={numbers} safe={safe} stillDue={stillDue} daily={daily} due={duePrompt} early={earlyPay} startEarly={startEarly} today={today} fresh={fresh} />
         </div>
         {getStarted && <div className="lg:hidden">{getStarted}</div>}
         <div className="lg:col-start-1 lg:row-start-1">

@@ -1,7 +1,8 @@
+import { StartEarlyPrompt } from "@/components/dashboard/start-early";
 import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { formatPeso } from "@/lib/money";
 import type { DashboardNumbers, perDay } from "@/lib/money";
-import type { EarlyPay } from "@/lib/early-pay";
+import type { EarlyPay, StartEarly } from "@/lib/early-pay";
 import { earlyPayLine } from "@/lib/income";
 import { formatShortDate } from "@/lib/periods";
 
@@ -19,6 +20,7 @@ export function CashCard({
   daily,
   due,
   early = null,
+  startEarly = null,
   today,
   fresh = false,
 }: {
@@ -31,6 +33,8 @@ export function CashCard({
   due: DuePay | null;
   /** Paid early? (Nov 28): shown when there's no pay prompt. */
   early?: EarlyPay | null;
+  /** Start my next period now (Nov 28, D3): once pay for the next payday is logged early. */
+  startEarly?: StartEarly | null;
   today: string;
   /** Nothing logged and nothing planned this period yet (dashboard.md §4). */
   fresh?: boolean;
@@ -70,6 +74,7 @@ export function CashCard({
       {/* The pay prompt (dashboard.md §2): a Forest panel inside the hero. */}
       {due && <PayPrompt due={due} today={today} className="rounded-[14px] bg-green-800" />}
       {!due && early && <EarlyPayPrompt early={early} className="rounded-[14px] bg-green-800" />}
+      {startEarly && <StartEarlyPrompt offer={startEarly} className="rounded-[14px] bg-green-800" />}
 
       {/* The spend bar: money out ÷ this period's money. The text under it
           says the same, so the bar itself is decorative. */}

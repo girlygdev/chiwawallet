@@ -136,3 +136,26 @@ describe("budget_periods.started_early_on", () => {
     expect(insert.error?.code).toBe(PERMISSION_DENIED);
   });
 });
+
+describe("start_period_early(): early pay (Task D3, owner Nov 28)", () => {
+  const income = async (s: Setup) => (await s.user.client.from("categories").select("id").eq("system_key", "income").single()).data!.id as string;
+  const earn = async (s: Setup, periodId: string, date: string) =>
+    (await s.user.client.from("transactions").insert({ period_id: periodId, category_id: await income(s), type: "income", amount: 2_500_000, date }).select("id").single()).data!.id as string;
+  const dateOf = async (s: Setup, id: string) => (await s.user.client.from("transactions").select("date").eq("id", id).single()).data!.date;
+
+  it("re-dates pay logged early for the payday to today", async () => {
+    const s = await setUp();
+    const early = await earn(s, s.next, fromToday(2));
+    expect((await startEarly(s)).error).toBeNull();
+    expect(await dateOf(s, early)).toBe(today);
+  });
+
+  it("leaves other income alone", async () => {
+    const s = await setUp();
+    const earlier = await earn(s, s.current, fromToday(-3));
+    const later = await earn(s, s.next, fromToday(4)); // after the payday: not early pay
+    await startEarly(s);
+    expect(await dateOf(s, earlier)).toBe(fromToday(-3));
+    expect(await dateOf(s, later)).toBe(fromToday(4));
+  });
+});

@@ -1,5 +1,6 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { formatPeso } from "@/lib/money";
+import { cashOnHand, periodTotals } from "@/lib/transactions";
 import { type EarlyStarts, formatShortDate, nextPeriods, type PaySchedule, type PaySlot, paydayLabel } from "@/lib/periods";
 
 // Expected income per payday and per month (income.md §1). Pure functions:
@@ -323,4 +324,51 @@ export function earlyPayLine(early: { payday: string; sources: { name: string; a
   const total = early.sources.reduce((sum, s) => sum + s.amount, 0);
   const from = early.sources.length === 1 ? early.sources[0].name : `${early.sources.length} sources`;
   return `${formatPeso(total)} from ${from} is due ${formatShortDate(early.payday)}.`;
+}
+
+export type StartEarlyOffer = {
+  /** The next payday ("YYYY-MM-DD"), whose period would start today. */
+  payday: string;
+  /** Pay already logged early for it. */
+  pay: number;
+  /** The current period's leftover if it ends yesterday: what the payday screen will show. */
+  leftover: number;
+  /** Money out dated today, which moves to the new period. */
+  movingOut: number;
+};
+
+/**
+ * Start my next period now (owner, Nov 28; Task D3): offered once pay for
+ * the next payday is logged early (dated that payday), from 5 days before
+ * it, while that period hasn't started yet and the current one would keep
+ * at least a day (the same rules as start_period_early()). `rows` are every
+ * transaction; the numbers are the same math as closing a period, so the
+ * dialog matches the payday screen.
+ */
+export function startEarlyOffer(
+  openingBalance: number | null,
+  rows: { type: string; amount: number; card_id: string | null; date: string; deleted_at: string | null }[],
+  schedule: PaySchedule,
+  today: string,
+  early: EarlyStarts = {},
+): StartEarlyOffer | null {
+  const [current, next] = nextPeriods(today, schedule, 2, early);
+  if (next.firstDay !== next.start) return null;
+  const daysAway = differenceInCalendarDays(parseISO(next.start), parseISO(today));
+  if (daysAway < 1 || daysAway > EARLY_PAY_DAYS) return null;
+  if (today <= current.firstDay) return null;
+
+  const live = rows.filter((r) => r.deleted_at == null);
+  // TypeScript can't narrow the type strings; periodTotals and cashOnHand only read these four.
+  type Row = Parameters<typeof cashOnHand>[1][number];
+  const pay = live
+    .filter((r) => r.type === "income" && r.date >= next.start && r.date <= next.end)
+    .reduce((sum, r) => sum + r.amount, 0);
+  if (pay <= 0) return null;
+  return {
+    payday: next.start,
+    pay,
+    leftover: cashOnHand(openingBalance, live.filter((r) => r.date < today) as Row[]),
+    movingOut: periodTotals(live.filter((r) => r.date >= today && r.date < next.start) as Row[]).moneyOut,
+  };
 }
