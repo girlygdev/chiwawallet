@@ -9,6 +9,8 @@ import {
   isActiveOn,
   monthlyAmount,
   duePay,
+  earlyPay,
+  earlyPayLine,
   receivedOn,
   receivedSourceIds,
   removalImpact,
@@ -377,5 +379,74 @@ describe("duePay: the empty state's I got paid button", () => {
   it("is null when everything due is logged, or nothing pays this period", () => {
     expect(duePay(sources, new Set(["main", "allowance"]), semi, "2026-11-20")).toBeNull();
     expect(duePay([sources[0]], new Set(), semi, "2026-11-20")).toBeNull();
+  });
+});
+
+describe("earlyPayLine: the Paid early? panel", () => {
+  const a = { name: "Company A", amount: 2_500_000 };
+  const b = { name: "Freelance", amount: 800_000 };
+
+  it("names one source, or counts several", () => {
+    expect(earlyPayLine({ payday: "2026-11-30", sources: [a] })).toBe("₱25,000 from Company A is due Nov 30.");
+    expect(earlyPayLine({ payday: "2026-11-30", sources: [a, b] })).toBe("₱33,000 from 2 sources is due Nov 30.");
+  });
+});
+
+describe("earlyPay: Paid early? (owner, Nov 28)", () => {
+  const semi: PaySchedule = { frequency: "semi_monthly", payDay1: 15, payDay2: 30 };
+  const sources = [
+    { id: "freelance", name: "Freelance", amount: 800_000, pay_slot: "payday_2", start_date: "2026-11-01", end_date: null },
+    { id: "main", name: "Company A", amount: 2_500_000, pay_slot: "every", start_date: "2026-11-01", end_date: null },
+    { id: "allowance", name: "Allowance", amount: 300_000, pay_slot: "payday_1", start_date: "2026-11-01", end_date: null },
+  ];
+  const pay = (income_source_id: string, date = "2026-11-30", extra: object = {}) => ({
+    type: "income",
+    income_source_id,
+    date,
+    deleted_at: null as string | null,
+    ...extra,
+  });
+  const ids = (result: ReturnType<typeof earlyPay>) => result?.sources.map((s) => s.id);
+
+  it("lists the next payday's sources from 5 days before it", () => {
+    // Nov 30 is the next payday; Allowance pays on the 15th only.
+    expect(earlyPay(sources, [], semi, "2026-11-25")).toEqual({ payday: "2026-11-30", sources: [sources[0], sources[1]] });
+    expect(ids(earlyPay(sources, [], semi, "2026-11-29"))).toEqual(["freelance", "main"]);
+  });
+
+  it("is null more than 5 days before the payday", () => {
+    expect(earlyPay(sources, [], semi, "2026-11-24")).toBeNull();
+    expect(earlyPay(sources, [], semi, "2026-11-16")).toBeNull();
+  });
+
+  it("drops sources already logged for that payday, and is null once all are", () => {
+    expect(ids(earlyPay(sources, [pay("main")], semi, "2026-11-28"))).toEqual(["freelance"]);
+    expect(earlyPay(sources, [pay("main"), pay("freelance")], semi, "2026-11-28")).toBeNull();
+  });
+
+  it("ignores deleted rows, other types and pay from another period", () => {
+    const rows = [
+      pay("main", "2026-11-30", { deleted_at: "2026-11-28T10:00:00Z" }),
+      pay("main", "2026-11-30", { type: "expense" }),
+      // This period's pay (Nov 15) doesn't count for Nov 30.
+      pay("main", "2026-11-15"),
+    ];
+    expect(ids(earlyPay(sources, rows, semi, "2026-11-28"))).toEqual(["freelance", "main"]);
+  });
+
+  it("skips a source that hasn't started by the payday or has ended", () => {
+    const later = [
+      { ...sources[0], start_date: "2026-12-01" },
+      { ...sources[1], end_date: "2026-11-29" },
+    ];
+    expect(earlyPay(later, [], semi, "2026-11-28")).toBeNull();
+  });
+
+  it("works for a month-end payday that moves (Feb 28) and for monthly budgets", () => {
+    // The 30th in February is the 28th (2027): from Feb 23.
+    expect(earlyPay(sources, [], semi, "2027-02-23")?.payday).toBe("2027-02-28");
+    expect(earlyPay(sources, [], semi, "2027-02-22")).toBeNull();
+    const monthly: PaySchedule = { frequency: "monthly", payDay1: 1 };
+    expect(earlyPay(sources, [], monthly, "2026-11-27")).toEqual({ payday: "2026-12-01", sources });
   });
 });

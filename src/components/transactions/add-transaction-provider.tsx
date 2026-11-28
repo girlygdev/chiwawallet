@@ -40,6 +40,8 @@ type OpenOptions = {
   /** The Transfer tab's starting pot and direction, e.g. a pot's Add money or Withdraw (4e). */
   potId?: string;
   direction?: "add" | "withdraw" | "move" | "debt";
+  /** Paid early (Nov 28): the Income tab offers only the next payday's sources and saves on that payday. */
+  early?: boolean;
   /** To a debt's starting debt: Pay extra on Debts (6d-2). */
   debtId?: string;
 };
@@ -81,6 +83,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   const [openCount, setOpenCount] = useState(0);
   const [tab, setTab] = useState<SheetTab>("expense");
   const [incomeSource, setIncomeSource] = useState<string>("");
+  const [early, setEarly] = useState(false);
   const [potId, setPotId] = useState<string>("");
   const [direction, setDirection] = useState<"add" | "withdraw" | "move" | "debt">("add");
   const [debtId, setDebtId] = useState<string>("");
@@ -113,6 +116,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
     setData(null);
     setTab(options.tab ?? "expense");
     setIncomeSource(options.incomeSource ?? "");
+    setEarly(options.early ?? false);
     setPotId(options.potId ?? "");
     setDirection(options.direction ?? "add");
     setDebtId(options.debtId ?? "");
@@ -273,6 +277,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
         key={`${openCount}-income`}
         {...formProps}
         defaultSource={incomeSource}
+        early={early && !editing}
         onSave={editing ? (input) => updateIncome(editing.id, input) : saveIncome}
         onSaved={editing ? onEdited : savedToast("Income", 1)}
         editing={editing}

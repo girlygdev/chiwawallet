@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { chargedFor, loadCardCharges } from "@/lib/card-charges";
 import { getOrCreatePeriod } from "@/lib/budget-periods";
+import { type EarlyPay, loadEarlyPay } from "@/lib/early-pay";
 import { isActiveOn, receivedSourceIds, sourcePayday } from "@/lib/income";
 import { formatPeso } from "@/lib/money";
 import { type PaySchedule, type PaySlot, scheduleFromBudget, todayInManila } from "@/lib/periods";
@@ -80,6 +81,8 @@ export type AddSheetData = {
   debts: SheetDebt[];
   /** "Paid with" on the Expense tab (8b-3): every credit card, closed ones too (an old purchase may be on one). */
   cards: SheetCard[];
+  /** Paid early (Nov 28): the next payday's sources not logged yet, while within 5 days of it. */
+  earlyPay: EarlyPay | null;
 };
 
 /** A card in "Paid with" (8b-3). */
@@ -123,7 +126,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
   const today = todayInManila(new Date());
   const period = await getOrCreatePeriod(supabase, budget, today);
 
-  const [categories, recent, rows, sources, first, pots, budgetItems, potItems] = await Promise.all([
+  const [categories, recent, rows, sources, first, pots, budgetItems, potItems, early] = await Promise.all([
     supabase.from("categories").select("id, name, kind, budget_group, system_key, icon, color, default_budget"),
     supabase
       .from("transactions")
@@ -162,6 +165,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
       .not("pot_id", "is", null)
       .is("deleted_at", null)
       .is("paid_at", null),
+    loadEarlyPay(supabase, budget, today),
   ]);
   for (const result of [categories, recent, rows, sources, budgetItems, potItems]) {
     if (result.error) throw new Error(`Couldn't load the add sheet: ${result.error.message}`, { cause: result.error });
@@ -201,6 +205,7 @@ export async function getAddSheetData(): Promise<AddSheetData> {
     targets: { needs: budget.needs_pct, wants: budget.wants_pct, savings_debt: budget.savings_debt_pct },
     pots: pots.map((p) => ({ ...p, planned: potItems.data!.find((i) => i.pot_id === p.id)?.planned_amount ?? null })),
     ...(await loadSheetDebts(period, schedule)),
+    earlyPay: early,
     budgets: categoryBudgets(
       categories.data!,
       budgetItems.data!,
@@ -426,12 +431,20 @@ async function writeIncome(input: IncomeFormInput, id: string | null): Promise<S
   const supabase = await createClient();
   const today = todayInManila(new Date());
   const first = (await firstPeriodStart(budget.id)) ?? today;
+  // Paid early (Nov 28): the next payday is allowed while it's offered. The
+  // row being edited doesn't count as logged, so an early row stays editable.
+  const early = await loadEarlyPay(supabase, budget, today, id);
 
-  const parsed = incomeSchemaFor({ today, firstPeriodStart: first }).safeParse(input);
+  const parsed = incomeSchemaFor({ today, firstPeriodStart: first, earlyPayday: early?.payday ?? null }).safeParse(input);
   if (!parsed.success) return { fieldErrors: toFieldErrors<IncomeFormInput>(parsed.error.issues) };
   const values = parsed.data;
   const notEditable = await checkEditable(id, "income");
   if (notEditable) return notEditable;
+  // A future date is only for a source due that payday and not logged yet:
+  // no one-time income, and no second early pay from the same source.
+  if (values.date > today && !early?.sources.some((s) => s.id === values.incomeSourceId)) {
+    return { fieldErrors: { date: "Only pay that's due on your next payday and not logged yet can be saved early." } };
+  }
 
   // A source must be one of this budget's, and not ended before the date.
   if (values.incomeSourceId) {

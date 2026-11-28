@@ -85,6 +85,21 @@ describe("transactionSchemaFor", () => {
   });
 });
 
+describe("incomeSchemaFor: Paid early (Nov 28)", () => {
+  const base = { amount: "25,000", source: SALARY, name: "" };
+
+  it("allows the early-pay payday, and no other future day", () => {
+    const early = incomeSchemaFor({ today: "2026-11-28", firstPeriodStart: "2026-11-15", earlyPayday: "2026-11-30" });
+    expect(early.parse({ ...base, date: "2026-11-30" }).date).toBe("2026-11-30");
+    expect(early.safeParse({ ...base, date: "2026-11-29" }).error?.issues[0].message).toBe("Pick today or an earlier day.");
+  });
+
+  it("allows no future day without an early-pay payday", () => {
+    const plain = incomeSchemaFor({ today: "2026-11-28", firstPeriodStart: "2026-11-15", earlyPayday: null });
+    expect(plain.safeParse({ ...base, date: "2026-11-30" }).error?.issues[0].message).toBe("Pick today or an earlier day.");
+  });
+});
+
 describe("incomeSchemaFor", () => {
   const income = incomeSchemaFor({ today: "2026-11-20", firstPeriodStart: "2026-11-15" });
   const base = { amount: "25,000", source: SALARY, name: "", date: "2026-11-15" };

@@ -42,8 +42,15 @@ export function IncomeForm({
   onSaved,
   editing = null,
   onDelete,
+  early = false,
 }: {
   data: AddSheetData | null;
+  /**
+   * Paid early (Nov 28): only the next payday's sources that aren't logged,
+   * saved on that payday. Falls back to the usual form if nothing is due
+   * early by the time the sheet's data loads.
+   */
+  early?: boolean;
   amountRef: React.RefObject<HTMLInputElement | null>;
   defaultAmount: string;
   /** A source id or ONE_TIME, e.g. from the Income screen's Log one-time income. */
@@ -64,12 +71,20 @@ export function IncomeForm({
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
+  // The early payday, while it's offered; editing an early row keeps its own
+  // date allowed (the server checks both again).
+  const earlyPayday = (d: AddSheetData | null) =>
+    d?.earlyPay?.payday ?? (editing && editing.date > today ? editing.date : null);
   const resolver: Resolver<IncomeFormInput, unknown, IncomeValues> = (values, context, options) =>
-    zodResolver(incomeSchemaFor({ today, firstPeriodStart: dataRef.current?.firstPeriodStart ?? today }))(
-      values,
-      context,
-      options,
-    );
+    zodResolver(
+      incomeSchemaFor({
+        today,
+        firstPeriodStart: dataRef.current?.firstPeriodStart ?? today,
+        earlyPayday: earlyPayday(dataRef.current),
+      }),
+    )(values, context, options);
+  // Early mode once the data says something is due early.
+  const earlyPay = early ? (data?.earlyPay ?? null) : null;
 
   const {
     register,
@@ -137,13 +152,21 @@ export function IncomeForm({
       amount: amountText,
       source: values.incomeSourceId ?? ONE_TIME,
       name: values.note ?? "",
-      date: values.date,
+      // Early pay is saved on the payday itself, so the old period stays as it was.
+      date: earlyPay ? earlyPay.payday : values.date,
     };
     startTransition(async () => finish(await onSave(input)));
   };
 
   const sourceError = errors.source?.message;
-  const options: { value: string; title: string; line: string; received: boolean }[] = [
+  // Early mode: the next payday's sources only, and no one-time income.
+  const earlyOptions = earlyPay?.sources.map((s) => ({
+    value: s.id,
+    title: s.name,
+    line: `${formatPeso(s.amount)} expected · ${formatShortDate(earlyPay.payday)}`,
+    received: false,
+  }));
+  const options: { value: string; title: string; line: string; received: boolean }[] = earlyOptions ?? [
     ...(data?.sources ?? []).map((s) => ({ value: s.id, title: s.name, line: sourceLine(s), received: s.received })),
     // The row's own source when it no longer pays today (ended, or not
     // started), so editing still shows where the money came from.
@@ -237,19 +260,32 @@ export function IncomeForm({
         />
       )}
 
-      <DateButton
-        id="income-date"
-        label="Date received"
-        value={date}
-        onChange={(d) => setValue("date", d, { shouldValidate: errors.date != null })}
-        today={today}
-        min={data?.firstPeriodStart ?? today}
-        error={errors.date?.message}
-      />
+      {earlyPay ? (
+        // No date to pick: early pay belongs to the payday it's for (option 1, owner Nov 28).
+        <div aria-live="polite" className="flex flex-col gap-1 rounded-[14px] bg-mint px-4 py-3 text-sm text-link-hover">
+          <p className="font-bold">
+            {validAmount ? `+${formatPeso(validAmount)} toward` : "Counts toward"} your {formatShortDate(earlyPay.payday)} payday.
+          </p>
+          <p>Spending before then still counts in this period.</p>
+          {errors.date && <p className="font-bold text-bad-fg">{errors.date.message}</p>}
+        </div>
+      ) : (
+        <>
+          <DateButton
+            id="income-date"
+            label="Date received"
+            value={date}
+            onChange={(d) => setValue("date", d, { shouldValidate: errors.date != null })}
+            today={today}
+            min={data?.firstPeriodStart ?? today}
+            error={errors.date?.message}
+          />
 
-      <div aria-live="polite">
-        {impact && <p className="rounded-[14px] bg-mint px-4 py-3 text-sm font-bold text-link-hover">{impact}</p>}
-      </div>
+          <div aria-live="polite">
+            {impact && <p className="rounded-[14px] bg-mint px-4 py-3 text-sm font-bold text-link-hover">{impact}</p>}
+          </div>
+        </>
+      )}
 
       <FormError message={formError} />
 

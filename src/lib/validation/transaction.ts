@@ -16,7 +16,16 @@ function isRealDate(text: string) {
   return ISO_DATE.test(text) && isValid(parseISO(text)) && format(parseISO(text), "yyyy-MM-dd") === text;
 }
 
-type DateLimits = { today: string; firstPeriodStart: string };
+type DateLimits = {
+  today: string;
+  firstPeriodStart: string;
+  /**
+   * Paid early (Nov 28): the next payday, while earlyPay() offers it. Income
+   * may be dated that one future day; the Server Action also checks the
+   * source is due then.
+   */
+  earlyPayday?: string | null;
+};
 
 /** The amount as typed ("₱1,240.50") → centavos above 0. */
 const amountField = () =>
@@ -33,14 +42,15 @@ const amountField = () =>
     .refine((centavos) => centavos > 0, "Enter an amount above ₱0.");
 
 /** A real day, not in the future, and not before the first period. */
-const dateField = ({ today, firstPeriodStart }: DateLimits) =>
+const dateField = ({ today, firstPeriodStart, earlyPayday = null }: DateLimits) =>
   // <input type="date"> gives "YYYY-MM-DD", or "" when empty.
   z
     .string()
     // abort: a date that isn't real stops here, so it gets one message.
     .refine(isRealDate, { message: "Pick a valid date.", abort: true })
-    // ISO dates compare correctly as plain strings.
-    .refine((d) => d <= today, "Pick today or an earlier day.")
+    // ISO dates compare correctly as plain strings. The one exception is
+    // the early-pay payday (only ever passed for income).
+    .refine((d) => d <= today || d === earlyPayday, "Pick today or an earlier day.")
     .refine(
       (d) => d >= firstPeriodStart,
       `Pick ${format(parseISO(firstPeriodStart), "MMM d")} or later, when your first period starts.`,

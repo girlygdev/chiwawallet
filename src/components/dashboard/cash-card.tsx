@@ -1,6 +1,8 @@
 import { OpenAddSheetButton } from "@/components/transactions/add-transaction-provider";
 import { formatPeso } from "@/lib/money";
 import type { DashboardNumbers, perDay } from "@/lib/money";
+import type { EarlyPay } from "@/lib/early-pay";
+import { earlyPayLine } from "@/lib/income";
 import { formatShortDate } from "@/lib/periods";
 
 /** A source due this period and not logged yet, for the pay prompt. */
@@ -16,6 +18,7 @@ export function CashCard({
   stillDue,
   daily,
   due,
+  early = null,
   today,
   fresh = false,
 }: {
@@ -26,6 +29,8 @@ export function CashCard({
   stillDue: number;
   daily: ReturnType<typeof perDay>;
   due: DuePay | null;
+  /** Paid early? (Nov 28): shown when there's no pay prompt. */
+  early?: EarlyPay | null;
   today: string;
   /** Nothing logged and nothing planned this period yet (dashboard.md §4). */
   fresh?: boolean;
@@ -64,6 +69,7 @@ export function CashCard({
 
       {/* The pay prompt (dashboard.md §2): a Forest panel inside the hero. */}
       {due && <PayPrompt due={due} today={today} className="rounded-[14px] bg-green-800" />}
+      {!due && early && <EarlyPayPrompt early={early} className="rounded-[14px] bg-green-800" />}
 
       {/* The spend bar: money out ÷ this period's money. The text under it
           says the same, so the bar itself is decorative. */}
@@ -108,6 +114,28 @@ export function PayPrompt({ due, today, className }: { due: DuePay; today: strin
         className="h-10 shrink-0 rounded-[10px] bg-white px-4 text-sm font-extrabold text-green-800 outline-white focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         I got paid
+      </OpenAddSheetButton>
+    </div>
+  );
+}
+
+/**
+ * Paid early? (owner, Nov 28): from 5 days before the next payday, "Paid
+ * early? ₱25,000 from Company A is due Nov 30." with I got paid early. The
+ * add sheet then offers only that payday's sources; one source is picked
+ * already. Same places as PayPrompt, which shows instead while this
+ * period's pay isn't logged.
+ */
+export function EarlyPayPrompt({ early, className }: { early: EarlyPay; className: string }) {
+  const [only] = early.sources.length === 1 ? early.sources : [];
+  return (
+    <div className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-white ${className}`}>
+      <p className="text-sm font-bold">Paid early? {earlyPayLine(early)}</p>
+      <OpenAddSheetButton
+        options={{ tab: "income", early: true, ...(only ? { incomeSource: only.id, amount: only.amount } : {}) }}
+        className="h-10 shrink-0 rounded-[10px] bg-white px-4 text-sm font-extrabold text-green-800 outline-white focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        I got paid early
       </OpenAddSheetButton>
     </div>
   );

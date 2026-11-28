@@ -1,3 +1,4 @@
+import { differenceInCalendarDays, parseISO } from "date-fns";
 import { formatPeso } from "@/lib/money";
 import { formatShortDate, nextPeriods, type PaySchedule, type PaySlot, paydayLabel } from "@/lib/periods";
 
@@ -279,4 +280,39 @@ export function duePay<T extends DatedSource & { id: string }>(
 ): T | null {
   const [current] = nextPeriods(today, schedule, 1);
   return sources.find((s) => !receivedIds.has(s.id) && paysIn(s, schedule, current)) ?? null;
+}
+
+/** How many days before a payday "Paid early?" shows (owner, Nov 28: holidays can bring pay forward). */
+export const EARLY_PAY_DAYS = 5;
+
+/**
+ * "Paid early?" (owner, Nov 28): from EARLY_PAY_DAYS before the next payday,
+ * the sources paying on it that aren't logged for it yet, in the order
+ * given. Early pay is saved on the payday itself, so "logged for it" means
+ * live income rows dated inside the next period. Null outside the window,
+ * or when every source is logged.
+ */
+export function earlyPay<T extends DatedSource & { id: string }>(
+  sources: T[],
+  rows: { type: string; income_source_id: string | null; date: string; deleted_at: string | null }[],
+  schedule: PaySchedule,
+  today: string,
+): { payday: string; sources: T[] } | null {
+  const [, next] = nextPeriods(today, schedule, 2);
+  const daysAway = differenceInCalendarDays(parseISO(next.start), parseISO(today));
+  if (daysAway < 1 || daysAway > EARLY_PAY_DAYS) return null;
+  const logged = new Set(
+    rows
+      .filter((r) => r.type === "income" && r.deleted_at == null && r.date >= next.start && r.date <= next.end)
+      .map((r) => r.income_source_id),
+  );
+  const due = sources.filter((s) => !logged.has(s.id) && paysIn(s, schedule, next));
+  return due.length > 0 ? { payday: next.start, sources: due } : null;
+}
+
+/** The Paid early? panel: "₱25,000 from Company A is due Nov 30." or "₱33,000 from 2 sources is due Nov 30." */
+export function earlyPayLine(early: { payday: string; sources: { name: string; amount: number }[] }): string {
+  const total = early.sources.reduce((sum, s) => sum + s.amount, 0);
+  const from = early.sources.length === 1 ? early.sources[0].name : `${early.sources.length} sources`;
+  return `${formatPeso(total)} from ${from} is due ${formatShortDate(early.payday)}.`;
 }

@@ -2,6 +2,23 @@
 
 Newest entry first.
 
+## 2026-11-28 · Week 8 · Paid early
+- **What:** from 5 days before the next payday, the Dashboard shows "Paid early? ₱25,000 from Company A is due Nov 30." with **I got paid early**. Add income then lists only that payday's sources that aren't logged yet (no date field, no one-time income) and saves the pay dated the payday. With several sources, each is logged on its own; the rest stay expected.
+- **Files:**
+  - lib: src/lib/income.ts (`earlyPay()`, `earlyPayLine()`, `EARLY_PAY_DAYS`), src/lib/early-pay.ts (new loader), src/lib/validation/transaction.ts (`earlyPayday` date limit)
+  - screens: src/app/(app)/activity/actions.ts, src/app/(app)/dashboard/page.tsx, src/components/dashboard/cash-card.tsx, src/components/transactions/income-form.tsx, add-transaction-provider.tsx
+  - tests: tests/lib/income.test.ts, tests/lib/validation/transaction.test.ts
+  - docs: docs/designs/dashboard.md
+- **Decisions (owner, Nov 28):**
+  - **Option 1:** the pay counts toward the payday it's for. The current period and its carry-over don't change. Spending before the payday still counts in the current period, and the form says so. Starting the next period early is Task D.
+  - **5-day window,** for holidays. Source picker for people with several incomes.
+  - The early panel only shows when there's no regular pay prompt, so the two never stack.
+  - The server allows a future date only for a source due that payday and not logged for it. Editing an early row is still allowed: its own row doesn't count as logged.
+- **Tests:** 9 new Vitest cases (714 pass), written before `earlyPay()` and `earlyPayLine()` (the schema tests weren't run red first). Lint, typecheck and `npm run build` pass. Not clicked through in a browser: Playwright isn't installed yet.
+- **AI notes:** no migration needed: the database has no rule against future-dated transactions, and `getOrCreatePeriod()` creates the next period when the pay is saved.
+- **Open:** until the payday, the next period's plan still shows that pay as "Expected", because future periods show expected income only. Task D's period start will settle this.
+- **Next:** Task D1, the period start data model and `periodAt()`, tests first.
+
 ## 2026-11-28 · Week 8 · Bills paid with a card
 - **What:** New and Edit bill have **Paid with: Cash | BPI card** (once you have an open card). Mark paid on a card bill records a card charge: the card's balance goes up, cash stays the same. Bills and Plan rows read "… · BPI card". Unpaid card bills are left out of Safe to spend.
 - **Files:**
