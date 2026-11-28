@@ -6,6 +6,7 @@ import {
   monthlySavingPlan,
   potBalance,
   potBalanceAfter,
+  potCapMessage,
   potCardLine,
   potGoalDate,
   potProgress,
@@ -162,6 +163,13 @@ describe("potStatus", () => {
     expect(potStatus(base, 2_000_000, twiceAMonth, today)).toEqual({ kind: "reached" });
     expect(potStatus({ ...base, target_amount: null }, 0, twiceAMonth, today)).toEqual({ kind: "no_target" });
     expect(potStatus({ ...base, planned_contribution: 0 }, 0, twiceAMonth, today)).toEqual({ kind: "no_plan" });
+  });
+});
+
+describe("potCapMessage (Plan savings)", () => {
+  it("says how much more fits, or that the target is covered", () => {
+    expect(potCapMessage("Emergency Fund", 500_000)).toBe("Only ₱5,000 more fits in Emergency Fund's target.");
+    expect(potCapMessage("Emergency Fund", 0)).toBe("Emergency Fund's target is already covered.");
   });
 });
 

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { type AddSheetData, getAddSheetData } from "@/app/(app)/activity/actions";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { DebtPaymentForm } from "@/components/plan/debt-payment-form";
+import { SavingsDepositForm } from "@/components/plan/savings-deposit-form";
 import { OneOffForm } from "@/components/plan/one-off-form";
 import type { PaydayCard } from "@/components/plan/payday-picker";
 import { type EditableItem, PlanItemForm } from "@/components/plan/plan-item-form";
@@ -14,11 +15,12 @@ import { useAppToast } from "@/components/transactions/add-transaction-provider"
 import type { ExpenseView } from "@/components/transactions/expense-form";
 import { formatPeso } from "@/lib/money";
 import { type PlanSummary, removeImpact } from "@/lib/plan";
-import type { PlanDebt } from "@/lib/plan-periods";
+import type { PlanDebt, PlanPot } from "@/lib/plan-periods";
 import {
   addDebtPayment,
   type AddOneOffResult,
   addOneOffItem,
+  addSavingsDeposit,
   getPeriodNotAssigned,
   removePlanItem,
   restorePlanItem,
@@ -50,6 +52,7 @@ export const useShowToast = useAppToast;
 //   /plan?start=2026-11-30&add=1         Add one-off item (5f)
 //   /plan?start=2026-11-30&add=budget    Set a budget (5g-1)
 //   /plan?start=2026-11-30&add=debt      Plan a debt payment (5g-2)
+//   /plan?start=2026-11-30&add=savings   Plan savings (Nov 28)
 // Closing goes back to the period. Its toasts ("Meralco removed · Undo") use
 // the app's one toast (6b-2), so they stay up after a dialog closes or the
 // page moves to another period.
@@ -61,6 +64,7 @@ export function PlanEditor({
   budgets,
   periodLabel,
   debts,
+  pots,
   children,
 }: {
   items: SheetItem[];
@@ -74,6 +78,8 @@ export function PlanEditor({
   periodLabel: string;
   /** Plan a debt payment's choices: debts not paid off. */
   debts: PlanDebt[];
+  /** Plan savings' choices: every pot, with what still fits. */
+  pots: PlanPot[];
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -94,7 +100,10 @@ export function PlanEditor({
   const settingBudget = addKind === "budget";
   // Only with a debt to pay: an old link with none opens nothing.
   const planningDebt = addKind === "debt" && debts.length > 0;
-  const adding = addKind != null && (addKind !== "debt" || planningDebt);
+  // Likewise only with a pot.
+  const planningSavings = addKind === "savings" && pots.length > 0;
+  const adding =
+    addKind != null && (addKind !== "debt" || planningDebt) && (addKind !== "savings" || planningSavings);
   const [addData, setAddData] = useState<AddSheetData | null>(null);
   const [addView, setAddView] = useState<ExpenseView>("form");
   const [addCount, setAddCount] = useState(0);
@@ -222,7 +231,9 @@ export function PlanEditor({
                 ? "Set a budget"
                 : planningDebt
                   ? "Plan a debt payment"
-                  : "Add one-off item"
+                  : planningSavings
+                    ? "Plan savings"
+                    : "Add one-off item"
         }
         description={
           addView !== "form"
@@ -231,11 +242,13 @@ export function PlanEditor({
               ? "A spending limit for a category, like Food."
               : planningDebt
                 ? "An extra payment toward a debt, from any payday."
-                : "Something that happens once: a gift, event, fee or repair."
+                : planningSavings
+                  ? "Money into one of your pots, from any payday."
+                  : "Something that happens once: a gift, event, fee or repair."
         }
         back={addBack}
-        // Set a budget and Plan a debt payment start with their first choice (Base UI's default).
-        initialFocus={settingBudget || planningDebt ? undefined : nameRef}
+        // Set a budget, Plan a debt payment and Plan savings start with their first choice (Base UI's default).
+        initialFocus={settingBudget || planningDebt || planningSavings ? undefined : nameRef}
       >
         {settingBudget && (
           <SetBudgetForm
@@ -264,7 +277,19 @@ export function PlanEditor({
             onCancel={closeAdd}
           />
         )}
-        {adding && !settingBudget && !planningDebt && (
+        {planningSavings && (
+          <SavingsDepositForm
+            key={addCount}
+            pots={pots}
+            cards={cards}
+            defaultStart={cards.some((c) => c.start === periodStart) ? periodStart : cards[0].start}
+            loadNotAssigned={loadNotAssigned}
+            onSave={addSavingsDeposit}
+            onSaved={(saved) => onAdded(saved, `${saved.name} savings planned`)}
+            onCancel={closeAdd}
+          />
+        )}
+        {adding && !settingBudget && !planningDebt && !planningSavings && (
           <OneOffForm
             key={addCount}
             cards={cards}

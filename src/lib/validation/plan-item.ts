@@ -88,6 +88,20 @@ export type DebtPaymentInput = z.input<typeof debtPaymentSchema>;
 export type DebtPayment = z.output<typeof debtPaymentSchema>;
 
 /**
+ * Plan savings (owner, Nov 28): money into one of the user's pots, from the
+ * chosen payday. The Server Action checks it fits the pot's target, when the
+ * pot has one.
+ */
+export const savingsDepositSchema = z.object({
+  potId: z.uuid("Pick a pot."),
+  amount: amountField,
+  periodStart: z.string().refine(isRealDate, "Pick which payday pays for it."),
+});
+
+export type SavingsDepositInput = z.input<typeof savingsDepositSchema>;
+export type SavingsDeposit = z.output<typeof savingsDepositSchema>;
+
+/**
  * Give leftover a job (6f): the period, and the amount for each pot and
  * debt above ₱0 (centavos; the page's steppers work in centavos). The buffer
  * isn't sent: it saves nothing. The Server Action checks the total and caps.

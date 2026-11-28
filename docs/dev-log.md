@@ -2,6 +2,21 @@
 
 Newest entry first.
 
+## 2026-11-28 · Week 8 · Plan savings
+- **What:** **Plan savings** in the Plan options menu (when you have a pot): pick a pot, an amount and a payday, see "not assigned: ₱X → ₱Y", then Add to plan. It shows under SAVINGS, counts as Savings & debt payoff, and Mark paid makes it a deposit.
+- **Files:**
+  - New: src/components/plan/savings-deposit-form.tsx
+  - Edited: src/app/(app)/plan/actions.ts, src/app/(app)/plan/plan-item-sheet.tsx, src/app/(app)/plan/page.tsx, src/components/plan/plan-options-menu.tsx, src/lib/plan-periods.ts, src/lib/pots.ts, src/lib/validation/plan-item.ts
+  - Tests: tests/lib/validation/plan-item.test.ts, tests/lib/pots.test.ts
+  - Docs: docs/designs/plan.md (new "Plan savings" part of §6)
+- **Decisions:**
+  - **Cap (owner: yes):** a pot with a target takes no more than still fits. That's `potAssignCap()`, the same rule as Give leftover a job, counting unpaid planned items in periods that haven't ended. A pot whose target is covered is greyed out.
+  - **No migration:** it's a `one_off` item with `pot_id` and the Savings pot category, which the schema already allows. Built like Plan a debt payment.
+  - `potCapMessage()` in lib/pots.ts is shared by the form and the Server Action, so both say the same thing.
+- **Tests:** written first; 3 new Vitest cases (702 pass). Lint and typecheck pass. **Not checked in the browser:** Docker (local Supabase) wasn't running, and `.env.local` points to the hosted project.
+- **AI notes:** —
+- **Next:** Task B, bill payment method (Cash or a card).
+
 ## 2026-11-28 · Week 8 · Toast at the top of the screen
 - **What:** the toast (Undo after logging, ticking or removing) moved from the bottom to the top: below the status bar on phones, top right on desktop.
 - **Files:** src/components/toast.tsx, docs/designs/style-guide.md

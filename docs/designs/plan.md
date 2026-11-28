@@ -142,6 +142,17 @@ A bottom sheet on mobile, a centered dialog on desktop. `role="dialog"`, `aria-m
 - **Button:** the hero sticker button **Add to plan** (56px). Desktop adds **Cancel**.
 - **Saves:** a `plan_items` row with origin `one_off`, the chosen `period_id`, `needed_by` and `category_id`.
 
+### Plan savings (added Nov 28, owner)
+
+In the Plan options menu after **Plan a debt payment**, shown when you have at least one pot. Opens as `/plan?start=…&add=savings`. It works like Plan a debt payment, but for a pot.
+
+- **Title:** "Plan savings", with the description "Money into one of your pots, from any payday."
+- **Which pot?:** one radio row per pot, oldest first, showing "₱13,000 of ₱30,000" (or "₱13,000 saved" with no target). A pot whose target is already covered is greyed out with "Target covered" and can't be picked.
+- **Amount:** the hint is "Up to ₱5,000 more fits in Emergency Fund's target. Savings count as Savings & debt payoff." or, with no target, "No target, so any amount works."
+- **Cap:** the same rule as Give leftover a job: the target less the balance and less unpaid planned items for that pot in periods that haven't ended. Over it: "Only ₱5,000 more fits in Emergency Fund's target."
+- **Payday cards and impact box:** as Add one-off item.
+- **Saves:** a `plan_items` row with origin `one_off`, `pot_id` and the Savings pot category, so it shows under SAVINGS and counts as Savings & debt payoff. Mark paid turns it into a deposit. Toast: "Emergency Fund savings planned · Undo".
+
 ## 7. Give leftover a job
 
 A full page on mobile; on desktop, the same content in a two-column page. Title "Give ₱8,800 a job", subtitle "Nov 15 – 29 · not assigned yet", plus a back arrow.

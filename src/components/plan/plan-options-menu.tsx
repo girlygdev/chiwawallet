@@ -9,18 +9,21 @@ const ITEM =
   "flex min-h-11 cursor-pointer items-center rounded-md px-3 text-[15px] font-bold text-ink outline-none select-none data-highlighted:bg-mint";
 
 // The Plan options menu (plan.md §3, moved to 5g-2): Set a budget, Plan a
-// debt payment, Edit spending budgets and Paydays overview (Use starter plan
+// debt payment, Plan savings (Nov 28), Edit spending budgets and Paydays overview (Use starter plan
 // went in 7i). Base UI's Menu
 // gives it the menu role, arrow keys, Esc and focus return. "Period
 // settings" isn't designed yet, so it isn't here.
 export function PlanOptionsMenu({
   periodStart,
   hasDebts,
+  hasPots,
 }: {
   /** The period being viewed (not ended). */
   periodStart: string;
   /** Any debt not paid off: offers Plan a debt payment. */
   hasDebts: boolean;
+  /** Any savings pot: offers Plan savings (Nov 28). */
+  hasPots: boolean;
 }) {
   const sheet = (kind: string) => `/plan?start=${periodStart}&add=${kind}`;
 
@@ -41,6 +44,11 @@ export function PlanOptionsMenu({
             {hasDebts && (
               <Menu.LinkItem render={<Link href={sheet("debt")} scroll={false} />} className={ITEM}>
                 Plan a debt payment
+              </Menu.LinkItem>
+            )}
+            {hasPots && (
+              <Menu.LinkItem render={<Link href={sheet("savings")} scroll={false} />} className={ITEM}>
+                Plan savings
               </Menu.LinkItem>
             )}
             <Menu.LinkItem render={<Link href={CATEGORIES_HREF} />} className={ITEM}>

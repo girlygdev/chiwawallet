@@ -6,8 +6,9 @@ import { getOrCreatePeriod } from "@/lib/budget-periods";
 import { debtLeft, debtPaid } from "@/lib/debts";
 import { formatPeso, parsePesoInput } from "@/lib/money";
 import { scheduleFromBudget, todayInManila } from "@/lib/periods";
+import { potCapMessage } from "@/lib/pots";
 import { coverFromPot, paidOnDate, plannablePeriods } from "@/lib/plan";
-import { closePeriod, loadAssignData, loadPaydayData, openPlanPeriod, syncOpenPeriods } from "@/lib/plan-periods";
+import { closePeriod, loadAssignData, loadPaydayData, loadPlanPots, openPlanPeriod, syncOpenPeriods } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { SOMETHING_WRONG, toFieldErrors } from "@/lib/validation/field-errors";
@@ -20,6 +21,8 @@ import {
   editPlanItemSchema,
   type OneOffItemInput,
   oneOffItemSchema,
+  type SavingsDepositInput,
+  savingsDepositSchema,
   type SetBudgetInput,
   setBudgetSchema,
 } from "@/lib/validation/plan-item";
@@ -314,6 +317,65 @@ export async function addDebtPayment(input: DebtPaymentInput): Promise<AddDebtPa
     return { ok: true, saved: { ...data, periodStart: period.start_date } };
   } catch (error) {
     return fail("find period", error as Error);
+  }
+}
+
+export type AddSavingsDepositResult = {
+  ok?: true;
+  saved?: { id: string; name: string; periodStart: string };
+  formError?: string;
+  fieldErrors?: Partial<Record<keyof SavingsDepositInput, string>>;
+};
+
+/**
+ * Plan savings (owner, Nov 28): money into a pot, paid from the chosen
+ * payday (the current period or up to 3 months ahead). A `one_off` item
+ * with `pot_id` and the Savings pot category, so it counts as Savings & debt
+ * payoff, and Mark paid turns it into a deposit. With a target, it can't be
+ * more than still fits (loadPlanPots()).
+ */
+export async function addSavingsDeposit(input: SavingsDepositInput): Promise<AddSavingsDepositResult> {
+  const { budget } = await requireAppUser();
+  const parsed = savingsDepositSchema.safeParse(input);
+  if (!parsed.success) return { fieldErrors: toFieldErrors<SavingsDepositInput>(parsed.error.issues) };
+  const values = parsed.data;
+
+  const today = todayInManila(new Date());
+  const offered = plannablePeriods(today, scheduleFromBudget(budget), null);
+  if (!offered.some((p) => p.start === values.periodStart)) {
+    return { fieldErrors: { periodStart: "Pick which payday pays for it." } };
+  }
+
+  const supabase = await createClient();
+  const { data: category, error } = await supabase.from("categories").select("id").eq("system_key", "savings_pot").maybeSingle();
+  if (error) return fail("find the Savings pot category", error);
+  if (!category) return fail("find the Savings pot category", { message: "missing system category" });
+
+  try {
+    // RLS hides other users' pots, so a missing one is gone or not theirs.
+    const pot = (await loadPlanPots(supabase, budget, today)).find((p) => p.id === values.potId);
+    if (!pot) return { fieldErrors: { potId: "Pick a pot." } };
+    if (pot.cap != null && values.amount > pot.cap) {
+      return { fieldErrors: { amount: potCapMessage(pot.name, pot.cap) } };
+    }
+
+    const period = await getOrCreatePeriod(supabase, budget, values.periodStart);
+    const { data, error: insertError } = await supabase
+      .from("plan_items")
+      .insert({
+        period_id: period.id,
+        name: pot.name,
+        planned_amount: values.amount,
+        origin: "one_off",
+        category_id: category.id,
+        pot_id: pot.id,
+      })
+      .select("id, name")
+      .single();
+    if (insertError) return fail("plan savings", insertError);
+    return { ok: true, saved: { ...data, periodStart: period.start_date } };
+  } catch (caught) {
+    return fail("plan savings", caught as Error);
   }
 }
 

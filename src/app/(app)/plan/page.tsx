@@ -17,7 +17,7 @@ import { PageShell } from "@/components/shell/page-shell";
 import { Skeleton, SkeletonRegion } from "@/components/skeleton";
 import { describeSchedule, formatPeriodRange, scheduleFromBudget, todayInManila } from "@/lib/periods";
 import { isEmptyPlan, planCounts, planDone } from "@/lib/plan";
-import { assignTargets, closeEndedPeriodsOnVisit, loadAssignData, openPlanPeriod } from "@/lib/plan-periods";
+import { assignTargets, closeEndedPeriodsOnVisit, loadAssignData, loadPlanPots, openPlanPeriod } from "@/lib/plan-periods";
 import { requireAppUser } from "@/lib/require-app-user";
 import { createClient } from "@/lib/supabase/server";
 import { PlanEditor } from "./plan-item-sheet";
@@ -72,6 +72,8 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
           label: p.start === plan.currentStart ? "Now" : p.start === nextStart ? "Next" : "Ahead",
         }))
     : [];
+  // Plan savings' pots, with what still fits; only while the plan can change.
+  const pots = editStart ? await loadPlanPots(supabase, budget, todayInManila(new Date())) : [];
   // Set a budget: this period's spending budgets by category, to start from and for the impact line.
   const budgets = Object.fromEntries(
     plan.items.filter((i) => i.section === "spending" && i.category_id).map((i) => [i.category_id!, i.planned_amount]),
@@ -97,7 +99,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
     progress: plan.progress,
   };
   // The Plan options menu, while the period can change.
-  const menu = editStart && <PlanOptionsMenu periodStart={editStart} hasDebts={plan.debts.length > 0} />;
+  const menu = editStart && <PlanOptionsMenu periodStart={editStart} hasDebts={plan.debts.length > 0} hasPots={pots.length > 0} />;
 
   return (
     // No items to edit in an ended period, so an old ?edit= link opens nothing.
@@ -109,6 +111,7 @@ async function PlanContent({ searchParams }: { searchParams: Promise<{ start?: s
       budgets={budgets}
       periodLabel={formatPeriodRange(period.start, period.end)}
       debts={plan.debts}
+      pots={pots}
     >
       <PageHeader
         title="Plan"

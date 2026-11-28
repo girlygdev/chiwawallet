@@ -125,6 +125,12 @@ export type OpenedPlan = {
 
 export type PlanDebt = { id: string; name: string; left: number; flexible: boolean };
 
+/**
+ * A pot as Plan savings offers it: its balance and, when it has a target,
+ * the most that still fits (`cap`, empty for no target).
+ */
+export type PlanPot = { id: string; name: string; balance: number; target: number | null; cap: number | null };
+
 type Client = SupabaseClient<Database>;
 
 const fail = (what: string, error: { message: string }): never => {
@@ -893,6 +899,41 @@ async function syncPeriods(
       if (removeError) fail("take out the plan's items", removeError);
     }
   }
+}
+
+/**
+ * Plan savings' choices (owner, Nov 28): every pot, oldest first, with its
+ * balance and cap. The cap is potAssignCap(), the same rule as Give leftover
+ * a job: the target less the balance and less what's planned for the pot
+ * and not yet paid in periods that haven't ended. RLS limits it all to the
+ * user's own rows.
+ */
+export async function loadPlanPots(supabase: Client, budget: Budget, today: string): Promise<PlanPot[]> {
+  const [pots, savings, periods] = await Promise.all([
+    supabase.from("savings_pots").select("id, name, starting_balance, target_amount").order("created_at"),
+    supabase.from("transactions").select("pot_id, amount, deleted_at").eq("type", "savings").not("pot_id", "is", null).is("deleted_at", null),
+    supabase.from("budget_periods").select("id").eq("budget_id", budget.id).gte("end_date", today),
+  ]);
+  for (const result of [pots, savings, periods]) {
+    if (result.error) fail("load pots", result.error);
+  }
+  const { data: planned, error } = await supabase
+    .from("plan_items")
+    .select("pot_id, planned_amount")
+    .in(
+      "period_id",
+      periods.data!.map((p) => p.id),
+    )
+    .not("pot_id", "is", null)
+    .is("deleted_at", null)
+    .is("paid_at", null);
+  if (error) fail("load planned savings", error);
+
+  return pots.data!.map((p) => {
+    const balance = potBalance(p, savings.data!.filter((r) => r.pot_id === p.id));
+    const unpaid = planned!.filter((i) => i.pot_id === p.id).reduce((t, i) => t + i.planned_amount, 0);
+    return { id: p.id, name: p.name, balance, target: p.target_amount, cap: potAssignCap(p.target_amount, balance, unpaid) };
+  });
 }
 
 /** Everything generatePlan() and the detail lines are made from. */

@@ -196,6 +196,15 @@ export function potStatus(
   return date ? { kind: "on_track", date } : { kind: "no_plan" };
 }
 
+/**
+ * Plan savings, over the pot's cap (potAssignCap()): "Only ₱5,000 more fits
+ * in Emergency Fund's target.", or at ₱0 that the target is covered. Used by
+ * the form before saving and by its Server Action.
+ */
+export function potCapMessage(name: string, cap: number): string {
+  return cap > 0 ? `Only ${formatPeso(cap)} more fits in ${name}'s target.` : `${name}'s target is already covered.`;
+}
+
 /** "₱17,000 to go": the target minus the balance, never below ₱0. */
 export function potToGo(balance: number, target: number): number {
   return Math.max(target - balance, 0);
